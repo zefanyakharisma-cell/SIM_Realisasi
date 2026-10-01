@@ -40,6 +40,9 @@ const identity = (value: string): string => value;
 function createSql(): postgres.Sql {
   return postgres(process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL, {
     max: 10,
+    // Unnamed statements: survives schema resets under a running server and
+    // works behind Supabase's transaction-mode pooler.
+    prepare: false,
     idle_timeout: 20,
     connect_timeout: 10,
     onnotice: () => {},

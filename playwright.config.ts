@@ -1,4 +1,10 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+// Sandboxes ship a pre-installed Chromium that may not match this Playwright build.
+const SANDBOX_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const executablePath =
+  process.env.PW_CHROMIUM_PATH ?? (existsSync(SANDBOX_CHROME) ? SANDBOX_CHROME : undefined);
 
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 
@@ -19,7 +25,7 @@ export default defineConfig({
     locale: 'id-ID',
     timezoneId: 'Asia/Jakarta',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } } }],
   webServer: {
     command: process.env.E2E_SERVER_COMMAND ?? `npm run dev -- -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
