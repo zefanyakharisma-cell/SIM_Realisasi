@@ -12,6 +12,18 @@ done
 DATABASE_URL="${DATABASE_URL:-postgresql://postgres@localhost:54322/sim_realisasi}"
 
 pass=0; fail=0; checks=0; failed=()
+
+# Lint (SIMKS integration): Realisasi migrations never create/alter objects in SIMKS's schema public, and only the
+# bootstrap precondition check (0000) and the adapter (0001_kerjasama_adapter) may mention public.* at all.
+lint="$( { grep -nHiE '^[^-]*\b(create|alter|drop|comment on|grant|revoke|insert into|update|delete from|truncate)\b[^;]*\bpublic\.' \
+             "$ROOT"/supabase/migrations/*.sql | grep -viE 'revoke [a-z, ]+ from public|grant [a-z, ]+ to public'
+           grep -nHE '\bpublic\.' "$ROOT"/supabase/migrations/*.sql | grep -vE '/(0000_bootstrap|0001_kerjasama_adapter)\.sql:' \
+             | grep -vE 'search_path *=|^[^:]+:[0-9]+: *--'; } || true)"
+if [ -z "$lint" ]; then
+  echo "PASS migration-lint (no Realisasi objects in public; public.* only in 0000/0001)"; pass=$((pass + 1))
+else
+  echo "FAIL migration-lint"; printf '%s\n' "$lint" | sed 's/^/    /'; fail=$((fail + 1)); failed+=("migration-lint")
+fi
 for f in "$ROOT"/supabase/tests/*.sql; do
   name="$(basename "$f")"
   out="$(psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -q -f "$f" 2>&1)"

@@ -371,14 +371,16 @@ select d.no as id,
        d.tanggal_mulai as start_date,
        d.tanggal_berakhir as end_date,
        coalesce(o.auto_renewed, false) as auto_renewed,
-       (select min(prev.no) from public.dokumen_kerja_sama prev
-         where prev.id_proposal_dokumen = p.id_dokumen_sebelumnya and prev.no <> d.no) as predecessor_id,
+       nullif(prev.no, d.no) as predecessor_id,
        d.alasan_arsip::text as archived_reason,
        o.terminated_at,
        d.id_proposal_dokumen as proposal_id,
        d.status::text as simks_status
   from public.dokumen_kerja_sama d
   join public.proposal_dokumen p on p.id = d.id_proposal_dokumen
+  -- one predecessor per proposal, as a join (hashable in the recursive chain walks; a correlated subquery was ~10x slower)
+  left join (select id_proposal_dokumen, min(no) as no from public.dokumen_kerja_sama group by id_proposal_dokumen) prev
+         on prev.id_proposal_dokumen = p.id_dokumen_sebelumnya
   left join realisasi.document_overrides o on o.document_id = d.no;
 
 create view kerjasama.document_partners as
@@ -388,8 +390,10 @@ select d.no as document_id, pp.id_partner as partner_id, bool_or(coalesce(pp.is_
  where pp.id_partner is not null
  group by d.no, pp.id_partner;
 
+-- no DISTINCT (keeps the view inlinable): SIMKS keys proposal_dokumen_unit by (proposal, unit) and each proposal has one
+-- dokumen; every caller uses exists()/distinct anyway.
 create view kerjasama.document_scope_units as
-select distinct d.no as document_id, pu.id_unit as unit_id
+select d.no as document_id, pu.id_unit as unit_id
   from public.dokumen_kerja_sama d
   join public.proposal_dokumen_unit pu on pu.id_proposal_dokumen = d.id_proposal_dokumen
  where pu.id_unit is not null;

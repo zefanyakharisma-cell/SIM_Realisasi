@@ -140,7 +140,7 @@ create table realisasi.activity_partner_snapshot (
   document_id   int  not null,
   partner_id    int  not null,
   partner_name  text not null,
-  country_code  text not null,
+  country_code  text not null check (country_code ~ '^[A-Z]{2}$'),  -- alpha-2 from kerjasama.partners
   captured_at   timestamptz default now()
 );
 create index on realisasi.activity_partner_snapshot (activity_id, document_id);
