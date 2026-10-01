@@ -166,10 +166,14 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Repro:** open `/kerjasama/dokumen` as any role. There is no renewal-evaluation view and no "evidence" summary block outside the Realisasi tab.
 - **Fix:** add a small `RealizationSummary` component, using the summary strip already built from `agreement_realization()`: count per AY, last activity, total students. Render it on a `/kerjasama/dokumen/[id]/evaluasi` stub page, or on the document "Detail" tab, labelled "Bukti realisasi untuk evaluasi perpanjangan". Alternatively, record it as explicitly descoped in PRD §11 or the plan.
 
+**Resolution (fixed, app fix):** a new reusable `RealizationSummary` (`components/realisasi/agreements/realization-summary.tsx`) shows the summary strip (total, this AY, students in/out, last activity) from `agreement_realization()`, and optionally a per-academic-year table (verified activities and last activity date per AY). It is used on `/kerjasama/dokumen/[id]/realisasi` and on the new `/kerjasama/dokumen/[id]/evaluasi` page, "Bukti realisasi untuk evaluasi perpanjangan", which also shows the chain validity, the grace note, a no-realization warning and the export. Document tabs: Detail · Realisasi · Evaluasi perpanjangan. The per-AY table is built from the activities the viewer may see (amendment 27) and says so when the list is incomplete.
+
 #### M-2. Drafts near or past the reporting deadline have no flag in "My Activities" (PRD §7.2 "deadline flags", Rules R-62)
 - **Location:** `components/realisasi/list/activity-table.tsx:51-79` (`Flags`). The flags cover only `is_late` (late *submission*), SLA, out-of-scope and duplicate. The "Terlambat" preset (`preset=late`) also uses only `is_late`.
 - **Repro:** log in as ua-fsd and open `/realisasi/kegiatan?status=draft`. RL-2026-0023 (reporting deadline 13 Sep 2026, 18 days overdue) shows "Tidak ada penanda". The deadline appears only on the dashboard "Draf mendekati tenggat" card.
 - **Fix:** expose `reporting_deadline` (already on the activity) in `v_activity_list`. Render a pill for `status='draft'`: `Tenggat 13 Sep` (amber when ≤ `deadline_reminder_before_days`) or `Lewat tenggat` (red). Optionally include overdue drafts in the `late` preset, or add a `deadline` flag filter, so the export matches (AT-12).
+
+**Resolution (fixed, app fix):** draft rows get a deadline pill in Penanda: "Lewat tenggat" (red) when the reporting deadline has passed, and "Tenggat <date>" (amber) within `deadline_reminder_before_days`. Both have a focusable tooltip. The `late` preset already includes overdue drafts (`is_late or (draft and reporting_deadline < today())`), so the export matches the list.
 
 #### M-3. "Bekukan sekarang" freezes the official semester snapshot before the semester ends, with no warning, and the cutoff job then skips that semester
 - **Location:** `components/realisasi/settings/calendar-manager.tsx` (freeze dialog) → `freezeNow` → `freeze_snapshot`. Job rule CONTRACTS §5.1: the freeze runs only when there is "no live snapshot for (AY, kind)".
@@ -179,6 +183,8 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Why it matters:** PRD §6.6 allows a manual freeze, but a premature one silently corrupts the official YTD report. The database review's M4 covers `p_as_of`/`p_actor` spoofing, not this UI path.
 - **Fix:** in the dialog, when `today < semester.end_date` (or `< cutoff_date`), show a destructive warning ("Semester belum berakhir — data setelah hari ini tidak akan masuk snapshot dan job cutoff tidak akan membekukan ulang"). Require typing a reason, or disable the button before `end_date` unless the admin confirms explicitly. Also show "data per {frozen_at}" next to the window in Arsip.
 
+**Resolution (fixed, app fix):** "Bekukan sekarang" is disabled before the semester cutoff and shows "Dapat dibekukan mulai cutoff <date>". The DB enforces the same rule (`R55_BEFORE_CUTOFF`, amendment 24), and its friendly message was added to `lib/realisasi/errors.ts`. The "data per frozen_at" note in Arsip was not added.
+
 ### LOW
 
 #### L-1. Draft rows show misleading track chips
@@ -186,15 +192,21 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Repro:** as ua-fsd, `/realisasi/kegiatan?status=draft` shows RL-2026-0023 as "Draf" with "Kemitraan: Menunggu · Mobilitas: Tidak diperlukan". The detail header for the same draft shows no chips.
 - **Fix:** render "–" (or a grey "Belum diajukan") for `status='draft'`, matching the detail header.
 
+**Resolution (fixed, app fix):** draft rows show "Belum diajukan" in the Jalur column instead of track chips.
+
 #### L-2. Post-freeze changes show raw DB field keys in reports
 - **Location:** `components/realisasi/reports/snapshot-archive.tsx:130` and `lib/excel/sheets.ts:294` (`formatDiff`).
 - **Repro:** Laporan → Arsip → Genap 2025/2026 → "Perubahan pasca-beku" shows `venue: Auditorium PCU → …`. The Riwayat tab localises the same diff as "Tempat / platform".
 - **Fix:** map keys through `components/realisasi/activity/labels.ts`, or move the field-label map to `lib/realisasi/status.ts` so the Excel builder can share it.
 
+**Resolution (fixed, app fix):** diff labels moved to `lib/realisasi/diff-format.ts` (`DIFF_FIELD_LABEL`, `formatDiffLines`, re-exported by `labels.ts`). The snapshot archive and the Excel "Perubahan Pasca-Beku" sheet now print human labels, and they handle masked count diffs (amendment 26), as the Riwayat tab does. Test: `diff-format.test.ts`.
+
 #### L-3. Checklist noise on the first submission
 - **Location:** `components/realisasi/wizard/submit-panel.tsx` (renders every `submission_checklist` item).
 - **Repro:** wizard step 4 for a new draft lists "Terpenuhi: Versi peserta baru dibuat untuk revisi Mobilitas" (`R21_NEW_VERSION_REQUIRED`), which only applies to a resubmit.
 - **Fix:** hide `R21_NEW_VERSION_REQUIRED` when `resubmit` is false. Optionally hide `R12_*` items that do not apply to the selected Jenis direction.
+
+**Resolution (fixed, app fix):** `R21_NEW_VERSION_REQUIRED` is hidden on a first submission unless it fails.
 
 #### L-4. io_admin receives each submission notification twice
 - **Location:** `submit_activity` notifies the partnership team and the mobility team. kepala.io belongs to both.
@@ -208,6 +220,8 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Detail:** Rules §10 gives the mobility team "view" on the register, and the page allows `known.view`, but it is reachable only by URL or the S8 card link. Contract amendment 9 chose this deliberately, but it contradicts Rules §10, which is authoritative.
 - **Fix:** show the item for `known.view`, keeping the actions hidden.
 
+**Resolution (fixed, app fix):** the "Kegiatan Diketahui" nav item is shown for `known.view` (the mobility team sees it); actions stay behind `known.manage`. e2e: foundation nav test.
+
 #### L-6. Seeded snapshot notifications are duplicated
 - **Location:** `supabase/seed/05_notifications.sql` + `90_freeze.sql`.
 - **Repro:** after `db-reset`, rektorat sees three AY 2025/2026 "Snapshot dibekukan" notifications. One is dated 30 Agu 2026 (seed row). Two are dated at reset time, created by `freeze_snapshot` with `now_ts()` instead of the freeze `as_of`.
@@ -219,6 +233,8 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Location:** `/api/export/snapshot-archive` and `/api/export/snapshot` return 403 for submitters, and Laporan hides Arsip for them.
 - **Detail:** Rules §10 grants submitters "Dashboard & non-personal exports — own unit", and R-59 says every snapshot stays downloadable. CONTRACTS §8.2 excluded submitters. The impact is low, because a submitter can still export the frozen own-unit KPI values through Ringkasan for a frozen period (`kpi-summary` reads from the snapshot).
 - **Fix:** either allow `snapshot` scoped to the unit's items, or document the deviation.
+
+**Resolution (not fixed, app fix):** `snapshot_detail()` returns university-level values, late additions and post-freeze changes for all units, and there is no unit-scoped snapshot read in the data layer. Submitters can already export their unit's frozen KPI values through Ringkasan (`kpi-summary` with a frozen period). A unit-scoped `snapshot_detail(p_unit)` would be DB-side; the deviation stays as in CONTRACTS §8.2.
 
 ### INFO
 

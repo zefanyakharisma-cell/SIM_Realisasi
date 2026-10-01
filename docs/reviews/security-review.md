@@ -65,6 +65,8 @@ Rules §10 lets IO Partnership see **counts only** and gives viewers **no** acce
 ```bash
 curl -s -b "$(U 8)" -X POST $B/api/lookup/students -H 'content-type: application/json' \
   -d '{"nrps":["A11235253","A11252034"],"section":"internal"}'
+
+**Resolution (fixed, app fix):** (1) Both lookup routes and the template parser now answer 403 unless `canLookupRegistry(user)` holds: submitter, io_admin, or io_staff on the mobility team (`lib/api-guard.ts`). The DB side is enforced too (WP-DB amendment 28: `lookup_students`/`lookup_employees` raise `AUTH_FORBIDDEN` and cap at 500 ids). (2) Requests stay capped at 200 ids (`MAX_LOOKUP_IDS`). A second limiter counts **ids** (distinct per request): 600 ids per 10 minutes per user (`lookupIdLimiter`), on top of 60 requests per minute, so one account gets about 3,600 records/hour instead of 720,000. (3) Responses are minimised (`publicStudentResult`/`publicEmployeeResult`): only name, faculty and prodi, plus home institution/country for the inbound section. Blocking rows (wrong section, not found) carry no person record, and `intake_year`, `faculty_code`, `category` and `position` are dropped. Lookup routes also require `Content-Type: application/json`. Not done: (4) a shared-store limiter and lookup audit log for multi-instance production (needs Redis or a DB table owned by the DB layer). Tests: `lib/rate-limit.test.ts` (weighted budget) and `e2e/security.spec.ts` (viewer/partnership 403, submitter 200 without `intake_year`, 201 ids → 400).
 # 200 {"results":[{"nrp":"A11235253",...,"student":{"full_name":"Benedict Kusuma","faculty_name":"Fakultas Teknik Sipil dan Perencanaan","prodi_name":"Teknik Sipil",...,"intake_year":2023,"status":"graduated"}}, ...]}
 curl -s -b "$(U 2)" -X POST $B/api/lookup/employees -H 'content-type: application/json' -d '{"ids":["PG204517"]}'
 # 200 {... "full_name":"Ir. Bambang Sutrisno, M.T.","unit_name":"Prodi Teknik Elektro","position":"Lektor Kepala" ...}
@@ -101,6 +103,8 @@ Any authenticated user (no role gate) can POST up to 10 MB of `.xlsx`. ExcelJS i
 
 **Repro**
 ```bash
+
+**Resolution (fixed, app fix):** `/api/template/peserta` (a) is limited to the same roles as H-1 and to 20 parses per 10 minutes, (b) refuses bodies over 512 KB before buffering (Content-Length and file size), (c) walks the zip central directory (`lib/excel/zip-guard.ts`) and inflates every entry with a hard `maxOutputLength`, rejecting archives with more than 64 entries or more than 5 MB uncompressed in total, even when the headers lie about sizes, before ExcelJS loads anything, and (d) refuses sheets with more than 1,001 rows and returns at most 1,000 ids. Rejections answer 413 `R13_FILE_TOO_LARGE` with "Berkas template terlalu besar. Maksimal 512 KB dan 1.000 baris ID; gunakan template yang disediakan." Tests: `lib/excel/zip-guard.test.ts` (honest and lying bombs, too many entries, real template OK) and an e2e bomb upload returning 413.
 # bomb.xlsx = a valid workbook whose sheet1.xml holds 100,000 rows of 1,000×'A' (built with python zipfile)
 curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' -b "$(U 8)" -F kind=students \
   -F "file=@bomb.xlsx;filename=b.xlsx" $B/api/template/peserta
@@ -129,6 +133,8 @@ curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' -b "$(U 8)" -F kind=stud
 **Repro**
 ```bash
 curl -s -D - -o /dev/null -b "$(U 1)" $B/realisasi | grep -iE 'content-security|x-frame|strict-transport|referrer-policy|x-powered'
+
+**Resolution (fixed, app fix):** `next.config.ts` sets `poweredByHeader: false` and sends on every route: CSP (`default-src 'self'`, `script-src 'self' 'unsafe-inline'` (+`'unsafe-eval'` only in dev), `style-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob:`, `font-src 'self' data:`, `connect-src 'self'`, `frame-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'self'`), `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, microphone, geolocation, payment, usb off), COOP same-origin, and `Strict-Transport-Security` in production builds. `'unsafe-inline'` scripts are needed because the App Router streams its RSC payload in inline scripts; a nonce policy needs middleware plus dynamic rendering, and is left for production. `'unsafe-inline'` styles are needed for the inline `style` attributes set by Recharts, Radix and sonner. Framing is `'self'`, not `'none'`, because the queue previews IA/IR PDFs in same-origin iframes. `/api/files` gets only `frame-ancestors 'self'`, because Chrome's PDF viewer does not render under `object-src 'none'`; `Content-Security-Policy: sandbox` was not added for the same reason. Test: `e2e/security.spec.ts` M-2.
 # X-Powered-By: Next.js   (and nothing else)
 ```
 
@@ -166,6 +172,8 @@ The lookup routes also accept `text/plain` bodies, because `request.json()` igno
 curl -s -H 'Origin: https://evil.petra.ac.id' -H 'Sec-Fetch-Site: cross-site' -b "$(U 7)" \
   -F activity_id=a0000000-0000-4000-8000-000000000023 -F target=evidence \
   -F "file=@poly.pdf;type=application/pdf;filename=csrf.pdf" $B/api/upload
+
+**Resolution (fixed, app fix):** `middleware.ts` refuses non-GET `/api/*` requests with 403 when `Sec-Fetch-Site` is `cross-site`/`same-site` or `Origin` differs from the host (`lib/origin-check.ts`, unit-tested). Lookup routes require JSON. e2e: a POST with `Origin: https://evil.petra.ac.id` gets 403.
 # 200 {"id":67, ... "kind":"evidence"}
 ```
 
@@ -185,6 +193,8 @@ curl -s -H 'Origin: https://evil.petra.ac.id' -H 'Sec-Fetch-Site: cross-site' -b
 - Now: set `secure: process.env.NODE_ENV === 'production'`.
 - Production: see I-1. Use an opaque, random, server-side session or Supabase Auth JWT. Use the `__Host-` prefix, `SameSite=Lax`, rotate the session on login, and keep it short-lived with sliding renewal.
 
+**Resolution (partly, app fix):** `secure` is set in production builds (`sessionCookieSecure()`; `SESSION_COOKIE_SECURE=0` opts out for a plain-HTTP demo host). The opaque server-side session, `__Host-` prefix and rotation belong to the real-auth work (I-1).
+
 ### L-3: Image uploads are not content-checked, so arbitrary bytes can be stored as `image/png` or `image/jpeg`
 
 **Where:** `lib/storage.ts:34-35`. Only PDFs get a magic-byte check. The DB `storage_put` behaves the same way.
@@ -196,6 +206,8 @@ curl -s -H 'Origin: https://evil.petra.ac.id' -H 'Sec-Fetch-Site: cross-site' -b
 curl -s -b "$(U 7)" -F activity_id=a0000000-0000-4000-8000-000000000023 -F target=evidence \
   -F "file=@x.html;type=image/png;filename=pic.png" $B/api/upload        # 200, id 64
 curl -s -b "$(U 7)" $B/api/files/realisasi-files/a0000000-0000-4000-8000-000000000023/evidence/<uuid>.png
+
+**Resolution (fixed, app fix):** `validateUpload` requires the content to match the declared type for images too (JPEG `FF D8 FF`, PNG signature), not only for PDFs. The upload route stores the **sniffed** mime type and derives the extension from it. Mirroring this in `storage_put` is DB-side (amendment 23 already enforces PDF magic for IA/IR). Test: `lib/storage.test.ts`.
 # <html><script>alert(document.domain)</script></html>
 ```
 
@@ -227,6 +239,8 @@ curl -s -b "$(U 5)" "$B/api/files/realisasi-transcripts/a0000000-0000-4000-8000-
 const OK = /^(realisasi-files\/[0-9a-f-]{36}\/(ia|ir|evidence)\/[0-9a-f-]{36}\.(pdf|jpg|png|bin)|realisasi-transcripts\/[0-9a-f-]{36}\/v\d+\/[A-Z0-9]+-[0-9a-f]{8}\.pdf)$/;
 ```
 
+**Resolution (fixed, app fix):** `/api/files` decodes each segment, refuses segments containing `/`, and validates the joined key against the strict grammar of the keys this app writes (`isValidStoragePath`) before any I/O. Anything else, including `%2F`, `..` and `%00`, returns 404. Tests: `lib/storage.test.ts` and e2e.
+
 ### L-5: No quotas or rate limits on uploads, exports or template parsing; orphan transcripts accumulate
 
 **Where:** `app/api/upload/route.ts`, `app/api/export/[kind]/route.ts`, `app/api/template/peserta/route.ts`.
@@ -240,6 +254,8 @@ const OK = /^(realisasi-files\/[0-9a-f-]{36}\/(ia|ir|evidence)\/[0-9a-f-]{36}\.(
 - Apply a per-user limiter to upload and export, for example 30 uploads and 20 exports per 10 minutes.
 - Set a per-activity storage quota.
 - Run a cleanup job that removes transcript blobs not referenced by any `participant_students.transcript_path` after 24 hours.
+
+**Resolution (partly, app fix):** per-user limiters were added for uploads (60 per 10 minutes, plus an early Content-Length check), Excel exports (40 per 10 minutes) and template parsing (20 per 10 minutes). Not done: per-activity storage quotas and the orphan-transcript cleanup job, which are DB/job-side (`file_blobs`, `run_daily_jobs`).
 
 ### L-6: Formula-looking text is not neutralised in exports
 
@@ -259,6 +275,8 @@ curl -s -b "$(U 2)" -o known.xlsx $B/api/export/known-activities && unzip -p kno
 - In `coerce`'s default branch, prefix a `'` (U+0027) to strings that match `/^[=+\-@\t\r]/`, or set `cell.value = { richText: [{ text }] }`.
 - Use the same helper for any future CSV export.
 
+**Resolution (fixed, app fix):** `lib/excel/workbook.ts` `coerce` passes every text cell through `neutralizeFormula`, which prefixes `'` when the text starts with `= + - @ TAB CR`. Test: `workbook.test.ts`.
+
 ### L-7: Vulnerable or outdated dependencies (npm audit, production tree)
 
 **Finding:** `npm audit --omit=dev` reports 1 high and 3 moderate:
@@ -268,6 +286,8 @@ curl -s -b "$(U 2)" -o known.xlsx $B/api/export/known-activities && unzip -p kno
 Both are build-time or non-reachable paths in this app, so the real exposure is low.
 
 **Fix:** Upgrade `next` within 15.5.x when a patched release that bundles postcss ≥ the fixed version is available. Pin with `overrides` (`"postcss": "^8.5.x"`, `"uuid": "^11"`), then rerun `npm audit`.
+
+**Resolution (not fixed, app fix):** upgrading `next`/overriding `postcss`/`uuid` changes `package.json`/lockfile and needs `npm install`, which this pass had to avoid. The reachable exposure is build-time only.
 
 ### L-8: Defence-in-depth gaps in the DB helper (superuser connection, no `server-only` guard)
 
@@ -283,6 +303,8 @@ Both are build-time or non-reachable paths in this app, so the real exposure is 
 - Connect as a dedicated low-privilege login role (`NOINHERIT`, a member of `authenticated` only) and keep a separate pool for the few `withSystem` reads.
 - Add `import 'server-only'` to `lib/db.ts`, `lib/session.ts`, `lib/excel/*`, `lib/realisasi/queries/*`.
 - Add an ESLint `no-restricted-syntax` rule banning `sql.unsafe` / `tx.unsafe`.
+
+**Resolution (not fixed, app fix):** `import 'server-only'` needs the `server-only` package (not installed; no new packages in this pass), and the ESLint rule needs `eslint.config.mjs` (out of this pass's file scope). The low-privilege login role is DB/ops work. No `sql.unsafe` exists today.
 
 ---
 
@@ -304,11 +326,15 @@ curl -s -D - -o /dev/null -X POST $B/login -H 'Next-Action: 40e4bbe411e477ab9c93
 - Delete `loginAs` and `listDemoAccounts`, and remove `/login` from the app.
 - Keep `withUser`, but pass the verified JWT claims instead of a cookie value.
 
+**Resolution (fixed, app fix):** the switcher is now gated: `DEMO_AUTH` is on by default for the mockup, and `DEMO_AUTH=0` disables it (no accounts listed, `loginAs` refused, `demo_uid` ignored by `getSessionUser`). The login page shows a warning that the mode is unauthenticated and demo-only. Documented in `lib/session.ts`. Replacing it with SSO and verified JWTs remains production work.
+
 ### I-2: The login page lists every account and email to anonymous visitors
 
 **Where:** `app/(auth)/login/page.tsx:13-24`, which reads through `listDemoAccounts()` using `withSystem`.
 
 This is expected for the demo. Remove it together with I-1.
+
+**Resolution (fixed, app fix):** covered by the I-1 gate (`DEMO_AUTH=0` lists no accounts).
 
 ### I-3: The middleware matcher skips every path that starts with `login`
 
@@ -317,6 +343,8 @@ This is expected for the demo. Remove it together with I-1.
 **Problem:** Any future route such as `/login-history` or `/loginAudit` would skip the cookie guard. It is harmless today: `/loginx` returns 404, and every page and route calls `requireUser`/`getSessionUser` itself.
 
 **Fix:** Use `'/((?!_next/|favicon\\.ico$|login$).*)'`.
+
+**Resolution (fixed, app fix):** the matcher is now `'/((?!_next/|favicon\\.ico$|login$).*)'`.
 
 ### I-4: Next middleware truncates upload bodies over 10 MB, so near-limit files fail with a generic error
 
@@ -328,6 +356,8 @@ This is expected for the demo. Remove it together with I-1.
 - Exclude `/api/upload` from the middleware matcher (the route checks the session itself), or raise `experimental.middlewareClientMaxBodySize` to `'11mb'`.
 - Also reject on `Content-Length` > 10.5 MB before calling `formData()`.
 
+**Resolution (fixed, app fix):** `experimental.middlewareClientMaxBodySize: '11mb'`, and `/api/upload` rejects a Content-Length over 10.5 MB with `R13_FILE_TOO_LARGE` (413) before calling `formData()`.
+
 ### I-5: Transcript and participant *views* are not access-logged
 
 **Where:** `/api/files` (transcripts), participant tab.
@@ -336,11 +366,15 @@ This is expected for the demo. Remove it together with I-1.
 
 **Fix:** For UU PDP accountability, log transcript reads (actor, activity, path, time) in the same transaction as `storage_get`.
 
+**Resolution (not fixed, app fix):** transcript read logging must be written in the same transaction as `storage_get` (DB-side).
+
 ### I-6: Business error `detail` is passed through to clients
 
 **Where:** `lib/realisasi/errors.ts:278-281`.
 
 **Finding:** For example, R16 returns the NRP lists. No stack traces, SQL text or internal messages reach clients: unexpected errors become `INTERNAL` and are only logged on the server, and `22P02` becomes `BAD_REQUEST`. This is fine as it stands. Keep `detail` limited to user-supplied values.
+
+**Resolution (no action, app fix):** no change needed.
 
 ---
 

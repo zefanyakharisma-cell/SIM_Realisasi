@@ -46,7 +46,7 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
     const version = detail && step === 2 ? await getParticipantVersion(tx, draftId) : null;
     // L-3: show "Tersimpan sebagai draf · HH:MM" for an existing draft right away.
     const [row] = detail
-      ? await tx<{ updated_at: string | null }[]>`select updated_at from realisasi.v_activities where id = ${draftId}::uuid`
+      ? await tx<{ updated_at: string | null }[]>`select updated_at from realisasi.v_activity_list where id = ${draftId}::uuid`
       : [];
     return { options, detail, version, savedAt: row?.updated_at ?? null };
   });
