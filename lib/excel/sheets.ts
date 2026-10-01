@@ -19,6 +19,7 @@ import {
   KNOWN_SOURCE_LABEL,
   LOG_ACTION_LABEL,
   MODE_LABEL,
+  SLA_LEVEL_LABEL,
   SNAPSHOT_KIND_LABEL,
   TRACK_LABEL,
   TRACK_STATUS_LABEL,
@@ -347,7 +348,7 @@ export interface SlaRow {
   days: number | null;
   level: string | null;
 }
-export const SLA_LEVEL_TEXT: Record<string, string> = { ok: 'Normal', yellow: 'Kuning', red: 'Merah' };
+export const SLA_LEVEL_TEXT: Record<string, string> = SLA_LEVEL_LABEL;
 
 export function slaRows(acts: ActivityListRow[]): SlaRow[] {
   const out: SlaRow[] = [];
