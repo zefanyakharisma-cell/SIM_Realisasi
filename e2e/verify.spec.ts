@@ -19,6 +19,8 @@ test('Kemitraan queue is SLA-sorted (red first) and rows expand with Enter', asy
   await expect(rows).toHaveCount(total);
 
   const toggle = rows.first().getByTestId('queue-toggle');
+  // Production pages render before hydration; a key press before then is lost.
+  await page.waitForLoadState('networkidle');
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
