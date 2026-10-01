@@ -92,9 +92,19 @@ The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Account
   the adapter reads are owned by `postgres` with RLS on but **not forced**; `auth.uid()` exists; schemas
   `realisasi`, `kerjasama`, `mock_baak`, `mock_hr` are absent; existing cron jobs are `simks-sapu-sla` and
   `simks-sapu-kedaluarsa` (untouched). Local rehearsal (`--rehearse`) passes.
-- **Not yet applied.** Waiting for the connection string in the environment variable **`SUPABASE_DB_URL`**
+- 2026-10-01 23:4x UTC: a deploy through the Supabase MCP connector was started and **stopped part-way**: migrations
+  0000–0006 and the first part of 0007 (`realisasi_0007a_*`) are applied, plus a placeholder
+  `realisasi._apply_activity_payload`. The connector hangs on any statement containing DELETE/TRUNCATE (it asks for a
+  confirmation that never reaches the user), even inside function bodies, so it cannot complete the install.
+  Finish with **`scripts/db-deploy-supabase.sh --reset-realisasi`**: in one transaction it drops only Realisasi's own
+  schemas (`realisasi`, `kerjasama`, `mock_baak`, `mock_hr`), its pg_cron job and its `realisasi_*` migration-history
+  rows, then applies everything and verifies. SIM Kerjasama tables are untouched.
+- **Not fully applied.** Waiting for the connection string in the environment variable **`SUPABASE_DB_URL`**
   (session pooler, port 5432). With it set, run steps 3–4 below as
-  `DATABASE_URL="$SUPABASE_DB_URL" scripts/db-deploy-supabase.sh --check` and then without `--check`.
+  `DATABASE_URL="$SUPABASE_DB_URL" scripts/db-deploy-supabase.sh --check` and then `--reset-realisasi`
+  (plain deploy refuses because of the partial install). Expected fingerprint (commit of this note):
+  `functions 179 d1b4e9b966adc41af70a6574f2d29334`, `columns 380 c9ebd5632031b508bc93abbd7aecf942`,
+  `policies 26 eeffda2ce3c17574a082ef903b081191`.
 
 ## Deploy steps (lead)
 1. **Rehearse locally**:

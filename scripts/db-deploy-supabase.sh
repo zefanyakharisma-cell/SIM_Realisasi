@@ -8,6 +8,9 @@
 #                Refuses when schema realisasi already exists (migrations are not re-runnable).
 #   --dry-run    print the plan (target, files, checks) and exit; connects to nothing.
 #   --check      read-only preflight against DATABASE_URL (SIMKS tables, roles, auth.uid, existing schemas, akun ids).
+#   --reset-realisasi  like deploy, but first drops Realisasi's own schemas (realisasi, kerjasama, mock_baak, mock_hr),
+#                its pg_cron job and its migration-history rows IN THE SAME TRANSACTION (e.g. after a partial install).
+#                Never touches SIM Kerjasama tables.
 #   --seed-only  re-apply supabase/seed-supabase/*.sql only (idempotent), in one transaction.
 #   --rehearse   LOCAL rehearsal: recreate the database named in DATABASE_URL (must be local), load the SIMKS-shaped
 #                stub (supabase/local) + the discovered-data fixture (supabase/rehearsal), then run the normal deploy.
@@ -18,7 +21,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-deploy}"
-case "$MODE" in deploy|--dry-run|--check|--seed-only|--rehearse) ;; *) echo "unknown mode: $MODE" >&2; exit 2 ;; esac
+case "$MODE" in deploy|--dry-run|--check|--seed-only|--rehearse|--reset-realisasi) ;; *) echo "unknown mode: $MODE" >&2; exit 2 ;; esac
 
 shopt -s nullglob
 MIGRATIONS=("$ROOT"/supabase/migrations/*.sql)
@@ -95,7 +98,10 @@ PRE="$(preflight)"; printf '%s\n' "$PRE" | sed 's/^/  /'
 if printf '%s\n' "$PRE" | grep -q 'MISSING'; then echo "preflight failed (MISSING above)" >&2; exit 1; fi
 
 FILES=()
-if [ "$MODE" = "deploy" ]; then
+if [ "$MODE" = "--reset-realisasi" ]; then
+  echo "--reset-realisasi: dropping Realisasi's own schemas first (same transaction as the redeploy)"
+  FILES+=("$ROOT/supabase/deploy/00_reset_realisasi.sql" "${MIGRATIONS[@]}")
+elif [ "$MODE" = "deploy" ]; then
   if printf '%s\n' "$PRE" | grep -qE '^schema (realisasi|kerjasama|mock_baak|mock_hr): EXISTS'; then
     echo "Realisasi is already installed (schema exists). Use --seed-only to re-apply the idempotent seeds." >&2; exit 1
   fi
@@ -125,4 +131,6 @@ select 'account ' || akun_id || ' ' || email || ' -> ' || coalesce(app_role, 'NO
 select 'unmapped negara.kode: ' || coalesce(string_agg(kode, ', '), 'none') from public.negara n
  where not exists (select 1 from kerjasama.iso3166 i where i.alpha3 = upper(btrim(n.kode)));
 SQL
+echo "--- schema fingerprint (must equal a local --rehearse of the same commit)"
+"${PSQL[@]}" -X -F' ' -tA -f "$ROOT/supabase/deploy/fingerprint.sql" | sed 's/^/  /'
 echo "db-deploy-supabase OK"
