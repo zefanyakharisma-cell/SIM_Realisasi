@@ -151,3 +151,59 @@ export async function listDocuments(tx: Tx): Promise<DocumentListRow[]> {
     country_codes: (r.country_codes as string[]) ?? [],
   }));
 }
+
+export interface ActivityTypeRow {
+  id: number;
+  name: string;
+  direction: 'inbound' | 'outbound' | 'none';
+  counts_as_mobility: boolean;
+  counts_for_s1: boolean;
+  requires_mobility_review: boolean;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export async function listActivityTypes(tx: Tx): Promise<ActivityTypeRow[]> {
+  const rows = await tx`
+    select id, name, direction::text as direction, counts_as_mobility, counts_for_s1, requires_mobility_review,
+           is_active, coalesce(sort_order, 0) as sort_order
+      from realisasi.activity_types order by sort_order, id`;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    name: String(r.name),
+    direction: r.direction as ActivityTypeRow['direction'],
+    counts_as_mobility: Boolean(r.counts_as_mobility),
+    counts_for_s1: Boolean(r.counts_for_s1),
+    requires_mobility_review: Boolean(r.requires_mobility_review),
+    is_active: Boolean(r.is_active),
+    sort_order: Number(r.sort_order),
+  }));
+}
+
+export interface SemesterRow {
+  id: number;
+  academic_year_id: number;
+  term: 'ganjil' | 'genap';
+  start_date: string;
+  end_date: string;
+  cutoff_date: string;
+}
+
+export async function listSemesters(tx: Tx): Promise<SemesterRow[]> {
+  const rows = await tx`
+    select id, academic_year_id, term::text as term, start_date, end_date, cutoff_date
+      from realisasi.semesters order by start_date`;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    academic_year_id: Number(r.academic_year_id),
+    term: r.term as SemesterRow['term'],
+    start_date: String(r.start_date),
+    end_date: String(r.end_date),
+    cutoff_date: String(r.cutoff_date),
+  }));
+}
+
+export async function listHolidays(tx: Tx): Promise<Array<{ day: string; name: string }>> {
+  const rows = await tx`select day, name from realisasi.holidays order by day`;
+  return rows.map((r) => ({ day: String(r.day), name: String(r.name) }));
+}

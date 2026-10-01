@@ -140,8 +140,9 @@ export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOp
     tx<Array<{ code: string; name: string }>>`select code, name from public.countries order by name`,
     tx<FilterOption[]>`select id, label from realisasi.academic_years order by start_date desc`,
     tx<Array<FilterOption & { ay_id: number; term: SemesterTerm }>>`
-      select id, realisasi.semester_label(id) as label, academic_year_id as ay_id, term::text as term
-        from realisasi.semesters order by start_date desc`,
+      select s.id, initcap(s.term::text) || ' ' || ay.label as label, s.academic_year_id as ay_id, s.term::text as term
+        from realisasi.semesters s join realisasi.academic_years ay on ay.id = s.academic_year_id
+       order by s.start_date desc`,
   ]);
   return {
     types: Array.from(types),

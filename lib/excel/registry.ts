@@ -27,7 +27,7 @@ import {
 import { formatDate, formatDateTime } from '@/lib/realisasi/format';
 import { parseActivityFilters, describeActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
-import { parseKnownFilters } from '@/lib/realisasi/schemas/known';
+import { describeKnownFilters, parseKnownFilters } from '@/lib/realisasi/schemas/known';
 import { listKnownActivities } from '@/lib/realisasi/queries/known';
 import { listDuplicateCandidates } from '@/lib/realisasi/queries/duplicates';
 import {
@@ -67,6 +67,9 @@ import {
   addKpiSheet,
   dataAsOf,
   isChainRow,
+  slaRows,
+  SLA_LEVEL_TEXT,
+  type SlaRow,
   joinList,
   label,
   snapshotAsOf,
@@ -536,28 +539,6 @@ async function buildRealization({ tx, user, params }: ExportContext): Promise<Ex
 }
 
 // ---------------------------------------------------------------- sla
-interface SlaRow {
-  a: ActivityListRow;
-  track: 'partnership' | 'mobility';
-  status: string;
-  since: string | null;
-  days: number | null;
-  level: string | null;
-}
-const SLA_LEVEL_LABEL: Record<string, string> = { ok: 'Normal', yellow: 'Kuning', red: 'Merah' };
-
-export function slaRows(acts: ActivityListRow[]): SlaRow[] {
-  const out: SlaRow[] = [];
-  for (const a of acts) {
-    if (a.status === 'draft' || !a.submitted_at) continue;
-    out.push({ a, track: 'partnership', status: a.partnership_status, since: a.partnership_since, days: a.partnership_sla_days, level: a.partnership_sla_level });
-    if (a.mobility_status !== 'not_required') {
-      out.push({ a, track: 'mobility', status: a.mobility_status, since: a.mobility_since, days: a.mobility_sla_days, level: a.mobility_sla_level });
-    }
-  }
-  return out;
-}
-
 async function buildSla({ tx, user, params }: ExportContext): Promise<ExportResult> {
   const f = parseActivityFilters(params);
   const [acts, names, settings] = await Promise.all([listActivities(tx, user, f), nameLookups(tx), getSettingsMap(tx)]);
@@ -572,7 +553,7 @@ async function buildSla({ tx, user, params }: ExportContext): Promise<ExportResu
     { header: 'Status Jalur', key: 'status', value: (r) => (TRACK_STATUS_LABEL as Record<string, string>)[r.status] ?? r.status },
     { header: 'Sejak', key: 'since', value: (r) => r.since, format: 'datetime' },
     { header: 'Hari Kerja', key: 'days', value: (r) => r.days, format: 'int' },
-    { header: 'Level (Normal/Kuning/Merah)', key: 'level', value: (r) => (r.level ? (SLA_LEVEL_LABEL[r.level] ?? r.level) : null) },
+    { header: 'Level (Normal/Kuning/Merah)', key: 'level', value: (r) => (r.level ? (SLA_LEVEL_TEXT[r.level] ?? r.level) : null) },
     { header: 'Ambang Kuning', key: 'y', value: () => yellow, format: 'int' },
     { header: 'Ambang Merah', key: 'r', value: () => red, format: 'int' },
   ];
@@ -611,13 +592,8 @@ async function buildKnown({ tx, user, params }: ExportContext): Promise<ExportRe
     { header: 'Dicatat oleh', key: 'by', value: (r) => r.created_by_name },
     { header: 'Dicatat pada', key: 'at', value: (r) => r.created_at, format: 'datetime' },
   ];
-  const filters: Array<[string, string]> = [];
-  if (f.q) filters.push(['Pencarian', f.q]);
-  if (f.status) filters.push(['Status', label(KNOWN_STATUS_LABEL, f.status) ?? f.status]);
-  if (f.unit_id) filters.push(['Unit', String(rows.find((r) => r.unit_id === f.unit_id)?.unit_name ?? f.unit_id)]);
-  if (f.intl !== undefined) filters.push(['Internasional', yesNo(f.intl)]);
-  if (f.from) filters.push(['Dari tanggal', formatDate(f.from)]);
-  if (f.to) filters.push(['Sampai tanggal', formatDate(f.to)]);
+  const names = await nameLookups(tx);
+  const filters = describeKnownFilters(f, { unitName: names.unitName });
   const wb = createWorkbook();
   addTableSheet(wb, 'Register', cols, rows);
   addInfoSheet(wb, {
@@ -690,7 +666,7 @@ async function buildAgreementActivities({ tx, user, params }: ExportContext): Pr
     title: `Realisasi Kerja Sama ${ar.document.doc_number}`,
     filters: [
       ['Dokumen', `${ar.document.doc_number} — ${ar.document.title}`],
-      ['Rantai perpanjangan', (ar.chain.documents ?? []).map((d) => d.doc_number).join(' → ')],
+      ['Rantai perpanjangan', (ar.chain?.documents ?? []).map((d) => d.doc_number).join(' → ')],
     ],
     generatedBy: generatedBy(user),
     generatedAt: new Date(),

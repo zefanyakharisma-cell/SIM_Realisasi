@@ -337,3 +337,27 @@ export const SNAPSHOT_ARCHIVE_COLUMNS: Column<SnapshotListRow>[] = [
   { header: 'Tambahan Susulan', key: 'late', value: (r) => r.late_additions, format: 'int' },
   { header: 'Perubahan Pasca-Beku', key: 'pfc', value: (r) => r.post_freeze_changes, format: 'int' },
 ];
+
+// ---------- SLA ----------
+export interface SlaRow {
+  a: ActivityListRow;
+  track: 'partnership' | 'mobility';
+  status: string;
+  since: string | null;
+  days: number | null;
+  level: string | null;
+}
+export const SLA_LEVEL_TEXT: Record<string, string> = { ok: 'Normal', yellow: 'Kuning', red: 'Merah' };
+
+export function slaRows(acts: ActivityListRow[]): SlaRow[] {
+  const out: SlaRow[] = [];
+  for (const a of acts) {
+    if (a.status === 'draft' || !a.submitted_at) continue;
+    out.push({ a, track: 'partnership', status: a.partnership_status, since: a.partnership_since, days: a.partnership_sla_days, level: a.partnership_sla_level });
+    if (a.mobility_status !== 'not_required') {
+      out.push({ a, track: 'mobility', status: a.mobility_status, since: a.mobility_since, days: a.mobility_sla_days, level: a.mobility_sla_level });
+    }
+  }
+  return out;
+}
+

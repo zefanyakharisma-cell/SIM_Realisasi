@@ -159,7 +159,7 @@ export function formatJakartaDateTime(d: Date): string {
 export function addInfoSheet(wb: ExcelJS.Workbook, info: InfoSheet): void {
   const ws = wb.addWorksheet('Info');
   // Always first, even when data sheets were added before (exceljs sorts by orderNo; others start at 1).
-  ws.orderNo = 0;
+  (ws as unknown as { orderNo: number }).orderNo = 0;
   ws.columns = [
     { header: 'Keterangan', key: 'k' },
     { header: 'Nilai', key: 'v' },

@@ -52,6 +52,7 @@ export async function listCountryOptions(tx: Tx): Promise<Array<{ code: string; 
 
 /** Current `nudge_resend_days` setting (R-54), for the "dapat dikirim ulang" hint. */
 export async function getNudgeResendDays(tx: Tx): Promise<number> {
-  const [row] = await tx<Array<{ v: number | null }>>`select realisasi.setting_int('nudge_resend_days') as v`;
+  const [row] = await tx<Array<{ v: number | null }>>`
+    select (value #>> '{}')::int as v from realisasi.settings where key = 'nudge_resend_days'`;
   return row?.v ?? 14;
 }

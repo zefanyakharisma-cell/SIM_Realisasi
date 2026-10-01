@@ -84,7 +84,7 @@ export function FileDrop({
         type="button"
         id={id}
         disabled={disabled}
-        aria-invalid={aria['aria-invalid']}
+        data-invalid={aria['aria-invalid'] ? 'true' : undefined}
         aria-describedby={describedBy}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
@@ -98,7 +98,7 @@ export function FileDrop({
           handle(e.dataTransfer.files);
         }}
         className={cn(
-          'flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-input bg-background px-4 py-6 text-center text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-destructive',
+          'flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-input bg-background px-4 py-6 text-center text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[invalid=true]:border-destructive',
           dragging && 'border-primary bg-primary/5',
         )}
       >

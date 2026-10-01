@@ -41,7 +41,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
   const datesReady = DATE_RE.test(start) && DATE_RE.test(end) && end >= start;
   const [fetched, setState] = useState<LoadState>({ kind: 'idle' });
   const [retry, setRetry] = useState(0);
-  const state: LoadState = datesReady ? fetched : { kind: 'idle' };
+  const state: LoadState = useMemo(() => (datesReady ? fetched : { kind: 'idle' }), [datesReady, fetched]);
 
   useEffect(() => {
     if (!datesReady) return;

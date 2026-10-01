@@ -24,7 +24,6 @@ function json(status: number, code: string, message?: string, detail?: unknown):
 /** Strip any directory part and control characters from a client-supplied file name. */
 function cleanFilename(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? 'berkas';
-  // eslint-disable-next-line no-control-regex
   const cleaned = base.replace(/[\u0000-\u001f\u007f"]/g, '').trim();
   return (cleaned || 'berkas').slice(0, 200);
 }

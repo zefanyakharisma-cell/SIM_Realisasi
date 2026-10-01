@@ -1111,3 +1111,41 @@ Query params: the **same** keys the page uses (so "Unduh Excel" = `/api/export/<
 `type ExportKind = 'activities' | 'participants' | 'kpi-summary' | 'kpi-drilldown' | 'chart' | 'snapshot' | 'snapshot-archive' | 'realization-by-agreement' | 'sla' | 'known-activities' | 'duplicates' | 'agreement-activities'` (declared in `lib/realisasi/types.ts`).
 
 Laporan page report → export kind: ringkasan → `kpi-summary`; kpi → `kpi-drilldown`; kegiatan → `activities`; peserta → `participants` (hidden unless `can('export.participants')`); register → `known-activities` (hidden unless `can('export.known')`); realisasi-kerjasama → `realization-by-agreement`; sla → `sla`; arsip → `snapshot-archive` / `snapshot` (hidden for submitters). Queue pages use `activities` with `queue=…`; Duplikat page uses `duplicates`; Register page uses `known-activities`; dashboard card ⋯ → `kpi-drilldown`, chart ⋯ → `chart`; Kerjasama tab → `agreement-activities`.
+
+---
+
+## Contract amendments (WP-FOUNDATION)
+
+Additive only; nothing in §6 was removed or renamed.
+
+1. **`lib/db.ts` parsers**: `timestamp` (1114, no time zone) is treated as UTC and returned as an ISO string, the same as `timestamptz`. Array variants (`date[]`, `timestamptz[]`, `int8[]`, `numeric[]`) use the same element parsers. Values inside `json`/`jsonb` are not touched, so they come back as whatever `to_jsonb()` produced. I checked this with `TZ=America/New_York`: `'2026-09-14'::date` → `'2026-09-14'`.
+2. **`lib/session.ts`** also exports `findDemoAccount(id): Promise<DemoAccount | null>`, which `loginAs` uses. `getSessionUser`, `getToday` and `getDemoToday` are `React.cache` constants with the contract signatures.
+3. **`lib/realisasi/errors.ts`** extras:
+   - `isNextControlError(e)`: `runAction` **rethrows** Next `redirect()`/`notFound()` errors.
+   - `appError(code, message?, detail?)`: an app-side throwable in the same `'<CODE>: msg'` shape as SQL errors.
+   - `parseDbError` maps SQLSTATE `42501` → `AUTH_FORBIDDEN`, and `22P02`/`22007`/`22008` (bad uuid/date text) → `BAD_REQUEST`. All other unexpected errors → `INTERNAL`, as the contract says.
+4. **`lib/realisasi/status.ts`** extras:
+   - `ACTIVITY_STATUS_DESCRIPTION`, `PSET_STATUS_TONE`, `KNOWN_STATUS_TONE`, `DUP_STATUS_TONE`
+   - `SLA_LEVEL_LABEL` (Normal/Kuning/Merah, for the `sla` export)
+   - `FLAG_TONE`, `FLAG_DESCRIPTION`, type `FlagKey`
+   - `logActionLabel(action)`, which falls back to the raw action
+5. **`lib/realisasi/format.ts`** extras: `formatTime(ts)` and `daysBetween(from, to)`. All formatting is deterministic. Dates use hard-coded Indonesian month abbreviations (`Mei`, `Agu`, `Okt`, `Des`). Timestamps convert to WIB as UTC+7. `formatPct` always shows one decimal (`40,0%`). In `exportFilename`, characters outside `[A-Za-z0-9._()-]` are removed after spaces and slashes become `-`, and an empty period becomes `semua`.
+6. **`lib/realisasi/types.ts`** extra named types:
+   - `RegistryStudentStatus`, `RegistryEmployeeStatus`, `SaveParticipantsWarning`, `DocumentPartnerOption`
+   - `ActivityFile`, `ParticipantVersionSummary`, `TrackSla`, `TrackRevision`
+   - `MobilityBySemester`, `KpiParams`, `KpiScope`
+   - `KpiValues.by_unit` is optional (present only at university level).
+   - `ChecklistItem.late?` exists only on `LATE_NOTICE`.
+   - `SaveParticipantsWarning.section` may be `'staff'` for inactive employees.
+7. **`lib/utils.ts`**: `cn(...)` and `toQueryString(params)`, which returns `''` or `'?a=b'` and drops empty values.
+8. **Notifications**: `lib/realisasi/actions/notifications.ts` exports `listNotifications({limit?, unreadOnly?})` and `markNotificationsRead(ids: number[] | null)`, which calls `mark_notifications_read`.
+9. **Nav test ids** use the last route segment: `nav-realisasi` (Dashboard), `nav-kegiatan`, `nav-baru`, `nav-kemitraan`, `nav-mobilitas`, `nav-duplikat`, `nav-kegiatan-diketahui`, `nav-laporan`, `nav-pengaturan`, `nav-dokumen` (SIM Kerjasama). Badges are `nav-<seg>-badge`.
+   - Nav visibility follows Design §1. "Duplikat" and "Kegiatan Diketahui" are shown only for `duplicates.manage`/`known.manage` (partnership + admin). Pages still allow `*.view` (all io_staff).
+   - Submitters get a `revision_inbox` badge on "Kegiatan".
+10. **Other shell test ids**: `user-menu`, `switch-account`, `logout`, `notification-bell`, `notification-count`, `notification-list`, `demo-today-banner`, `forbidden`, and `track-chip-partnership`/`track-chip-mobility`. The status badge also carries `data-status`.
+11. **Shared UI extras**: `Badge` has an `appearance="solid|outline"` prop on top of the tone variants. `Button` has a `loading` prop. `SimpleTooltip` needs the `TooltipProvider` that the root layout mounts. Also available: `ToneDot` (status-badge.tsx), `flagEmoji(code)` (country-flag.tsx) and `inputClassName` (input.tsx).
+    - `Combobox` props: `{options: {value: string, label, content?, keywords?, disabled?}[], value: string[], onChange, multiple?=true, …}`. Values are strings.
+    - `Stepper` props: `{steps: {label, href?, disabled?, invalid?}[], current: 1-based}`.
+    - `FileDrop` also accepts `onReject`, `multiple`, `label` and `hint`.
+12. **`/kerjasama/**` pages (WP-REPORTS)** are not under `app/realisasi/layout.tsx`. To get the shell, wrap them in `AppShell` from `components/layout/app-shell.tsx` (needs `user`, `navCounts` from `realisasi.nav_counts()`, `demoToday`), or add `app/kerjasama/layout.tsx` that mirrors `app/realisasi/layout.tsx`.
+13. **Playwright**: `e2e/helpers.ts` exports `ACCOUNTS`, `loginAs(page, email)` and `resetDb()`. Global setup runs `scripts/db-reset.sh` unless `E2E_SKIP_DB_RESET=1`. `webServer` runs `npm run dev`; override it with `E2E_SERVER_COMMAND`/`E2E_PORT`. The Chromium download (`npx playwright install chromium`) was blocked in the build sandbox.
