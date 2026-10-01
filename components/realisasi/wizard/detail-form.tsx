@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toaster';
 import { activityTypeHelper, stepHref } from '@/components/realisasi/activity/labels';
 import { AgreementPicker } from '@/components/realisasi/wizard/agreement-picker';
-import { ExternalPersons, newPersonRow, type PersonRowState } from '@/components/realisasi/wizard/external-persons';
+import { ExternalPersons, type PersonRowState } from '@/components/realisasi/wizard/external-persons';
 import { SdgChips } from '@/components/realisasi/wizard/sdg-chips';
 import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
 import { editVerifiedActivity, saveActivityDraft } from '@/lib/realisasi/actions/submission';
@@ -329,7 +329,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
     'aria-invalid': Boolean(err(k)) || undefined,
     'aria-describedby': [err(k) ? errId(k) : null, hintId ?? null].filter(Boolean).join(' ') || undefined,
   });
-  const FieldError = ({ k }: { k: string }) =>
+  const fieldError = (k: string) =>
     err(k) ? (
       <p id={errId(k)} className="text-xs text-destructive">
         {err(k)}
@@ -387,7 +387,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         <div className="space-y-1.5 md:col-span-2">
           <Label htmlFor="f-name">Nama kegiatan *</Label>
           <Input id="f-name" value={state.name} onChange={(e) => set('name', e.target.value)} required {...aria('name')} />
-          <FieldError k="name" />
+          {fieldError('name')}
         </div>
 
         <div className="space-y-1.5">
@@ -411,7 +411,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
           <p id="f-type-helper" className="text-xs text-muted-foreground" data-testid="type-helper">
             {type ? activityTypeHelper(type) : 'Pilih jenis untuk melihat aturan perhitungan dan kewajiban data peserta.'}
           </p>
-          <FieldError k="type_id" />
+          {fieldError('type_id')}
         </div>
 
         <div className="space-y-1.5">
@@ -437,7 +437,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
               {options.units.find((u) => String(u.id) === state.submitter_unit_id)?.name ?? '–'}
             </p>
           )}
-          <FieldError k="submitter_unit_id" />
+          {fieldError('submitter_unit_id')}
         </div>
 
         <div className="space-y-1.5">
@@ -450,7 +450,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             required
             {...aria('start_date', 'f-period')}
           />
-          <FieldError k="start_date" />
+          {fieldError('start_date')}
         </div>
 
         <div className="space-y-1.5">
@@ -469,7 +469,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
               Kegiatan belum selesai. Draf dapat disimpan, tetapi baru dapat diajukan setelah {formatDate(state.end_date)} (R-08).
             </p>
           )}
-          <FieldError k="end_date" />
+          {fieldError('end_date')}
         </div>
 
         <div className="md:col-span-2" id="f-period" aria-live="polite" data-testid="derived-period">
@@ -517,7 +517,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             onChange={(e) => set('venue', e.target.value)}
             {...aria('venue')}
           />
-          <FieldError k="venue" />
+          {fieldError('venue')}
         </div>
 
         {state.mode !== 'online' ? (
@@ -525,7 +525,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             <div className="space-y-1.5">
               <Label htmlFor="f-city">Kota *</Label>
               <Input id="f-city" value={state.city} onChange={(e) => set('city', e.target.value)} {...aria('city')} />
-              <FieldError k="city" />
+              {fieldError('city')}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="f-country_code">Negara *</Label>
@@ -542,7 +542,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
                   </option>
                 ))}
               </NativeSelect>
-              <FieldError k="country_code" />
+              {fieldError('country_code')}
             </div>
           </>
         ) : (
@@ -558,7 +558,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             onChange={(e) => set('sks_recognized', e.target.value)}
             {...aria('sks_recognized')}
           />
-          <FieldError k="sks_recognized" />
+          {fieldError('sks_recognized')}
         </div>
 
         <div className="space-y-1.5">
@@ -587,7 +587,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             onChange={(e) => set('description', e.target.value)}
             {...aria('description')}
           />
-          <FieldError k="description" />
+          {fieldError('description')}
         </div>
 
         <div className="space-y-1.5 md:col-span-2">
@@ -603,7 +603,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             placeholder="Pilih unit lain (opsional)"
             searchPlaceholder="Cari unit…"
           />
-          <FieldError k="co_unit_ids" />
+          {fieldError('co_unit_ids')}
         </div>
       </section>
 
@@ -623,7 +623,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
           error={err('document_ids')}
           errorId={errId('document_ids')}
         />
-        <FieldError k="document_ids" />
+        {fieldError('document_ids')}
       </section>
 
       <section className="space-y-3" aria-labelledby="sec-persons">
@@ -665,7 +665,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             Catatan perubahan
           </Label>
           <Textarea id="f-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} {...aria('note')} />
-          <FieldError k="note" />
+          {fieldError('note')}
         </section>
       )}
 
@@ -699,8 +699,4 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
       </div>
     </form>
   );
-}
-
-export function newEmptyPerson(): PersonRowState {
-  return newPersonRow();
 }
