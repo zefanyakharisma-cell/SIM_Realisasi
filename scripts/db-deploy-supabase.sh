@@ -113,7 +113,7 @@ echo "--- verify"
 select 'SIMKS rows: dokumen=' || (select count(*) from public.dokumen_kerja_sama) || ' unit=' || (select count(*) from public.unit)
        || ' partner=' || (select count(*) from public.partner);
 begin;
-select set_config('request.jwt.claims', json_build_object('sub', (select id from kerjasama.profiles where akun_id = 1), 'role', 'authenticated')::text, true);
+do $$ begin perform set_config('request.jwt.claims', json_build_object('sub', (select id from kerjasama.profiles where akun_id = 1), 'role', 'authenticated')::text, true); end $$;
 set local role authenticated;
 select 'as authenticated: documents=' || (select count(*) from kerjasama.documents) || ' units=' || (select count(*) from kerjasama.units)
        || ' partners=' || (select count(*) from kerjasama.partners) || ' countries=' || (select count(*) from kerjasama.countries)

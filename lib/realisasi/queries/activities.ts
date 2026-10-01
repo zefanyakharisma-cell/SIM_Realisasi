@@ -136,8 +136,8 @@ export interface ActivityFilterOptions {
 export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOptions> {
   const [types, units, countries, ays, semesters] = await Promise.all([
     tx<FilterOption[]>`select id, name as label from realisasi.activity_types order by sort_order, id`,
-    tx<FilterOption[]>`select id, name as label from public.units order by name`,
-    tx<Array<{ code: string; name: string }>>`select code, name from public.countries order by name`,
+    tx<FilterOption[]>`select id, name as label from kerjasama.units order by name`,
+    tx<Array<{ code: string; name: string }>>`select code, name from kerjasama.countries order by name`,
     tx<FilterOption[]>`select id, label from realisasi.academic_years order by start_date desc`,
     tx<Array<FilterOption & { ay_id: number; term: SemesterTerm }>>`
       select s.id, initcap(s.term::text) || ' ' || ay.label as label, s.academic_year_id as ay_id, s.term::text as term

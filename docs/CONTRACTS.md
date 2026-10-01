@@ -1193,3 +1193,70 @@ All RPC signatures are unchanged. Every JSON shape change below is additive or m
 30. **Other behaviour.** When `update_settings` changes `reporting_deadline_days`, it recomputes `reporting_deadline` of drafts. `known_match_suggestions` matches a known date anywhere in `[start_date - w, end_date + w]`. `business_days_between` is closed-form (same results). Every function's `search_path` is `realisasi, extensions, public, pg_temp`. On a submission/resubmission that reaches both teams, io_admin gets one "Pengajuan baru" (requirements-review L-4). Seeded freeze notifications are dated at `frozen_at`, and `05_notifications.sql` no longer adds hand-written `snapshot_frozen` rows (L-6).
 31. **New granted helpers for RLS** (definer, set-returning, evaluated once per statement): `my_activity_ids()`, `visible_activity_ids()`, `my_pset_ids()`, `sees_participant_identifiers()`. New internal (ungranted) helpers: `_chain_map()`, `_kpi_items_scoped(…)`, `_pset_as_of(uuid, timestamptz)`, `_mask_log_diff(jsonb)`, `_is_system_caller()`, `_check_pset_for_type(uuid, int)`, `_notify_team_except(…)`, `_require_registry_reader(int)`, `_demo_today()`. `_prev_snapshot` now takes `(ay, kind, before)`.
 32. **New test files:** `12_state_review.sql`, `23_kpi_review.sql`, `31_snapshots_review.sql`, `41_access_review.sql`, `61_dup_review.sql`, `80_perf.sql` (scaled copy plus timing budgets, rolled back).
+
+---
+
+## Contract amendments (SIMKS integration)
+
+SIM Realisasi now runs inside the SIM Kerjasama Supabase project (`simks-partnership`). These amendments override
+§1.1-related parts of §2.1, §2.2, §2.4, §5.3 and §6.3. All RPC signatures and JSON shapes are unchanged. Full design:
+`docs/SUPABASE_INTEGRATION.md`.
+
+1. **`public.*` stubs are gone; read `kerjasama.*`.** `kerjasama.units`, `countries`, `partners`, `documents`,
+   `document_partners`, `document_scope_units` and `profiles` keep exactly the Schema §1.1 columns, with additive columns
+   at the end:
+   - `units.is_active`
+   - `countries.alpha3`, `negara_id`, `is_domestic`
+   - `partners.merged_into_id`, `is_active`
+   - `documents.proposal_id`, `simks_status`
+   - `profiles.akun_id`, `auth_user_id`
+
+   `documents.parent_id` no longer exists. All app SQL must use `kerjasama.*`; nothing in Realisasi may reference SIMKS
+   `public.*` tables except migration `0001_kerjasama_adapter.sql`.
+2. **Migrations.**
+   - `0000_bootstrap.sql` only creates the extensions and asserts the Supabase roles, `auth.uid()` and the SIMKS tables.
+     It no longer creates stubs, roles or `auth.uid()`.
+   - New `0001_kerjasama_adapter.sql` creates the schema `kerjasama`, `kerjasama.iso3166`, `realisasi.account_roles`,
+     `realisasi.document_overrides` and the views.
+   - Every FK to a former stub was dropped, and RPCs validate those ids instead.
+   - `activity_documents` inserts with an unknown document raise SQLSTATE `23503`.
+   - Every `realisasi` `country_code` column has `check (country_code ~ '^[A-Z]{2}$')`.
+3. **Local only.** `supabase/local/*.sql` contains the SIMKS-shaped stub tables, the roles and `auth.uid()`.
+   `scripts/db-reset.sh` applies it before the migrations, drops schema `kerjasama` too, and with `RESET_PUBLIC_STUBS`
+   drops the SIMKS stub tables. It refuses Supabase URLs.
+4. **Value vocabulary.**
+   - `countries.code` is ISO alpha-2. SIMKS alpha-3 is mapped, and unmappable codes are not exposed.
+   - `partners.country_code` may be null for an international partner without a mappable country. Such a partner is
+     skipped by the activity partner snapshot.
+   - `documents.status` is one of `active`, `archived`, `in_process`, `rejected`. `Akan Berakhir` maps to `active`.
+   - `documents.archived_reason` is SIMKS `alasan_arsip` verbatim: `rejected`, `superseded_by_renewal` or
+     `expired_without_renewal`. It no longer uses `expired`, `terminated` or `renewed`.
+   - A rejected document has null dates and `doc_number = 'Tanpa nomor #<id>'` when SIMKS has no number.
+   - `units.kind` is `faculty`, `prodi` or `up`; `program` is never produced.
+   - `documents.title` is the first line of `proposal_dokumen.tujuan_kerjasama`, else `<kind> <lead partner>`.
+5. **Auto-renewal / termination.** SIMKS has neither, so both come from `realisasi.document_overrides(document_id,
+   auto_renewed, terminated_at, note)`, which the DBA/IO maintains. Without a row, `auto_renewed=false` and
+   `terminated_at=null`.
+6. **Accounts (§5.3, §6.3).**
+   - `kerjasama.profiles` lists only SIMKS accounts (`public.akun`) that have a `realisasi.account_roles(akun_id,
+     app_role, unit_id)` row.
+   - `id` = `coalesce(akun.auth_user_id, md5('simks-akun:'||akun.id)::uuid)`.
+   - `display_name` = `jabatan.nama`, else the email.
+   - `unit_id` = the `account_roles` override, else `jabatan.id_unit`.
+   - `app_role` is **null when the SIMKS account is inactive**. Such a profile cannot act: `_require_uid()` raises
+     `AUTH_REQUIRED`, and it gets no notifications.
+   - Login lists only profiles with `app_role is not null`, ordered io_admin → io_staff → submitter → viewer, then by
+     `akun_id`.
+   - Locally the 8 demo accounts keep their uuids, emails and order (akun 1–8 with `auth_user_id` = the old profile
+     ids). Team membership seeding moved from `01_config.sql` to `00_kerjasama.sql`.
+7. **Seeds and deploy.**
+   - `supabase/seed/*` is local only.
+   - `supabase/seed-supabase/*` holds config, registries, roles for real SIMKS akun 1, 3, 4, 6, 9, 10 and 11, 12
+     activities on real documents, and the AY 2025/2026 freezes.
+   - `scripts/db-deploy-supabase.sh` takes `--dry-run`, `--check`, `--seed-only` or `--rehearse`; with no mode it
+     deploys in one transaction.
+8. **Tests.**
+   - New `supabase/tests/70_simks_adapter.sql` covers the mapping, the access model, and no Realisasi objects in `public`.
+   - `scripts/db-test.sh` also runs a `migration-lint` step.
+   - `_helpers.inc` gains `pg_temp.simks_doc(...)` and `pg_temp.simks_set_prev(no, prev_no)` for writing SIMKS-shaped
+     fixtures.

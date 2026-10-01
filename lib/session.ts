@@ -1,6 +1,8 @@
 /**
  * Demo session (CONTRACTS §6.3). SERVER ONLY.
- * The session is a plain `demo_uid` cookie holding a `public.profiles.id` (mockup; no passwords).
+ * The session is a plain `demo_uid` cookie holding a `kerjasama.profiles.id` (mockup; no passwords).
+ * Accounts are SIM Kerjasama accounts (`public.akun`, read through the `kerjasama.profiles` adapter view) that have a
+ * Realisasi role in `realisasi.account_roles`; inactive SIMKS accounts (app_role null) cannot sign in.
  * `can()` is pure and safe to import anywhere (it only mirrors Rules §10 for hiding UI controls —
  * the database stays authoritative).
  */
@@ -75,13 +77,14 @@ async function selectProfiles(tx: Tx, id: string | null): Promise<ProfileRow[]> 
     select p.id::text as id, p.email, p.display_name, p.app_role, p.unit_id, u.name as unit_name,
            coalesce((select array_agg(tm.team::text order by tm.team)
                        from realisasi.team_members tm where tm.account_id = p.id), '{}') as teams
-      from public.profiles p
-      left join public.units u on u.id = p.unit_id
-     where ${id}::uuid is null or p.id = ${id}::uuid
-     order by p.id`;
+      from kerjasama.profiles p
+      left join kerjasama.units u on u.id = p.unit_id
+     where p.app_role is not null
+       and (${id}::uuid is null or p.id = ${id}::uuid)
+     order by array_position(array['io_admin','io_staff','submitter','viewer'], p.app_role), p.akun_id`;
 }
 
-/** The 8 seed accounts in CONTRACTS §5.3 order (fixed ids sort in that order). */
+/** Realisasi accounts by role (admin, IO staff, submitters, viewers), then SIMKS akun id = CONTRACTS §5.3 order locally. */
 export async function listDemoAccounts(): Promise<DemoAccount[]> {
   if (!isDemoAuthEnabled()) return [];
   const rows = await withSystem((tx) => selectProfiles(tx, null));

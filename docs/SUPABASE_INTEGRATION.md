@@ -22,18 +22,82 @@ Real data: 39 `dokumen_kerja_sama` rows (13 rejected), renewal chains 28→33 an
 Extensions present: `pg_trgm` (schema `extensions`), `pgcrypto`, `pg_cron`. Roles `anon`,
 `authenticated`, `service_role` exist. No `realisasi`/`mock_*` schemas yet.
 
-## Target design
+## Final design (implemented 2026-10-01, proven locally; not yet deployed)
 
-- New schema **`kerjasama`** = read-only adapter views with exactly the Schema §1.1 shapes
-  (`kerjasama.units`, `countries`, `partners`, `documents`, `document_partners`,
-  `document_scope_units`, `profiles`). Every Realisasi migration references `kerjasama.*`, never
-  `public.*`. Foreign keys to SIMKS tables are dropped (views can't be FK targets); RPCs validate ids.
-- `realisasi.account_roles(akun_id int pk, app_role, unit_id)` + `realisasi.team_members` keyed by
-  profile uuid hold Realisasi's own authorisation for SIMKS accounts.
-- Local dev/tests: `supabase/local/00_simks_stub.sql` creates the **SIMKS-shaped** tables
-  (`public.unit`, `negara`, `partner`, `dokumen_kerja_sama`, `proposal_dokumen`, …) with the demo
-  fixtures, so the same adapter is exercised locally. It is **never** applied to Supabase.
-- Supabase seed: Realisasi config + mock BAAK/HR + role assignments for chosen SIMKS accounts +
-  demo activities linked to **real** SIMKS documents (written only into `realisasi.*`).
-- App connects with the project's Postgres connection string (`DATABASE_URL`, session pooler,
-  `prepare:false`); `withUser` keeps `set local role authenticated` + `request.jwt.claims`.
+```
+SIMKS (public, owned by SIM Kerjasama)          Realisasi
+ unit, jenis_unit, negara, partner,     ──read──▶ kerjasama.*  (adapter views, owner rights)  ──▶ realisasi.* RPCs/views
+ proposal_dokumen, dokumen_kerja_sama,             ▲ LEFT JOIN                                    mock_baak.*, mock_hr.*
+ partner_pengusul, proposal_dokumen_unit,          │
+ jabatan, akun                                     realisasi.account_roles, realisasi.document_overrides
+```
+
+### Schemas and ownership
+| Schema | Created by | Contents |
+|---|---|---|
+| `public` | SIMKS | untouched. Realisasi creates, alters, grants, and writes **nothing** here. `scripts/db-test.sh` lint and `supabase/tests/70_simks_adapter.sql` enforce this. |
+| `kerjasama` | `0001_kerjasama_adapter.sql` | `iso3166` (alpha-2 ↔ alpha-3, the full ISO list + XK, seeded in the migration) and 7 read-only views with the Schema §1.1 columns |
+| `realisasi` | 0001–0017 | the application, plus `account_roles` and `document_overrides` |
+| `mock_baak`, `mock_hr` | 0002 | mock registries (demo) |
+
+### Adapter mapping (`kerjasama.*`)
+| View | Columns (§1.1 first, then additive) | Mapping |
+|---|---|---|
+| `units` | id, name, parent_id, kind, is_active | `unit`. kind: `id_jenis_unit<>1` → `up`; an academic root with academic grandchildren → `up`; an academic unit with academic children → `faculty`; an academic leaf under an academic parent → `prodi`; any other academic leaf → `faculty`. `program` is never produced. |
+| `countries` | code, name, alpha3, negara_id, is_domestic | `negara ⋈ iso3166 on alpha3 = upper(trim(kode))`, one row per alpha-2. An unmappable `kode` is left out. |
+| `partners` | id, name, country_code, merged_into_id, is_active | `partner`. Country via `negara`/`iso3166`. With no mappable country, a domestic partner (`is_international=false`) gets `ID` and any other partner gets null. Merged/inactive partners are kept. |
+| `documents` | id, doc_number, title, kind, status, start_date, end_date, auto_renewed, predecessor_id, archived_reason, terminated_at, proposal_id, simks_status | `dokumen_kerja_sama d ⋈ proposal_dokumen p`. id = `d.no`. doc_number = `no_dokumen`, or `Tanpa nomor #<no>` when it is null. title = the first line of `tujuan_kerjasama` (≤160 chars), else `<kind> <lead partner>`. kind = `jenis_kerjasama::text`. status: `alasan_arsip='rejected'` → `rejected`; `Aktif`/`Akan Berakhir` → `active`; `Diarsipkan` → `archived`; anything else → `in_process`. predecessor_id = the dokumen whose `id_proposal_dokumen = p.id_dokumen_sebelumnya` (a **proposal** id). archived_reason = `alasan_arsip` verbatim. auto_renewed/terminated_at come from `realisasi.document_overrides` (default false/null). The former stub's `parent_id` (MoA under MoU) is gone because SIMKS has no such link. |
+| `document_partners` | document_id, partner_id, is_lead | `partner_pengusul` joined through `id_proposal_dokumen` |
+| `document_scope_units` | document_id, unit_id | `proposal_dokumen_unit` joined through `id_proposal_dokumen` |
+| `profiles` | id, email, display_name, app_role, unit_id, akun_id, auth_user_id | `realisasi.account_roles ⋈ akun ⟕ jabatan`. **Only accounts that have an `account_roles` row.** id = `coalesce(auth_user_id, md5('simks-akun:'||akun.id)::uuid)` (stable). display_name = `jabatan.nama`, else email. app_role = the `account_roles` role, or null (= no access) when `akun.is_active` is false. unit_id = `account_roles.unit_id`, else `jabatan.id_unit`. |
+
+### Access model (decision)
+The `kerjasama` views are plain views with `security_invoker=false`, owned by the migration owner (`postgres`, the owner of the SIMKS tables). They read SIMKS with the owner's rights, so SIMKS RLS does not filter them. `authenticated` gets `USAGE` on `kerjasama` and `SELECT` on the 7 views only. It gets nothing on any SIMKS table, on `iso3166`, or on `account_roles`/`document_overrides`. `anon` gets nothing.
+- **Why views and not SECURITY DEFINER functions:** views stay inlinable. Predicates and joins push down into the SIMKS tables, which matters for the recursive chain walks. With 1,500 documents, a correlated-subquery version of `predecessor_id` made `_chain_map()` take 2.7 s; the join version takes 5 ms. Views are also read-only by construction (multi-table joins plus SELECT-only grants).
+- **Cost:** the Supabase advisor reports "security definer view" for `kerjasama.*`. This is intended. `kerjasama` is not an exposed PostgREST schema; keep it out of *Exposed schemas*.
+- **Assumption:** SIMKS tables are owned by `postgres` and do not use `FORCE ROW LEVEL SECURITY`. `db-deploy-supabase.sh` checks this after deploy: as `authenticated`, the view counts must equal the SIMKS row counts.
+
+### Foreign keys → validation
+Views cannot be FK targets, so every FK to the former `public.*` stubs was dropped. Each such column carries a `-- kerjasama.<view>.<col>` comment. What replaces them:
+- RPCs already validate ids: `save_activity_draft` checks units, co-units, country and external-person countries (`VALIDATION_INVALID`) and documents via `documents_valid_between` (`R04_AGREEMENT_NOT_VALID`, which also rejects unknown, in-process and rejected documents). `create/update_known_activity` checks unit and country.
+- The `activity_documents` BEFORE INSERT trigger raises SQLSTATE 23503 when the document is not in `kerjasama.documents`.
+- Every `country_code` column in `realisasi` has `check (country_code ~ '^[A-Z]{2}$')`. Realisasi stays alpha-2 everywhere.
+- `_require_uid()` requires `app_role is not null`, and `_notify()` skips accounts without access.
+
+### Files
+| Path | Applied where |
+|---|---|
+| `supabase/local/00_simks_stub.sql` | **local only**, by `db-reset.sh` before the migrations. It creates the roles, `auth.uid()`, and the SIMKS-shaped tables (same names/types; RLS on; no API grants). The enum is `public.jenis_kerjasama`, but the adapter only reads `::text`, so the real type name does not matter. |
+| `supabase/migrations/0000…0017` | everywhere. 0000 now only creates extensions and **asserts** that the roles, `auth.uid()` and the SIMKS tables exist. |
+| `supabase/seed/*.sql` | **local only**. `00_kerjasama.sql` writes the demo fixtures into the stub tables (proposal id = no + 1000) plus `account_roles`, `team_members` and `document_overrides` (903 auto-renewed, 119 terminated). |
+| `supabase/seed-supabase/*.sql` | Supabase only, through `db-deploy-supabase.sh`. 01 config (reuses `seed/01_config.sql` and merges SIMKS `public.holidays` read-only; enables `demo_time_travel`), 02 mock BAAK/HR, 03 account roles + teams, 04 twelve demo activities on real documents 11, 15, 17, 19, 25, 28, 29, 33, 34, 36, 42, 44, 90 freeze AY 2025/2026. All idempotent. |
+| `supabase/rehearsal/10_simks_snapshot.sql` | local rehearsal only. It approximates the live SIMKS data discovered on 2026-10-01: the 39 documents with real numbers, dates, status and renewal links, and the 21 key accounts. Scope units are guessed. |
+
+### Accounts on Supabase (`seed-supabase/03_accounts.sql`)
+| akun | email | Realisasi role | unit | teams | has auth user |
+|---|---|---|---|---|---|
+| 1 | kepala-kui@petra.ac.id | io_admin | (jabatan → 2) | partnership, mobility | yes |
+| 11 | staff-partnership@petra.ac.id | io_staff | (2) | partnership | no → md5 uuid |
+| 10 | head-partnership@petra.ac.id | io_staff | (2) | mobility | no → md5 uuid |
+| 3 | dekan-sbm@petra.ac.id | submitter | 4 | — | yes |
+| 4 | kaprodi-manajemen@petra.ac.id | submitter | 5 | — | yes |
+| 9 | viewer@petra.ac.id | viewer | (1) | — | yes |
+| 6 | rektor@petra.ac.id | viewer | (1) | — | yes |
+
+The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Accounts without a Supabase Auth user still get a stable uuid.
+
+## Deploy steps (lead)
+1. **Rehearse locally**:
+   `DATABASE_URL=postgresql://postgres@localhost:54322/sim_realisasi_rehearsal scripts/db-deploy-supabase.sh --rehearse`
+   This rebuilds the scratch DB from the stub + snapshot, applies migrations + seed-supabase in one transaction, verifies, and prints the accounts.
+2. **Plan**: `scripts/db-deploy-supabase.sh --dry-run`.
+3. **Preflight on Supabase (read-only)**: use the session pooler (5432) or the direct connection, not the transaction pooler.
+   `DATABASE_URL='postgresql://postgres.cmvmukexzmmagupbndmx:<pw>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres' scripts/db-deploy-supabase.sh --check`
+   Every line must be `ok`/rows/`absent`, and akun 1, 3, 4, 6, 9, 10, 11 must resolve to the emails above.
+4. **Deploy**: run the same command without a mode. It is one transaction; any error rolls everything back. Check the verify block: as authenticated, `documents=<dokumen_kerja_sama count>` with `my_role=io_admin`, then 7 accounts, `unmapped negara.kode: none`.
+5. **Advisors**: expect "security definer view" for `kerjasama.*` (intended) and nothing new in `public`. Do not add `kerjasama`/`realisasi` to the exposed API schemas.
+6. **App env** (Vercel): `DATABASE_URL` = session pooler URL (`prepare:false` is already set in `lib/db.ts`), `DEMO_AUTH` on for the demo.
+7. **Re-seed later** (idempotent): `--seed-only`.
+   **Rollback**: `drop schema realisasi, kerjasama, mock_baak, mock_hr cascade; select cron.unschedule('realisasi-daily-jobs');` SIMKS data is never touched.
+
+Maintenance: grant or revoke Realisasi access with `insert/update/delete realisasi.account_roles` (+ `realisasi.team_members` for IO staff). Record an auto-renewing or early-terminated agreement in `realisasi.document_overrides`. A new SIMKS country code only needs a row in `kerjasama.iso3166` if it is not in ISO 3166-1. There is no UI or RPC for these yet; the DBA does them.

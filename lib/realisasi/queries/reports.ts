@@ -102,7 +102,7 @@ export interface UnitOption {
 }
 
 export async function listUnits(tx: Tx): Promise<UnitOption[]> {
-  const rows = await tx`select id, name, kind from public.units order by name`;
+  const rows = await tx`select id, name, kind from kerjasama.units order by name`;
   return rows.map((r) => ({ id: Number(r.id), name: String(r.name), kind: String(r.kind) }));
 }
 
@@ -126,16 +126,16 @@ export interface DocumentListRow {
   country_codes: string[];
 }
 
-/** Minimal SIM Kerjasama document list (public stub tables are readable by authenticated). */
+/** Minimal SIM Kerjasama document list (kerjasama.* adapter views over the SIMKS tables; readable by authenticated). */
 export async function listDocuments(tx: Tx): Promise<DocumentListRow[]> {
   const rows = await tx`
     select d.id, d.doc_number, d.title, d.kind, d.status, d.start_date, d.end_date, d.auto_renewed, d.predecessor_id,
            coalesce(array_agg(p.name order by dp.is_lead desc, p.name) filter (where p.id is not null), '{}') as partner_names,
-           coalesce(array_agg(distinct p.country_code) filter (where p.id is not null), '{}') as country_codes
-      from public.documents d
-      left join public.document_partners dp on dp.document_id = d.id
-      left join public.partners p on p.id = dp.partner_id
-     group by d.id
+           coalesce(array_agg(distinct p.country_code) filter (where p.country_code is not null), '{}') as country_codes
+      from kerjasama.documents d
+      left join kerjasama.document_partners dp on dp.document_id = d.id
+      left join kerjasama.partners p on p.id = dp.partner_id
+     group by d.id, d.doc_number, d.title, d.kind, d.status, d.start_date, d.end_date, d.auto_renewed, d.predecessor_id
      order by d.doc_number`;
   return rows.map((r) => ({
     id: Number(r.id),

@@ -58,8 +58,8 @@ export async function getFormOptions(tx: Tx): Promise<FormOptions> {
            requires_mobility_review, is_active, sort_order
       from realisasi.activity_types
      order by sort_order nulls last, id`;
-  const units = await tx<UnitOption[]>`select id, name, kind, parent_id from public.units order by id`;
-  const countries = await tx<CountryOption[]>`select code, name from public.countries order by name`;
+  const units = await tx<UnitOption[]>`select id, name, kind, parent_id from kerjasama.units order by id`;
+  const countries = await tx<CountryOption[]>`select code, name from kerjasama.countries order by name`;
   const sdgs = await tx<SdgOption[]>`select id::int as id, name from realisasi.sdgs order by id`;
   const years = await tx<Omit<AcademicYearOption, 'semesters'>[]>`
     select id, label, start_date, end_date from realisasi.academic_years order by start_date`;

@@ -43,11 +43,11 @@ export async function getKnownSuggestionsFor(tx: Tx, ids: number[]): Promise<Rec
 
 /** Units for the register's unit select / form. */
 export async function listUnitOptions(tx: Tx): Promise<Array<{ id: number; label: string }>> {
-  return Array.from(await tx<Array<{ id: number; label: string }>>`select id, name as label from public.units order by name`);
+  return Array.from(await tx<Array<{ id: number; label: string }>>`select id, name as label from kerjasama.units order by name`);
 }
 
 export async function listCountryOptions(tx: Tx): Promise<Array<{ code: string; name: string }>> {
-  return Array.from(await tx<Array<{ code: string; name: string }>>`select code, name from public.countries order by name`);
+  return Array.from(await tx<Array<{ code: string; name: string }>>`select code, name from kerjasama.countries order by name`);
 }
 
 /** Current `nudge_resend_days` setting (R-54), for the "dapat dikirim ulang" hint. */

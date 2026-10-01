@@ -134,7 +134,7 @@ function lookupName<T extends { id: number; name: string }>(rows: T[]) {
 async function nameLookups(tx: Tx) {
   const [types, units, years, sems] = await Promise.all([
     tx`select id, name from realisasi.activity_types`,
-    tx`select id, name from public.units`,
+    tx`select id, name from kerjasama.units`,
     tx`select id, label as name from realisasi.academic_years`,
     tx`select id, realisasi.semester_label(id) as name from realisasi.semesters`,
   ]);
