@@ -103,9 +103,9 @@ Owns:
 6. `scripts/db-reset.sh`, `scripts/db-test.sh`, `supabase/tests/*.sql` — all tests green on a fresh reset.
 
 **WP-FOUNDATION**
-1. `package.json` with the full dependency list (CONTRACTS §3.1), `npm install`, configs, Tailwind tokens, `globals.css`. — do this first; other WPs block on `node_modules`.
-2. `lib/db.ts`, `lib/session.ts`, `lib/storage.ts`, `lib/realisasi/{types,status,format,errors}.ts` exactly per CONTRACTS §3.
-3. `components/ui/*` (list in CONTRACTS §3.9), shared `components/realisasi/*`.
+1. `package.json` with the full dependency list (CONTRACTS §6.1), `npm install`, configs, Tailwind tokens, `globals.css`. — do this first; other WPs block on `node_modules`.
+2. `lib/db.ts`, `lib/session.ts`, `lib/storage.ts`, `lib/realisasi/{types,status,format,errors}.ts` exactly per CONTRACTS §6.2–§6.6.
+3. `components/ui/*` (list in CONTRACTS §6.9), shared `components/realisasi/*`.
 4. `middleware.ts`, `/login` + actions, `app/realisasi/layout.tsx` (sidebar per Design §1 with badges from `nav_counts()`), notification bell + `/realisasi/notifikasi`, demo-today banner.
 5. Playwright config + `e2e/global-setup.ts` (runs `scripts/db-reset.sh`), `e2e/helpers.ts` (`loginAs`, `resetDb`), `e2e/foundation.spec.ts`.
 
@@ -125,7 +125,7 @@ Owns:
 6. `e2e/verify.spec.ts` (AT-03 flow, S-17 revision request, link duplicate, known match).
 
 **WP-REPORTS**
-1. `lib/excel/workbook.ts` (styling per Design §5, Info sheet) + export registry + `/api/export/[kind]` with access matrix (CONTRACTS §6).
+1. `lib/excel/workbook.ts` (styling per Design §5, Info sheet) + export registry + `/api/export/[kind]` with access matrix (CONTRACTS §8.2).
 2. Dashboard: period selector, 4 KPI cards (+delta), 6 charts, drill-down, frozen badge, submitter scope, drafts-near-deadline.
 3. Laporan page: report list per role, preview tables, snapshot archive + detail.
 4. Pengaturan tabs (Umum incl. `demo_today` + "Jalankan job harian", Kalender with freeze/refreeze, Jenis, Hari Libur).
@@ -152,10 +152,10 @@ Walk AT-01..AT-12 (table §8) in the browser with the role switcher; empty/loadi
 ## 7. Risks & mitigations
 
 - **Parallel edits collide** → strict ownership globs (§4); only FOUNDATION touches `package.json`; no stubs in foreign paths.
-- **Cross-WP signature drift** → all shared types in `lib/realisasi/types.ts` (FOUNDATION) copied verbatim from CONTRACTS §3.5; Phase 2 typecheck catches drift.
+- **Cross-WP signature drift** → all shared types in `lib/realisasi/types.ts` (FOUNDATION) copied verbatim from CONTRACTS §3, §4, §6.5; Phase 2 typecheck catches drift.
 - **KPI math disagreement between dashboard, exports and snapshots** → single SQL source (`compute_kpis` / `kpi_items`); UI and Excel never recompute KPIs in TS.
 - **RLS recursion / performance** → policies call `security definer` helpers (`can_view_activity` etc.) with fixed `search_path`; helpers read tables directly.
-- **postgres.js type parsing** (dates shifting by timezone, bigint as string) → `lib/db.ts` registers parsers: `date` → `'YYYY-MM-DD'` string, `timestamptz` → ISO string, `int8`/`numeric` → number (CONTRACTS §3.2).
+- **postgres.js type parsing** (dates shifting by timezone, bigint as string) → `lib/db.ts` registers parsers: `date` → `'YYYY-MM-DD'` string, `timestamptz` → ISO string, `int8`/`numeric` → number (CONTRACTS §6.2).
 - **Time travel breaks seeds** → SLA seed timestamps computed from `realisasi.today()` at seed time; historical scenarios use fixed dates before 2026-10-01; tests that need a specific "today" set `demo_today` inside their rolled-back transaction.
 - **Seed numbers change during dev** → SQL tests assert scenario-specific facts (items of S-13/S-14 event group, D31240187 contribution, specific chain IDs), not global totals.
 - **recharts + React 19 peer warning** → FOUNDATION adds `"overrides": { "react-is": "^19.0.0" }`.
