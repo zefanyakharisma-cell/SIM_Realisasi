@@ -406,9 +406,13 @@ begin
   v_draft := realisasi.ensure_participant_draft(p_activity);
   v_vid := (v_draft ->> 'version_id')::uuid; v_ver := (v_draft ->> 'version')::int;
 
-  create temp table if not exists _ps_in (idx int, section text, nrp text, home_institution text, home_student_number text,
+  if to_regclass('pg_temp._ps_in') is null then
+    create temp table _ps_in (idx int, section text, nrp text, home_institution text, home_student_number text,
                                           home_country_code text, transcript_path text) on commit drop;
-  create temp table if not exists _pst_in (idx int, employee_id text) on commit drop;
+  end if;
+  if to_regclass('pg_temp._pst_in') is null then
+    create temp table _pst_in (idx int, employee_id text) on commit drop;
+  end if;
   truncate _ps_in; truncate _pst_in;
 
   insert into _ps_in

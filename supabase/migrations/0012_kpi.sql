@@ -84,7 +84,9 @@ create function realisasi._kpi_values(p_items jsonb, p_from date, p_to date, p_a
 language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
 declare v_sem jsonb; v_24 jsonb; v_s8r int; v_s8u int; v_base uuid[]; v_charts jsonb; v_univ boolean := p_unit_id is null;
 begin
-  create temp table if not exists _kv_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid) on commit drop;
+  if to_regclass('pg_temp._kv_items') is null then
+    create temp table _kv_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid) on commit drop;
+  end if;
   truncate _kv_items;
   insert into _kv_items select * from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb))
     as i(kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid);

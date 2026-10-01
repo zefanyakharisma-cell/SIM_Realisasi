@@ -1,16 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { ACCOUNTS, loginAs, resetDb } from './helpers';
+import { ACCOUNTS, loginAs } from './helpers';
 
 /**
  * WP-VERIFY journeys: queues (SLA order, approve / revise / reject), Mobilitas diff + row notes,
  * Kegiatan list filters vs export link (AT-12 precondition), duplicates, known activities.
- * Seed facts per CONTRACTS §5.3. The suite mutates seed data, so it resets before running.
+ * Seed facts per CONTRACTS §5.3. Expects a freshly reset DB (e2e/global-setup.ts). It does not
+ * reset itself: dropping/recreating views under a running server invalidates postgres.js' cached
+ * prepared statements ("cached plan must not change result type").
  */
 test.describe.configure({ mode: 'serial' });
-
-test.beforeAll(() => {
-  resetDb();
-});
 
 test('Kemitraan queue is SLA-sorted (red first) and rows expand with Enter', async ({ page }) => {
   await loginAs(page, ACCOUNTS.ioPartnership);
@@ -140,18 +138,39 @@ test('Kegiatan Diketahui: record a new entry and match a suggestion', async ({ p
   const form = page.getByTestId('known-form');
   await form.getByTestId('known-submit').click();
   await expect(form.getByRole('alert')).toBeVisible();
-  // Same unit + date + name as S-22 so a suggestion appears.
-  await form.getByLabel(/Judul kegiatan/).fill('Joint Community Service');
-  await form.getByLabel(/Tanggal kegiatan/).fill('2026-09-01');
+  // Name/date close to S-22 (2026-08-17) so known_match_suggestions returns it.
+  await form.getByLabel(/Judul kegiatan/).fill('Pengabdian Masyarakat Literasi Keuangan');
+  await form.getByLabel(/Tanggal kegiatan/).fill('2026-08-18');
   await form.getByLabel(/Sumber informasi/).selectOption('news');
   await form.getByTestId('known-submit').click();
   await expect(form).toBeHidden();
-  const row = page.getByTestId('known-row').filter({ hasText: 'Joint Community Service' });
-  await expect(row).toBeVisible();
-  const match = row.getByTestId('known-match').first();
-  if (await match.count()) {
-    await match.click();
-    await page.getByRole('dialog').getByTestId('action-confirm').click();
-    await expect(row.getByText('Cocok')).toBeVisible();
-  }
+  const row = page.getByTestId('known-row').filter({ hasText: 'Pengabdian Masyarakat Literasi Keuangan' });
+  await expect(row.getByTestId('known-suggestion').first()).toContainText('RL-2026-0022');
+  await row.getByTestId('known-match').first().click();
+  await page.getByRole('dialog').getByTestId('action-confirm').click();
+  await expect(row.getByText('Cocok', { exact: true })).toBeVisible();
+  await expect(row.getByRole('link', { name: /RL-2026-0022/ })).toBeVisible();
+});
+
+test('Duplikat: link the open S-28/S-30 candidate; Kepala IO can unlink it again', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.ioPartnership);
+  await page.goto('/realisasi/verifikasi/duplikat');
+  const card = page.getByTestId('dup-card').filter({ hasText: 'RL-2026-0030' });
+  await expect(card).toContainText('RL-2026-0028');
+  await card.getByTestId('dup-link').click();
+  await page.getByRole('dialog').getByTestId('action-confirm').click();
+  await expect(card).toHaveCount(0);
+
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi/verifikasi/duplikat?status=linked');
+  const linked = page.getByTestId('dup-card').filter({ hasText: 'RL-2026-0030' });
+  await linked.getByTestId('dup-unlink').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByTestId('action-confirm').click();
+  await expect(dialog.getByText('Catatan wajib diisi.')).toBeVisible();
+  await dialog.getByLabel(/Alasan/).fill('Ternyata dua kegiatan berbeda.');
+  await dialog.getByTestId('action-confirm').click();
+  await expect(dialog).toBeHidden();
+  await page.goto('/realisasi/verifikasi/duplikat?status=dismissed');
+  await expect(page.getByTestId('dup-card').filter({ hasText: 'RL-2026-0030' })).toBeVisible();
 });

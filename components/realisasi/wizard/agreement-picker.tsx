@@ -110,7 +110,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
         options={options}
         value={value.map(String)}
         onChange={(v) => onChange(v.map(Number))}
-        disabled={disabled || !datesReady || state.kind === 'loading'}
+        disabled={disabled || state.kind !== 'ok'}
         placeholder={datesReady ? 'Pilih kerja sama…' : 'Isi tanggal mulai dan selesai terlebih dahulu'}
         searchPlaceholder="Cari nomor dokumen, mitra, atau negara…"
         emptyText="Tidak ada kerja sama yang berlaku pada tanggal kegiatan."

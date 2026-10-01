@@ -17,7 +17,7 @@ async function uploadPdf(page: Page, dropTestId: string, name: string) {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(() => {
-  if (!process.env.E2E_SKIP_RESET) resetDb();
+  if (process.env.E2E_SKIP_DB_RESET !== '1') resetDb();
 });
 
 test('ua-fti: create draft, AT-10 unknown NRP blocks, upload IA/IR, submit', async ({ page }) => {
@@ -35,6 +35,7 @@ test('ua-fti: create draft, AT-10 unknown NRP blocks, upload IA/IR, submit', asy
   await page.getByLabel('Negara *').selectOption('JP');
   await page.getByLabel('Deskripsi *').fill('Pertukaran mahasiswa satu minggu.');
 
+  await expect(page.locator('#f-document_ids-hint')).toContainText('berlaku pada tanggal kegiatan');
   await page.locator('#f-document_ids').click();
   await page.getByRole('option').first().click();
   await page.keyboard.press('Escape');

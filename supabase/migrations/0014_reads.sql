@@ -213,7 +213,9 @@ begin
   if p_kpi is null or p_kpi not in ('1.1','1.19.S1','1.19.24','1.19.S8','base') then perform realisasi._invalid('kpi'); end if;
   v_unit := realisasi._forced_unit(p_unit_id);
   c := realisasi._period_ctx(p_ay_id, coalesce(p_period, 'live'), p_snapshot_id);
-  create temp table if not exists _dd_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_late boolean) on commit drop;
+  if to_regclass('pg_temp._dd_items') is null then
+    create temp table _dd_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_late boolean) on commit drop;
+  end if;
   truncate _dd_items;
   insert into _dd_items select * from realisasi._drill_items(c, v_unit);
 
