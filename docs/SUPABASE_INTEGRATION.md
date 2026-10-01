@@ -86,6 +86,16 @@ Views cannot be FK targets, so every FK to the former `public.*` stubs was dropp
 
 The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Accounts without a Supabase Auth user still get a stable uuid.
 
+## Deploy status
+
+- 2026-10-01: preflight on `simks-partnership` passed via the Supabase connector (read-only): the 10 SIMKS tables
+  the adapter reads are owned by `postgres` with RLS on but **not forced**; `auth.uid()` exists; schemas
+  `realisasi`, `kerjasama`, `mock_baak`, `mock_hr` are absent; existing cron jobs are `simks-sapu-sla` and
+  `simks-sapu-kedaluarsa` (untouched). Local rehearsal (`--rehearse`) passes.
+- **Not yet applied.** Waiting for the connection string in the environment variable **`SUPABASE_DB_URL`**
+  (session pooler, port 5432). With it set, run steps 3–4 below as
+  `DATABASE_URL="$SUPABASE_DB_URL" scripts/db-deploy-supabase.sh --check` and then without `--check`.
+
 ## Deploy steps (lead)
 1. **Rehearse locally**:
    `DATABASE_URL=postgresql://postgres@localhost:54322/sim_realisasi_rehearsal scripts/db-deploy-supabase.sh --rehearse`
