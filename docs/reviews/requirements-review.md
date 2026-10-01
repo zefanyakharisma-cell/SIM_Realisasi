@@ -201,6 +201,8 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Repro:** submit RL-2026-0101 (needs both tracks). kepala.io gets two "Pengajuan baru: RL-2026-0101", one linked to each queue.
 - **Fix:** acceptable as-is, since there are two links. If not intended, dedupe recipients per event and link to the activity.
 
+**Resolution (fixed, WP-DB fix):** `submit_activity` sends the Mobility notification for a submission or resubmission through the new `_notify_team_except('mobility', 'partnership', …)`, which skips anyone the Partnership notification already reached (io_admin). The mobility-only resubmit path (only Mobility in revision) still notifies the whole mobility team. Test: `supabase/tests/12_state_review.sql` (L-4 checks).
+
 #### L-5. Mobility has the register view right but no nav entry
 - **Location:** `components/layout/nav.ts` shows "Kegiatan Diketahui" only for `known.manage`.
 - **Detail:** Rules §10 gives the mobility team "view" on the register, and the page allows `known.view`, but it is reachable only by URL or the S8 card link. Contract amendment 9 chose this deliberately, but it contradicts Rules §10, which is authoritative.
@@ -210,6 +212,8 @@ The core flows and all 12 acceptance scenarios work end to end in the UI. The ga
 - **Location:** `supabase/seed/05_notifications.sql` + `90_freeze.sql`.
 - **Repro:** after `db-reset`, rektorat sees three AY 2025/2026 "Snapshot dibekukan" notifications. One is dated 30 Agu 2026 (seed row). Two are dated at reset time, created by `freeze_snapshot` with `now_ts()` instead of the freeze `as_of`.
 - **Fix:** drop the hand-written seed row, or suppress notifications when freezing from the seed. Consider stamping `created_at` with `p_as_of`.
+
+**Resolution (fixed, WP-DB fix):** the hand-written `snapshot_frozen` rows are removed from `05_notifications.sql`. `90_freeze.sql` now dates the notifications and outbox rows created by the seeded freezes at each snapshot's `frozen_at` and marks them read for io_admin. The step is idempotent. Each recipient now has one notification per seeded snapshot, and it links to that snapshot. Test: `supabase/tests/31_snapshots_review.sql` (L-6 checks).
 
 #### L-7. Submitters cannot download snapshot workbooks or the archive
 - **Location:** `/api/export/snapshot-archive` and `/api/export/snapshot` return 403 for submitters, and Laporan hides Arsip for them.

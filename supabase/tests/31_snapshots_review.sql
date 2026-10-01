@@ -1,6 +1,13 @@
 -- 31_snapshots_review: regressions from docs/reviews/database-review.md (M3, M4, M5).
 \ir _helpers.inc
 
+-- ---- requirements-review L-6: one "Snapshot dibekukan" per seeded snapshot, dated at its frozen_at -------
+select pg_temp.eq((select count(*) from realisasi.notifications where recipient_id = :'VIEW' and kind = 'snapshot_frozen'), 2::bigint,
+                  'L-6 viewer has one notification per seeded snapshot');
+select pg_temp.ok((select bool_and(n.created_at = k.frozen_at) from realisasi.notifications n
+                     join realisasi.kpi_snapshots k on n.link = '/realisasi/laporan?report=arsip&snapshot=' || k.id
+                    where n.kind = 'snapshot_frozen'), 'L-6 seeded snapshot notifications dated at frozen_at');
+
 -- ---- M4: freeze_snapshot ignores caller-supplied as_of/actor for users -------------------------
 :as_admin
 select pg_temp.throws($$select realisasi.freeze_snapshot(2, 'ganjil_ytd', '2027-03-02 01:00+07', '00000000-0000-4000-8000-000000000003')$$,

@@ -43,6 +43,8 @@ win as (select *, event_group_id as dedupe_key from qa where start_date between 
 ```
 Pick the representative activity per (unit, group) the same way. Also update the "Unit: one row per distinct (nrp, activity_id)" wording in CONTRACTS §4.2, because it contradicts R-38. Add a test with a co-unit on a linked pair.
 
+**Resolution (fixed, WP-DB fix):** `_kpi_items_scoped` (0012) dedupes by `(scope, event group)` at both levels for 1.1, S1 and S8, so a unit on two linked activities counts the event once and each unit of a linked event still counts it (R-39). Unit-level chart counts (`by_country`, `by_sdg`, `top_partners`) also use distinct event groups. CONTRACTS §4.2 wording is amended (WP-DB amendment 16). Test: `supabase/tests/23_kpi_review.sql` (H1 block).
+
 ### H2. Auto-renewed chains count as active forever, even after termination or replacement (R-04, R-43)
 **Files:**
 - `0004_views.sql:21`: `bool_or(auto_renewed)` over *all* docs of the chain.
@@ -65,6 +67,8 @@ select document_id from realisasi.documents_valid_between('2026-09-01','2026-09-
 - The active test becomes `(c.auto_renewed and c.terminated_at is null) or c.chain_end >= p_from`.
 - In `documents_valid_between`, use `(d.auto_renewed and d.terminated_at is null) or coalesce(d.terminated_at::date, d.end_date) >= p_start`. Optionally also require `d.terminated_at::date >= p_start` for auto-renewed docs.
 
+**Resolution (fixed):** `v_chains` takes `auto_renewed` from the chain's current valid document and exposes its `terminated_at` (an additive column). KPI 1.19.24 and `agreement_flags` treat a chain as open-ended only when `auto_renewed and terminated_at is null`. `documents_valid_between` ends a document at its termination date, and ends an auto-renewed document the day before its first valid successor starts. Test: `23_kpi_review.sql` (H2 block: termination and expired fixed-term replacement).
+
 ### H3. KPI 1.19.S8 gap entries disappear when matched to a non-verified, later-rejected or domestic activity (R-49/R-50, R-53)
 **Files:** `0010_rpc_duplicates_known.sql:201-213` (`match_known_activity` accepts any non-draft, non-rejected activity) and `0012_kpi.sql:40-45` (the gap counts only `status='unmatched'`). `partnership_reject` (`0009:71-86`) does not revert matches.
 
@@ -82,6 +86,8 @@ select realisasi.partnership_reject('a0000000-0000-4000-8000-000000000025','not_
 - In `kknown`, count a known entry as a gap unless it is matched to an activity that is a qualifying `reported` item (verified as of `p_as_of`, international). That is, gap = `status='unmatched' or (status='matched' and not exists (… matched activity in qa and intl …))`.
 - In `partnership_reject`, revert matches to `unmatched` and log it.
 - Optionally, restrict `match_known_activity` to verified (or in-verification) activities only.
+
+**Resolution (fixed):** the S8 gap now counts every international known entry in the window unless it is matched to an activity that is verified as of `as_of` and international. `partnership_reject` reverts the activity's matches to `unmatched` and logs `verification/partnership/unmatch_known`. `match_known_activity` is unchanged; the KPI rule makes it safe. Tests: `23_kpi_review.sql` (H3 block); `22_kpi_s1_s8.sql` (as-of and R-50 expectations updated for the new rule).
 
 ### H4. Changing Jenis during a Partnership revision can deadlock the unit, and leaves orphan pending versions (R-24, R-11/R-12)
 **Files:**
@@ -107,6 +113,8 @@ select realisasi.save_participants(id, '[{"section":"inbound","nrp":"X01260012",
 - Allow unit participant edits whenever `partnership_status='revision_requested'`, whatever the mobility status. `submit_activity` already promotes a draft version and resets mobility.
 - When promoting a new version, mark any older `pending` version `superseded`. Alternatively, add a partial unique index `one_pending_pset (activity_id) where status='pending'` to enforce it.
 
+**Resolution (fixed):** `_can_edit_participants` lets the unit edit participants whenever Partnership is in revision, whatever the Mobility status. On promotion, `submit_activity` marks any older `pending` version `superseded`, and a new unique partial index `one_pending_pset` enforces at most one pending version. Test: `supabase/tests/12_state_review.sql` (H4 block: type 3→1 with M pending; resubmit, approve, no orphan).
+
 ### H5. `storage_put` silently overwrites already-registered files, including IA/IR of verified and frozen activities (R-30, R-31, R-64)
 **File:** `0008_rpc_files.sql:58-61` (`on conflict (path) do update set data = …`).
 
@@ -120,6 +128,8 @@ select realisasi.storage_put('<current IA path of S-05>','application/pdf', conv
 ```
 
 **Fix:** make blobs immutable. Use plain `insert` and raise `VALIDATION_INVALID`/`FILE_FORBIDDEN` on conflict, or allow overwrite only while no `activity_files` / `participant_students.transcript_path` row references the path. Paths already contain a fresh uuid, so legitimate clients never need an overwrite.
+
+**Resolution (fixed):** `storage_put` refuses to overwrite a path that `activity_files.storage_path` or `participant_students.transcript_path` references, or that another user uploaded (`FILE_FORBIDDEN`). Only the uploader may retry an unreferenced upload. Test: `supabase/tests/41_access_review.sql` (H5 block).
 
 ### H6. Dashboard and freeze scale with units × documents: the per-unit recursion re-evaluates `v_chains` (a recursive function per document) every time
 **Files:**
@@ -141,6 +151,8 @@ Production SIM Kerjasama data will be in the second range. The landing page, `fr
 - Build `by_unit` from **one** item computation that carries `unit_id` (join `activity_units` and `document_scope_units` once, group by unit) instead of N recursive `compute_kpis` calls.
 - Add a regression timing test with ~1,000 documents.
 
+**Resolution (fixed):** chain membership comes from one recursive pass (`_chain_map()`), which `v_chains`, `agreement_flags`, `agreement_realization` and the KPI numerator use. `compute_kpis` builds the university items and all per-unit items in ONE `_kpi_items_scoped(…, 'all')` pass into a temp table, then runs `_kpi_values` per unit. The 1.19.24 international flag is carried on the items, so `v_chains` is not re-joined. On the scaled copy (+50 units, +1,500 docs, +6,200 activities): admin live dashboard 6.0 s → 0.8 s, `compute_kpis` (full year) 3.1 s → 0.65 s, `agreement_flags` 108 → 22 ms, `v_chains` 75 → 11 ms. Pre-fix and post-fix builds return identical result hashes on a scaled copy without auto-renewed documents. Tests: `supabase/tests/80_perf.sql` (`by_unit` = per-unit `compute_kpis` for all 57 units, plus timing budgets).
+
 ---
 
 ## MEDIUM
@@ -161,6 +173,8 @@ select realisasi.edit_verified_activity('…15','{"type_id":2}','x');
 
 **Fix:** when `type_id` changes on a verified activity, require the approved set (or a mobility draft committed in the same flow) to satisfy R-11/R-12 for the new type. Otherwise raise `R12_*`/`R11_*`. Alternatively, forbid Jenis changes post-verification for Partnership and route them through io_admin with the same checks.
 
+**Resolution (fixed):** when `edit_verified_activity` changes `type_id`, it checks the approved participant set against the new Jenis (`_check_pset_for_type`). It raises `R11_PARTICIPANTS_REQUIRED`, `R12_OUTBOUND_STUDENT_REQUIRED` or `R12_INBOUND_STUDENT_REQUIRED`. Test: `12_state_review.sql` (M1 block).
+
 ### M2. Frozen snapshot participant exports drift after post-freeze edits (R-56, R-59, AT-12)
 **File:** `0014_reads.sql:277-302`. `kpi_participant_rows` joins the **current** `approved` version (`v.status='approved'`) to the snapshot's `activity:nrp` items.
 
@@ -169,6 +183,8 @@ select realisasi.edit_verified_activity('…15','{"type_id":2}','x');
 **Repro:** Genap 2025/2026 snapshot: kpi_1_1.total 19, export rows 19. Commit a participant edit on S-15 that removes 2 students: total 19, export rows **17**.
 
 **Fix:** store the pset version id in the item, e.g. `ref_id = '<activity>:<nrp>:<version_id>'`, or add an `activity_id`/`set_version_id` column to `kpi_snapshot_items`, and join on that version. Superseded versions are kept read-only, so the rows remain available.
+
+**Resolution (fixed):** the counted participant version is resolved as of the KPI `as_of`: the latest approved or superseded version whose `reviewed_at <= as_of`, falling back to the current approved version (`_pset_as_of`, and the same rule inside `_kpi_items_scoped`). `kpi_participant_rows` and the frozen unit drill-down therefore read the version the snapshot counted. `ref_id` is unchanged. Test: `23_kpi_review.sql` (M2 block: still 19 export rows with the removed students, and the frozen unit drill equals the frozen value).
 
 ### M3. "Previous snapshot" = latest `frozen_at` of any AY, so one re-freeze breaks late-addition reporting (R-57, R-58)
 **Files:** `0013_snapshots.sql:4-9` (`_prev_snapshot`), used at l.44 and l.98.
@@ -183,6 +199,8 @@ select realisasi.edit_verified_activity('…15','{"type_id":2}','x');
 | (B) Ganjil 2025/2026 re-frozen on 2026-10-01 first | **No** (0 late rows) |
 
 **Fix:** define P by period order, not by `frozen_at`. P = the live snapshot of the immediately preceding period: (AY, ganjil) → (AY-1, genap), (AY, genap) → (AY, ganjil). A re-freeze keeps its period's P.
+
+**Resolution (fixed):** `_prev_snapshot(ay, kind, before)` is the snapshot of the immediately preceding period ((AY, ganjil) → (AY-1, genap); (AY, genap) → (AY, ganjil)) that was live at the snapshot's `frozen_at`. Re-freezing an unrelated period no longer moves P. Test: `supabase/tests/31_snapshots_review.sql` (M3 block).
 
 ### M4. `freeze_snapshot` trusts caller-supplied `p_as_of` and `p_actor` (audit spoofing, future-dated freezes)
 **Files:** `0013_snapshots.sql:71-78` and `0015_jobs.sql:18`.
@@ -201,6 +219,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Honour `p_as_of`/`p_actor` only for the system caller (`auth.uid() is null` **and** `current_user` not in (`authenticated`,`anon`)). For users, force `as_of = now_ts()`, `actor = auth.uid()` and `cutoff_date <= today()` (or require a reason).
 - Use the same `current_user` guard in `run_daily_jobs`.
 
+**Resolution (fixed):** `_is_system_caller()` = `auth.uid() is null` and the session role is not `authenticated`/`anon`. Only the system caller may pass `p_as_of`/`p_actor`. For users, `freeze_snapshot` stamps `now_ts()`/`auth.uid()` and raises the new code `R55_BEFORE_CUTOFF` before the semester cutoff. `run_daily_jobs` uses the same guard. An `authenticated` session with empty claims gets `AUTH_REQUIRED`. Test: `31_snapshots_review.sql` (M4 block).
+
 ### M5. Linking activities in a frozen window changes KPIs but is not a "post-freeze change" (R-31)
 **File:** `0010_rpc_duplicates_known.sql:30-33`. `_merge_groups` logs kind `verification`, so `_log` sets `in_frozen_period=false`. `unlink_activity` uses kind `update` and *is* flagged, which is inconsistent.
 
@@ -208,12 +228,16 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 
 **Fix:** compute `in_frozen_period` for `link_duplicate` when the activity is verified. One option is `_log` computing it for any kind when `status='verified'`; another is logging the merge on verified activities as kind `update`.
 
+**Resolution (fixed):** `_merge_groups` flags each `link_duplicate` log row `in_frozen_period` when the activity is verified and its date is in a frozen window. The kind stays `verification`. Test: `31_snapshots_review.sql` (M5 block).
+
 ### M6. Partnership (counts only) can read NRPs and row notes through `activity_log`
 **Files:** `0009_rpc_verification.sql:135-136` (diff `row_notes` with NRP and note) and `:200-210` (`commit_participant_edit` diff of added/removed NRPs and employee ids). The log is readable by Partnership through the RLS policy at `0006_rls.sql:278` and through `activity_detail.log` (`0014:450-453`).
 
 **Repro:** as io.partnership, `select diff from activity_log where action='edit'` after a mobility edit returns `{"students":{"removed":["D31245931","D32237864"]}…}`. `participant_students` returns 0 rows for the same user.
 
 **Fix:** store participant diffs as counts in the shared log (e.g. `{"students":{"added":2,"removed":1}}`) and keep identifiers in a mobility-only table/column. Alternatively, mask `diff`/`note` for `track='mobility'` rows unless `can_view_participants`.
+
+**Resolution (fixed):** the `activity_log` RLS policy hides rows whose diff carries `students`/`staff`/`row_notes` unless the caller may see participant identifiers (io_admin, mobility team, submitters of the activity). `activity_detail.log` and `snapshot_post_freeze_changes` replace those diffs with counts (`{"students":{"added":n,"removed":m}}`, `"row_notes": n`) for everyone else. The stored log is unchanged. Test: `41_access_review.sql` (M6 block).
 
 ### M7. Read RPCs disclose data that Rules §10 / Schema §6 hide
 **Files:** `0014_reads.sql:519-576` (`agreement_realization`) and `0014_reads.sql:231-241` (`kpi_drilldown` S8 known rows).
@@ -226,12 +250,16 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - In `agreement_realization`, filter `v_acts` with `can_view_activity(a.id)` for non-IO users, or return counts only.
 - Return known rows only when `is_io()`, otherwise counts, or titles without `source_reference`.
 
+**Resolution (fixed):** `agreement_realization.activities` lists only activities the caller can view; the summary counts stay complete. `kpi_drilldown(…,'1.19.S8')` returns known rows to non-IO callers with `title`, `partner_name`, `source` and `source_reference` set to null. The shape is unchanged. Test: `41_access_review.sql` (M7 block).
+
 ### M8. `register_activity_file` trusts the caller's `p_mime`/`p_size_bytes` (R-13 bypass)
 **File:** `0008_rpc_files.sql:120-134`. The code uses `coalesce(p_mime, b.mime)`.
 
 **Repro:** upload a PNG to `…/ia/x.png` (mime `image/png` is allowed for that bucket), then register it as IA with `p_mime => 'application/pdf'`. Result: an IA with `registered_mime=application/pdf`, `blob_mime=image/png`, magic `89504e47`.
 
 **Fix:** always use `b.mime` and `b.size_bytes` from `file_blobs` and ignore the caller's values. For `ia`/`ir`, additionally require the blob to start with `%PDF-`.
+
+**Resolution (fixed):** `register_activity_file` always stores the blob's own `mime` and `size_bytes`. For IA/IR it requires `application/pdf` and the `%PDF-` magic bytes. The caller's `p_mime`/`p_size_bytes` are ignored, but the signature is unchanged. Test: `41_access_review.sql` (M8 block).
 
 ### M9. `demo_today` is a production hazard: one admin setting shifts `today()`/`now_ts()` for everyone
 **Files:** `0003_core.sql:4-18` and `0011_rpc_admin.sql:34-39`.
@@ -241,6 +269,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Every `verified_at`, `submitted_at` and log is stamped in the future, and R-08 accepts activities that have not ended.
 
 **Fix:** allow `demo_today` only when a deployment flag is set (e.g. `current_setting('app.demo_mode', true) = 'on'` or an env-provisioned row the RPC cannot write). In `run_daily_jobs`, freeze only when the real date has passed the cutoff (`cutoff_date <= (now() at time zone 'Asia/Jakarta')::date`).
+
+**Resolution (fixed, gated):** a new table `realisasi.deployment_flags` (no grants, no RPC writes it) holds `demo_time_travel`. `today()`/`now_ts()` honour `demo_today` only when the flag is enabled, and `update_settings` rejects a non-null `demo_today` otherwise (`SETTINGS_INVALID`; clearing it is always allowed). The demo seed (`01_config.sql`) enables the flag. Production does not run seeds, so the flag is absent and treated as off. To disable it on an existing database: `update realisasi.deployment_flags set enabled = false where key = 'demo_time_travel'`. With the flag off, `run_daily_jobs` freezes by the real date. Time-travel tests (`40_rls`, `50_jobs`, `60_duplicates_known`) still pass. Test: `41_access_review.sql` (M9 block).
 
 ### M10. RLS and list views call per-row definer helpers, giving O(rows) role lookups
 **Files:**
@@ -260,6 +290,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Mark `business_days_between` `parallel safe` and compute it from a calendar table, or a closed-form weekday count minus a holidays count.
 - Replace `activity_linked_count` with a window `count(*) over (partition by event_group_id)`.
 
+**Resolution (fixed):** RLS policies evaluate role checks once as `(select …)` initplans and test membership against hashed id sets from granted definer helpers: `my_activity_ids()`, `visible_activity_ids()`, `my_pset_ids()` and `sees_participant_identifiers()`. Semantics are those of `can_view_activity`/`can_view_participants`. `business_days_between` is closed-form and `parallel safe`. On the scaled copy: `v_activity_list` as FTI 561 → 9 ms, as viewer 497 → 70 ms, Partnership queue 298 → 3 ms, `participant_students` as FTI 3.7 s → 2 ms; results are identical. `activity_linked_count` stays a definer function, because the contract counts across RLS (amendment 4) and a window function in the invoker view would count only visible rows. Tests: `80_perf.sql` (timing budgets); `40_rls.sql` (unchanged visibility).
+
 ---
 
 ## LOW
@@ -271,10 +303,14 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 
 **Fix:** add `a.status <> 'rejected'` to both.
 
+**Resolution (fixed):** `_can_edit_participants` and `activity_detail.permissions.can_submit` exclude `status='rejected'`. Test: `12_state_review.sql` (L1 block).
+
 ### L2. Orphan `pending` participant versions
 **File:** `0007_rpc_submission.sql:742-767` (see H4).
 
 **Fix:** supersede older pending versions on promotion, or add a unique partial index on `status='pending'`.
+
+**Resolution (fixed with H4):** older pending versions are superseded on promotion, and the unique partial index `one_pending_pset` is added. Test: `12_state_review.sql`.
 
 ### L3. Duplicate detection gaps (R-33)
 **File:** `0007_rpc_submission.sql:731`.
@@ -284,6 +320,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Two activities submitted concurrently each see the other as `draft` (READ COMMITTED), so neither scan finds the pair.
 
 **Fix:** rescan on resubmit and on verified edits. Add a daily rescan in `run_daily_jobs`, or take `pg_advisory_xact_lock(chain_id)` for every chain of the activity before scanning.
+
+**Resolution (fixed in part):** `submit_activity` rescans on a Partnership resubmit. `edit_verified_activity` rescans when name, dates or agreements change. `_scan_duplicates` takes `pg_advisory_xact_lock` per renewal chain (in sorted order), so concurrent submits on one chain see each other. Not done: a daily full rescan, which is unnecessary once every change path rescans. Test: `supabase/tests/61_dup_review.sql` (L3 block).
 
 ### L4. Event-group edge cases
 **File:** `0010_rpc_duplicates_known.sql`.
@@ -298,6 +336,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Add the status check to `link_duplicates`.
 - Auto-resolve open candidates whose pair already shares a group.
 
+**Resolution (fixed):** `link_duplicates` refuses draft or rejected activities (`STATE_INVALID`). After a merge, open candidates whose pair now shares a group are set to `linked`. `unlink_activity` recomputes connected components over the remaining `linked` candidates: the component with the earliest-created member keeps the group, and each other component gets a new group and an `unlink_duplicate` log. Tests: `61_dup_review.sql` (L4 block); `60_duplicates_known.sql` updated (the second open candidate is now auto-resolved).
+
 ### L5. Granted definer helpers allow probing any activity id; registry lookup is open to every role
 **Files:** `0016_grants.sql:125-133` and `0007_rpc_submission.sql:4-16`.
 
@@ -309,6 +349,8 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 - Return null unless `can_view_activity(p)`.
 - Restrict `lookup_students`/`lookup_employees` to submitter, mobility and io_admin, and cap the array length.
 
+**Resolution (fixed in part):** `lookup_students`/`lookup_employees` are limited to submitter, io_admin and the mobility team (`AUTH_FORBIDDEN` otherwise) and capped at 500 ids (`VALIDATION_INVALID`). Not changed: `activity_participant_total`, `activity_linked_count`, `in_frozen_period` and `is_late_addition` still answer for any id. Their inputs are random v4 uuids that cannot be enumerated, their outputs are non-personal counts/booleans, and adding `can_view_activity` would put a per-row definer call back into `v_activity_list` (M10). Test: `41_access_review.sql` (L5 block).
+
 ### L6. `search_path` order puts `public` before `extensions`
 **Files:** all functions (`set search_path = realisasi, public, extensions, pg_temp`).
 
@@ -316,18 +358,26 @@ Both functions also skip all checks when `auth.uid()` is null. That includes any
 
 **Fix:** use `realisasi, extensions, public, pg_temp`, or schema-qualify `extensions.similarity`. Keep CREATE on `public` revoked.
 
+**Resolution (fixed):** every function now uses `set search_path = realisasi, extensions, public, pg_temp`. Test: `01_smoke.sql` (search_path assertion updated).
+
 ### L7. Concurrency nits
 - **Deadlock risk:** `_merge_groups` (`0010:16-17`) locks `a` then `b` in argument order. `link_activities(A,B)` running concurrently with `link_activities(B,A)` or `link_duplicates` can deadlock. Lock both with `order by id for update`.
 - **Freeze/verify race:** a verification whose `verified_at` is earlier than a concurrent freeze's `as_of` but commits after the freeze's snapshot is neither in the snapshot nor a late addition. Take `lock table realisasi.kpi_snapshots in share row exclusive mode` in `_freeze`, plus a matching lock in the verify RPCs, or use `verified_at = clock_timestamp()` at commit time via a deferred trigger.
+
+**Resolution (fixed in part):** `_merge_groups` and `unlink_activity` lock the affected rows `order by id for update` (test: `61_dup_review.sql`, L7). Not fixed: the freeze/verify race. Closing it needs a table lock shared by `_freeze` and every verify RPC, plus commit-time `verified_at` stamping, which conflicts with R-28's transaction-time `now_ts()` semantics. The exposure is a verification committing within milliseconds of the 01:00 WIB scheduled freeze. Left as a known limitation.
 
 ### L8. Derived values that never refresh
 - `activity_documents.chain_id` (`0005:187-195`) is stored once. If SIM Kerjasama later sets `predecessor_id` on a root document, the stored id no longer matches `v_chains.chain_id`, and the KPI 1.19.24 numerator misses the activity. Resolve it via the chain map at query time, or refresh it with a job.
 - `reporting_deadline` is only recomputed when `end_date` changes. Changing the `reporting_deadline_days` setting leaves existing drafts' deadlines and reminders on the old value. Recompute drafts in `update_settings`.
 
+**Resolution (fixed):** the KPI numerator resolves chains from `activity_documents.original_document_id` through `_chain_map()` at query time. `run_daily_jobs` also refreshes the stored `activity_documents.chain_id`. `update_settings` recomputes drafts' `reporting_deadline` when `reporting_deadline_days` changes. Test: `23_kpi_review.sql` (L8 block).
+
 ### L9. Rule nits
 - **R-52:** `known_match_suggestions` (`0010:195-196`) compares only `start_date`. A multi-week activity whose span contains the known date is missed if it started more than 7 days earlier. Use `k.activity_date between a.start_date - w and a.end_date + w`.
 - **R-11:** not enforced in `commit_participant_edit` (`0009:192-197`). Mobility can commit an empty set for a `requires_mobility_review` type with direction `none`, e.g. Staff Outbound.
 - **R-63:** `kpi_participant_rows` returns personal data without writing `export_log` itself. It relies on the app calling `log_export`. Consider logging inside the RPC.
+
+**Resolution (R-52, R-11 fixed; R-63 not changed):** `known_match_suggestions` matches when the known date is within `[start_date - w, end_date + w]`. `commit_participant_edit` enforces R-11 through `_check_pset_for_type`. R-63 is unchanged, because the app logs every export through `log_export` with the real filters and row count, and logging inside `kpi_participant_rows` would double-log. Tests: `23_kpi_review.sql` (L9) and `12_state_review.sql` (L9 R-11).
 
 ### L10. Missing indexes on FKs and audit columns
 These are small today but need to be indexed before production volumes:
@@ -341,6 +391,8 @@ These are small today but need to be indexed before production volumes:
 - `activity_external_persons.country_code`
 
 `activity_log (activity_id, action, created_at)` would also help the R-24 lookups and the `activity_detail` revision lookups.
+
+**Resolution (fixed):** 0002 adds indexes on `activities.created_by`, `activity_log.actor_id`, `activity_log (activity_id, action, created_at)`, `known_activities.created_by`, `known_activities (status, activity_date) where is_international`, `activity_files.uploaded_by`, `participant_set_versions.submitted_by/reviewed_by`, `event_groups.created_by`, `kpi_snapshots.frozen_by`, `activity_external_persons.country_code` and `participant_students.transcript_path` (partial). No dedicated test; the suite runs on the new schema.
 
 ---
 

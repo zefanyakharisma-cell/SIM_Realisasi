@@ -390,6 +390,14 @@ language sql security definer set search_path = realisasi, extensions, public, p
   select null::void
 $$;
 
+-- team notification minus the members of another team already notified for the same event (requirements-review L-4)
+create function realisasi._notify_team_except(p_team realisasi.team, p_except realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
+language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select realisasi._notify_many(array(select unnest(realisasi._team_ids(p_team)) except select unnest(realisasi._team_ids(p_except))),
+                                p_kind, p_title, p_body, p_link);
+  select null::void
+$$;
+
 create function realisasi._notify_admins(p_kind text, p_title text, p_body text, p_link text) returns void
 language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._notify_many(realisasi._admin_ids(), p_kind, p_title, p_body, p_link);

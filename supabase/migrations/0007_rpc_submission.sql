@@ -746,7 +746,7 @@ begin
     perform realisasi._notify_team('partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
       'Kegiatan "' || a.name || '" diajukan untuk verifikasi kemitraan.', '/realisasi/verifikasi/kemitraan');
     if v_required then
-      perform realisasi._notify_team('mobility', 'submission_received', 'Pengajuan baru: ' || a.code,
+      perform realisasi._notify_team_except('mobility', 'partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
         'Kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
     end if;
     v_dups := realisasi._scan_duplicates(p_id);
@@ -805,7 +805,10 @@ begin
     if v_m_rev or (v_promote and not v_m_rev) then
       perform realisasi._log(p_id, 'revision', 'mobility', 'resubmit');
     end if;
-    if v_notify_m then
+    if v_notify_m and v_p_rev then
+      perform realisasi._notify_team_except('mobility', 'partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
+        'Data peserta kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
+    elsif v_notify_m then
       perform realisasi._notify_team('mobility', 'submission_received', 'Pengajuan baru: ' || a.code,
         'Data peserta kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
     end if;

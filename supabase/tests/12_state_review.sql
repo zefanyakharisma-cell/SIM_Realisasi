@@ -15,6 +15,13 @@ select realisasi.save_participants(pg_temp.aid(30), '[{"section":"internal","nrp
 select pg_temp.eq(realisasi.submit_activity(pg_temp.aid(30)) ->> 'mobility_status', 'pending', 'H4 resubmit succeeds; Mobility pending');
 select pg_temp.eq((select string_agg(version || ':' || status, ',' order by version) from realisasi.participant_set_versions where activity_id = pg_temp.aid(30)),
                   '1:superseded,2:pending', 'H4/L2 older pending version superseded on promotion');
+-- requirements-review L-4: io_admin is in both teams but gets one "Pengajuan baru" per submission
+select pg_temp.eq((select count(*) from realisasi.notifications where recipient_id = :'ADMIN' and title = 'Pengajuan baru: RL-2026-0030'), 1::bigint,
+                  'L-4 io_admin notified once for a resubmission that goes to both teams');
+reset role;
+select pg_temp.eq((select count(*) from realisasi.notifications where recipient_id = :'MOB' and title = 'Pengajuan baru: RL-2026-0030'
+                     and created_at = realisasi.now_ts()), 1::bigint, 'L-4 mobility team still notified');
+:as_admin
 :as_mob
 select realisasi.mobility_approve(pg_temp.aid(30));
 reset role;
