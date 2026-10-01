@@ -10,18 +10,52 @@ import { loginAs } from '@/lib/realisasi/actions/session';
 export const metadata: Metadata = { title: 'Masuk' };
 export const dynamic = 'force-dynamic';
 
-async function loadAccounts(): Promise<{ accounts: DemoAccount[]; failed: boolean }> {
+type DbFailure = 'unreachable' | 'auth' | 'not_installed' | 'other';
+
+/** Classifies a connection/query error so the page can say what to fix (no connection details are shown). */
+function classifyDbError(e: unknown): DbFailure {
+  const code = (e as { code?: unknown } | null)?.code;
+  if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || code === 'EAI_AGAIN' || code === 'CONNECT_TIMEOUT') {
+    return 'unreachable';
+  }
+  if (code === '28P01' || code === '28000') return 'auth';
+  if (code === '3F000' || code === '42P01' || code === '42883') return 'not_installed';
+  return 'other';
+}
+
+const DB_FAILURE_TEXT: Record<DbFailure, React.ReactNode> = {
+  unreachable: (
+    <>
+      Server basis data tidak dapat dihubungi. Periksa <code>DATABASE_URL</code>: di Vercel/hosting harus berupa alamat
+      Supabase (session pooler, port 5432), bukan <code>127.0.0.1</code>. Secara lokal, jalankan Postgres/Supabase terlebih dahulu.
+    </>
+  ),
+  auth: (
+    <>
+      Basis data menolak login. Periksa pengguna dan kata sandi pada <code>DATABASE_URL</code>.
+    </>
+  ),
+  not_installed: (
+    <>
+      Basis data terhubung, tetapi skema SIM Realisasi belum terpasang. Lokal: jalankan <code>npm run db:reset</code>. Supabase:
+      jalankan <code>scripts/db-deploy-supabase.sh</code>.
+    </>
+  ),
+  other: <>Basis data tidak dapat dibaca. Lihat log server untuk detailnya, lalu muat ulang halaman ini.</>,
+};
+
+async function loadAccounts(): Promise<{ accounts: DemoAccount[]; failure: DbFailure | null }> {
   try {
-    return { accounts: await listDemoAccounts(), failed: false };
+    return { accounts: await listDemoAccounts(), failure: null };
   } catch (e) {
     console.error('[login] cannot load demo accounts', e);
-    return { accounts: [], failed: true };
+    return { accounts: [], failure: classifyDbError(e) };
   }
 }
 
 export default async function LoginPage(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await props.searchParams;
-  const [{ accounts, failed }, current] = await Promise.all([loadAccounts(), getSessionUser().catch(() => null)]);
+  const [{ accounts, failure }, current] = await Promise.all([loadAccounts(), getSessionUser().catch(() => null)]);
   const demo = isDemoAuthEnabled();
 
   return (
@@ -55,9 +89,9 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
           </AlertDescription>
         </Alert>
       ) : null}
-      {failed ? (
-        <Alert variant="destructive" role="alert">
-          <AlertDescription>Basis data tidak dapat dihubungi. Jalankan <code>npm run db:reset</code> lalu muat ulang halaman ini.</AlertDescription>
+      {failure ? (
+        <Alert variant="destructive" role="alert" data-testid="db-failure" data-reason={failure}>
+          <AlertDescription>{DB_FAILURE_TEXT[failure]}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -115,7 +149,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
               </li>
             ))}
           </ul>
-          {demo && !failed && accounts.length === 0 ? (
+          {demo && !failure && accounts.length === 0 ? (
             <p className="text-sm text-muted-foreground" role="status">
               Belum ada akun demo. Jalankan <code>npm run db:reset</code>.
             </p>
