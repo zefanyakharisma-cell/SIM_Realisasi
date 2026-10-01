@@ -133,3 +133,7 @@ begin
     execute format('revoke all on public.%I from public, anon, authenticated', t);
   end loop;
 end $$;
+
+-- Marker: scripts/db-reset.sh only drops public SIMKS-shaped tables that carry this comment, so a real SIM Kerjasama
+-- database (e.g. a local `supabase start` with SIMKS migrations) is never wiped.
+comment on table public.dokumen_kerja_sama is 'sim-realisasi local SIMKS stub';

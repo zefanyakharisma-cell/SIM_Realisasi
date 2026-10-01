@@ -13,8 +13,8 @@ Requires Node 22 and Postgres 16 (with `pg_trgm`, `pgcrypto`).
 
 ```bash
 npm install
-cp .env.example .env.local            # DATABASE_URL for your local Postgres
-npm run db:reset                      # SIMKS-shaped stub + migrations + demo seed
+cp .env.example .env.local            # Supabase URL/key + DATABASE_URL (local: 127.0.0.1:54322/postgres)
+npm run db:reset                      # SIMKS-shaped stub + migrations + demo seed (refuses a real SIMKS DB)
 npm run dev                           # http://localhost:3000 → pick a demo account
 ```
 

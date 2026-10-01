@@ -40,6 +40,22 @@ esac
 
 PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -X -o /dev/null)
 
+# Never wipe a real SIM Kerjasama schema: the public SIMKS tables may only be dropped/seeded when they are absent or
+# are this repo's local stub (marked by a table comment in supabase/local/00_simks_stub.sql).
+# (Stubs created before the marker existed are recognised by the demo accounts' @demo.petra.ac.id emails.)
+SIMKS_MARK="$(psql "$DATABASE_URL" -X -tAc "select case
+    when obj_description('public.dokumen_kerja_sama'::regclass, 'pg_class') = 'sim-realisasi local SIMKS stub'
+      or (to_regclass('public.akun') is not null
+          and exists (select 1 from public.akun where email like '%@demo.petra.ac.id'))
+    then 'sim-realisasi local SIMKS stub' else '<real>' end
+  where to_regclass('public.dokumen_kerja_sama') is not null" 2>/dev/null || true)"
+if [ -n "$SIMKS_MARK" ] && [ "$SIMKS_MARK" != "sim-realisasi local SIMKS stub" ] && [ "${I_KNOW_THIS_DROPS_SIMKS:-}" != "yes" ]; then
+  echo "db-reset.sh refuses: $DATABASE_URL already has real SIM Kerjasama tables (public.dokumen_kerja_sama is not the local stub)." >&2
+  echo "Resetting would drop and overwrite SIMKS data. To install Realisasi on top of it use:" >&2
+  echo "  DATABASE_URL=... scripts/db-deploy-supabase.sh --check   (then without --check)" >&2
+  exit 2
+fi
+
 echo "Dropping schemas realisasi, kerjasama, mock_baak, mock_hr"
 "${PSQL[@]}" -c "drop schema if exists realisasi, kerjasama, mock_baak, mock_hr cascade"
 if [ "$RESET_PUBLIC_STUBS" != "0" ]; then
