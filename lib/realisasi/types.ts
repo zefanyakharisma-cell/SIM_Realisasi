@@ -707,12 +707,13 @@ export interface ChainKpiRow {
 export interface KnownKpiRow {
   row_type: 'known';
   known_id: number;
-  title: string;
+  /** null for non-IO callers (WP-DB amendment 27), like partner_name / source / source_reference. */
+  title: string | null;
   activity_date: DateString;
   unit_name: string | null;
   partner_name: string | null;
   country_code: string | null;
-  source: KnownSource;
+  source: KnownSource | null;
   source_reference: string | null;
 }
 

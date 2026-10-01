@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { withUser } from '@/lib/db';
 import { getSessionUser } from '@/lib/session';
-import { fileHref, newActivityFilePath, newTranscriptPath, putObject, validateUpload } from '@/lib/storage';
+import { MAX_FILE_BYTES, extensionForMime, fileHref, newActivityFilePath, newTranscriptPath, putObject, sniffMime, validateUpload } from '@/lib/storage';
+import { rateLimited } from '@/lib/api-guard';
+import { uploadLimiter } from '@/lib/rate-limit';
 import { ERROR_MESSAGES, errorResponse } from '@/lib/realisasi/errors';
 import type { RegisteredFile } from '@/lib/realisasi/types';
 
@@ -36,6 +38,13 @@ function cleanFilename(name: string): string {
 export async function POST(request: Request): Promise<Response> {
   const user = await getSessionUser();
   if (!user) return json(401, 'AUTH_REQUIRED');
+  // L-5: per-user upload budget.
+  const limit = uploadLimiter.hit(user.id);
+  if (!limit.ok) return rateLimited(limit, 'Terlalu banyak unggahan. Coba lagi beberapa menit lagi.');
+  // I-4: reject an oversized body before buffering it (10 MB file + multipart overhead).
+  if (Number(request.headers.get('content-length') ?? '0') > MAX_FILE_BYTES + 512 * 1024) {
+    return json(413, 'R13_FILE_TOO_LARGE');
+  }
 
   let form: FormData;
   try {
@@ -62,6 +71,8 @@ export async function POST(request: Request): Promise<Response> {
   const data = Buffer.from(await file.arrayBuffer());
   const check = validateUpload({ name: filename, type: file.type, size: data.length }, policy, data.subarray(0, 8));
   if (!check.ok) return json(400, check.code, check.message);
+  // L-3: store the sniffed type (validateUpload guarantees it equals the declared one).
+  const mime = sniffMime(data.subarray(0, 8)) ?? 'application/octet-stream';
 
   try {
     if (fields.target === 'transcript') {
@@ -77,11 +88,11 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const registered = await withUser(user.id, async (tx) => {
-      const path = newActivityFilePath(fields.activity_id, fields.target, filename);
-      await putObject(tx, path, data, file.type);
+      const path = newActivityFilePath(fields.activity_id, fields.target, `x.${extensionForMime(mime)}`);
+      await putObject(tx, path, data, mime);
       const [row] = await tx<{ r: RegisteredFile }[]>`
         select realisasi.register_activity_file(${fields.activity_id}::uuid, ${fields.target}::realisasi.file_kind,
-                                                ${path}::text, ${filename}::text, ${data.length}::int, ${file.type}::text) as r`;
+                                                ${path}::text, ${filename}::text, ${data.length}::int, ${mime}::text) as r`;
       return row!.r;
     });
     return Response.json(registered);

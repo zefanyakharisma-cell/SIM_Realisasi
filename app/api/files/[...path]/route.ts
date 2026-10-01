@@ -1,18 +1,16 @@
 import { withUser } from '@/lib/db';
 import { getSessionUser } from '@/lib/session';
-import { BUCKETS, getObject } from '@/lib/storage';
+import { getObject, isValidStoragePath } from '@/lib/storage';
 import { ERROR_MESSAGES, errorResponse } from '@/lib/realisasi/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_BUCKETS: ReadonlySet<string> = new Set(Object.values(BUCKETS));
-
-function safeDecode(s: string): string {
+function safeDecode(s: string): string | null {
   try {
     return decodeURIComponent(s);
   } catch {
-    return s;
+    return null;
   }
 }
 
@@ -29,17 +27,19 @@ export async function GET(_request: Request, props: { params: Promise<{ path: st
 
   const { path: segments } = await props.params;
   const decoded = segments.map(safeDecode);
-  if (decoded.length < 3 || !ALLOWED_BUCKETS.has(decoded[0]!) || decoded.some((s) => s === '' || s === '.' || s === '..')) {
+  // L-4: every decoded segment must be free of '/' (no encoded separators) and the joined key
+  // must match the strict grammar of keys this app writes — checked before any I/O.
+  const path = decoded.every((s): s is string => s !== null && !s.includes('/')) ? decoded.join('/') : '';
+  if (!isValidStoragePath(path)) {
     return Response.json({ code: 'FILE_NOT_FOUND', message: ERROR_MESSAGES.FILE_NOT_FOUND }, { status: 404 });
   }
-  const path = decoded.join('/');
 
   try {
     const { object, filename } = await withUser(user.id, async (tx) => {
       const obj = await getObject(tx, path);
       const [row] = await tx<{ filename: string | null }[]>`
         select filename from realisasi.activity_files where storage_path = ${path} order by version desc limit 1`;
-      return { object: obj, filename: row?.filename ?? decoded[decoded.length - 1]! };
+      return { object: obj, filename: row?.filename ?? path.slice(path.lastIndexOf('/') + 1) };
     });
     return new Response(new Uint8Array(object.data), {
       status: 200,

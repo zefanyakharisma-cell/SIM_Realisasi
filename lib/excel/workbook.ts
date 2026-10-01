@@ -60,9 +60,21 @@ export function toExcelDate(v: string | Date | null | undefined, withTime = fals
   return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
 }
 
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+/**
+ * Formula-injection guard (security review L-6, OWASP "CSV injection"): text that starts with
+ * = + - @ TAB or CR gets a leading apostrophe, so it stays text even after the user re-saves the
+ * workbook as CSV or re-enters the cell. Use for every free-text cell (and any future CSV export).
+ */
+export function neutralizeFormula(text: string): string {
+  return FORMULA_LEAD.test(text) ? `'${text}` : text;
+}
+
 /** Converts a raw value to what exceljs should store for the given format. */
 function coerce(value: CellValue, fmt: CellFormat | undefined): ExcelJS.CellValue {
   if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && fmt !== 'date' && fmt !== 'datetime') return neutralizeFormula(value);
   switch (fmt) {
     case 'date':
       return typeof value === 'string' || value instanceof Date ? toExcelDate(value) : value;

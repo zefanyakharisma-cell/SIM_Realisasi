@@ -62,7 +62,8 @@ export function SubmitPanel({
   const [serverFailures, setServerFailures] = useState<Failure[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const items = (checklist ?? []).filter((c) => c.code !== 'LATE_NOTICE');
+  // Requirements review L-3: the "new participant version" rule only applies to a resubmission.
+  const items = (checklist ?? []).filter((c) => c.code !== 'LATE_NOTICE' && (resubmit || c.code !== 'R21_NEW_VERSION_REQUIRED' || !c.ok));
   const late = (checklist ?? []).find((c) => c.code === 'LATE_NOTICE' && c.late);
   const failing = items.filter((c) => !c.ok);
   // M-1: unsaved Detail edits (revision mode has no autosave) also block "Ajukan ulang".

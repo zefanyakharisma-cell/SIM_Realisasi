@@ -70,7 +70,7 @@ select pg_temp.ok(not has_table_privilege('authenticated', t, 'SELECT'), 'no sel
   from unnest(array['realisasi.file_blobs', 'realisasi.job_marks', 'mock_baak.students', 'mock_hr.employees']) t;
 select pg_temp.ok(has_table_privilege('authenticated', t, 'SELECT'), 'select granted on ' || t)
   from unnest(array['realisasi.v_activity_list', 'realisasi.v_chains', 'realisasi.v_activity_documents', 'realisasi.v_known_activities',
-                    'realisasi.v_duplicate_candidates', 'realisasi.activities', 'realisasi.kpi_snapshots', 'public.documents']) t;
+                    'realisasi.v_duplicate_candidates', 'realisasi.activities', 'realisasi.kpi_snapshots', 'kerjasama.documents']) t;
 select pg_temp.ok((select reloptions from pg_class where oid = v::regclass) @> array['security_invoker=true'], 'security_invoker ' || v)
   from unnest(array['realisasi.v_activity_documents','realisasi.v_activity_list','realisasi.v_known_activities','realisasi.v_duplicate_candidates']) v;
 
@@ -93,7 +93,7 @@ select pg_temp.ok(not exists (select 1 from mock_baak.students where nrp = 'Z999
 select pg_temp.eq((select count(*) from mock_hr.employees), 25::bigint, '25 employees');
 select pg_temp.eq((select count(*) from mock_hr.employees where status = 'inactive'), 2::bigint, '2 inactive employees');
 select pg_temp.ok((select bool_and(employee_id ~ '^PG[0-9]{6}$') from mock_hr.employees), 'employee id format');
-select pg_temp.eq((select count(*) from public.profiles), 8::bigint, '8 demo accounts');
+select pg_temp.eq((select count(*) from kerjasama.profiles), 8::bigint, '8 demo accounts');
 select pg_temp.eq((select count(*) from realisasi.activity_types), 9::bigint, '9 Jenis');
 select pg_temp.eq((select count(*) from realisasi.sdgs), 17::bigint, '17 SDGs');
 select pg_temp.eq((select count(*) from realisasi.activities), 32::bigint, '32 seeded activities (S-01…S-30 + S-15b + S-20b)');

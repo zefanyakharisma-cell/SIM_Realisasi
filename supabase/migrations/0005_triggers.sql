@@ -70,6 +70,11 @@ create function realisasi._trg_activity_documents_chain() returns trigger
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.chain_id := realisasi.chain_root(new.original_document_id);
+  -- replaces the former FK to the SIMKS documents (kerjasama.documents is a view and cannot be an FK target)
+  if new.chain_id is null then
+    raise exception using errcode = '23503',
+      message = format('activity_documents.original_document_id %s is not in kerjasama.documents', new.original_document_id);
+  end if;
   return new;
 end $$;
 create trigger trg_activity_documents_snapshot
@@ -82,8 +87,9 @@ begin
   if tg_op = 'INSERT' then
     insert into realisasi.activity_partner_snapshot (activity_id, document_id, partner_id, partner_name, country_code, captured_at)
     select new.activity_id, new.original_document_id, p.id, p.name, p.country_code, realisasi.now_ts()
-      from public.document_partners dp join public.partners p on p.id = dp.partner_id
+      from kerjasama.document_partners dp join kerjasama.partners p on p.id = dp.partner_id
      where dp.document_id = new.original_document_id
+       and p.country_code is not null      -- SIMKS partner without a mappable country (kerjasama.partners)
      order by dp.is_lead desc, p.id;
     return new;
   else

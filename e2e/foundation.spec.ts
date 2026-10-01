@@ -41,6 +41,7 @@ test.describe('foundation: login, shell, navigation per role', () => {
     await expect(page.getByTestId('nav-mobilitas')).toHaveCount(0);
     await loginAs(page, ACCOUNTS.ioMobility);
     await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+    await expect(page.getByTestId('nav-kegiatan-diketahui').first()).toBeVisible(); // view-only (requirements review L-5)
     await expect(page.getByTestId('nav-kemitraan')).toHaveCount(0);
     await expect(page.getByTestId('nav-baru')).toHaveCount(0);
   });

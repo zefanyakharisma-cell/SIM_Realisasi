@@ -60,7 +60,7 @@ select pg_temp.eq((select partner_name || '/' || country_code from realisasi.act
                   'Kyoto Institute of Technology/JP', 'trg partner snapshot (R-06)');
 select pg_temp.ok((select count(*) = 1 from realisasi.event_groups g join realisasi.activities a on a.event_group_id = g.id where a.id = pg_temp.id('a')), 'R-32 own event group');
 -- R-06: partner rename after linking does not change the snapshot
-update public.partners set name = 'KIT (renamed)' where id = 1;
+update public.partner set nama = 'KIT (renamed)' where id = 1;     -- SIMKS table (local stub)
 select pg_temp.eq((select partner_name from realisasi.activity_partner_snapshot where activity_id = pg_temp.id('a')), 'Kyoto Institute of Technology', 'R-06 snapshot frozen');
 
 -- R-05: out-of-scope warning does not block

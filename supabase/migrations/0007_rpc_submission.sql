@@ -33,23 +33,23 @@ returns table(document_id int, doc_number text, title text, kind text, status te
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select d.id, d.doc_number, d.title, d.kind, d.status, d.start_date, d.end_date, d.auto_renewed,
          d.status = 'archived', realisasi.chain_root(d.id),
-         (select c.doc_number from public.documents c where c.id = realisasi.chain_current(d.id)),
+         (select c.doc_number from kerjasama.documents c where c.id = realisasi.chain_current(d.id)),
          coalesce((select jsonb_agg(jsonb_build_object('partner_id', p.id, 'name', p.name, 'country_code', p.country_code,
                                                        'country_name', co.name, 'is_lead', dp.is_lead)
                                     order by dp.is_lead desc, p.name)
-                     from public.document_partners dp join public.partners p on p.id = dp.partner_id
-                     left join public.countries co on co.code = p.country_code
+                     from kerjasama.document_partners dp join kerjasama.partners p on p.id = dp.partner_id
+                     left join kerjasama.countries co on co.code = p.country_code
                     where dp.document_id = d.id), '[]'::jsonb),
-         (p_unit_id is null or exists (select 1 from public.document_scope_units su
+         (p_unit_id is null or exists (select 1 from kerjasama.document_scope_units su
                                         where su.document_id = d.id and su.unit_id = p_unit_id))
-    from public.documents d
+    from kerjasama.documents d
    where p_start is not null and p_end is not null
      and d.status not in ('in_process','rejected')
      and d.start_date <= p_end
      -- validity end (H2): termination date; for an auto-renewed document the day before its first valid successor
      -- starts (open-ended when it has none); otherwise end_date
      and case when d.terminated_at is not null then d.terminated_at::date >= p_start
-              when d.auto_renewed then not exists (select 1 from public.documents x where x.predecessor_id = d.id
+              when d.auto_renewed then not exists (select 1 from kerjasama.documents x where x.predecessor_id = d.id
                                                      and x.status not in ('in_process','rejected') and x.start_date is not null
                                                      and greatest(d.end_date, x.start_date - 1) < p_start)
               else d.end_date >= p_start end
@@ -198,11 +198,11 @@ begin
                    and (t.is_active or (v_old ->> 'type_id')::int = v_type)) then
     perform realisasi._invalid('type_id');
   end if;
-  if v_country is not null and not exists (select 1 from public.countries where code = v_country) then
+  if v_country is not null and not exists (select 1 from kerjasama.countries where code = v_country) then
     perform realisasi._invalid('country_code');
   end if;
-  if not exists (select 1 from public.units where id = v_unit) then perform realisasi._invalid('submitter_unit_id'); end if;
-  if exists (select 1 from unnest(v_co) u where not exists (select 1 from public.units x where x.id = u)) then
+  if not exists (select 1 from kerjasama.units where id = v_unit) then perform realisasi._invalid('submitter_unit_id'); end if;
+  if exists (select 1 from unnest(v_co) u where not exists (select 1 from kerjasama.units x where x.id = u)) then
     perform realisasi._invalid('co_unit_ids');
   end if;
   v_co := array(select u from unnest(v_co) u where u <> v_unit order by u);
@@ -216,7 +216,7 @@ begin
       perform realisasi._raise('VALIDATION_REQUIRED', 'Kolom wajib belum diisi: external_persons.',
                                jsonb_build_object('fields', jsonb_build_array('external_persons'), 'index', v_i));
     end if;
-    if not exists (select 1 from public.countries where code = upper(v_e ->> 'country_code')) then
+    if not exists (select 1 from kerjasama.countries where code = upper(v_e ->> 'country_code')) then
       perform realisasi._invalid('external_persons');
     end if;
     begin perform (v_e ->> 'role')::realisasi.person_role; exception when others then perform realisasi._invalid('external_persons'); end;
@@ -228,7 +228,7 @@ begin
 
   -- R-04: every agreement must be valid for the activity dates
   select d.id, d.doc_number into v_bad, v_bad_number
-    from unnest(v_docs) x(id) left join public.documents d on d.id = x.id
+    from unnest(v_docs) x(id) left join kerjasama.documents d on d.id = x.id
    where not exists (select 1 from realisasi.documents_valid_between(v_start, v_end) v where v.document_id = x.id)
    order by x.id limit 1;
   if found then
@@ -266,7 +266,7 @@ begin
   insert into realisasi.activity_documents (activity_id, original_document_id)
     select v_id, d from unnest(v_docs) d on conflict do nothing;
   update realisasi.activity_documents ad
-     set out_of_scope_warning = not exists (select 1 from public.document_scope_units su
+     set out_of_scope_warning = not exists (select 1 from kerjasama.document_scope_units su
                                              where su.document_id = ad.original_document_id and su.unit_id = v_unit)
    where ad.activity_id = v_id;
 
@@ -584,7 +584,7 @@ begin
 
   -- R04_AGREEMENT_NOT_VALID
   select string_agg(d.doc_number, ', ' order by d.doc_number) into v_bad
-    from realisasi.activity_documents ad join public.documents d on d.id = ad.original_document_id
+    from realisasi.activity_documents ad join kerjasama.documents d on d.id = ad.original_document_id
    where ad.activity_id = p_id
      and not exists (select 1 from realisasi.documents_valid_between(a.start_date, a.end_date) v where v.document_id = d.id);
   v_out := v_out || jsonb_build_object('code', 'R04_AGREEMENT_NOT_VALID', 'ok', v_bad is null,

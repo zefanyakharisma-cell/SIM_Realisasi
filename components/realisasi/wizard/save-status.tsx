@@ -25,8 +25,8 @@ type State =
 /** Persists pending edits; resolves `true` when nothing unsaved remains. */
 export type Flusher = () => Promise<boolean>;
 
-interface Ctx {
-  state: State;
+/** Stable callbacks (identity never changes) — safe in effect dependency lists. */
+export interface SaveActions {
   setDirty: () => void;
   setSaving: () => void;
   setSaved: (at?: string) => void;
@@ -34,11 +34,16 @@ interface Ctx {
   registerFlush: (fn: Flusher) => () => void;
   flush: () => Promise<boolean>;
   setBlocker: (id: string, reason: string | null) => void;
+}
+
+interface Ctx extends SaveActions {
+  state: State;
   /** First unsaved-edit reason that cannot be flushed automatically, or null. */
   blocker: string | null;
 }
 
 const SaveStatusContext = createContext<Ctx | null>(null);
+const SaveActionsContext = createContext<SaveActions | null>(null);
 
 export function SaveStatusProvider({ children, savedAt }: { children: React.ReactNode; savedAt?: string | null }) {
   const [state, setState] = useState<State>(savedAt ? { kind: 'saved', at: savedAt } : { kind: 'idle' });
@@ -81,15 +86,19 @@ export function SaveStatusProvider({ children, savedAt }: { children: React.Reac
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [unsaved]);
 
-  const value = useMemo(
-    () => ({ state, setDirty, setSaving, setSaved, setError, registerFlush, flush, setBlocker, blocker }),
-    [state, setDirty, setSaving, setSaved, setError, registerFlush, flush, setBlocker, blocker],
+  const actions = useMemo<SaveActions>(
+    () => ({ setDirty, setSaving, setSaved, setError, registerFlush, flush, setBlocker }),
+    [setDirty, setSaving, setSaved, setError, registerFlush, flush, setBlocker],
   );
-  return <SaveStatusContext.Provider value={value}>{children}</SaveStatusContext.Provider>;
+  const value = useMemo(() => ({ ...actions, state, blocker }), [actions, state, blocker]);
+  return (
+    <SaveActionsContext.Provider value={actions}>
+      <SaveStatusContext.Provider value={value}>{children}</SaveStatusContext.Provider>
+    </SaveActionsContext.Provider>
+  );
 }
 
-const NOOP: Ctx = {
-  state: { kind: 'idle' },
+const NOOP_ACTIONS: SaveActions = {
   setDirty: () => {},
   setSaving: () => {},
   setSaved: () => {},
@@ -97,12 +106,17 @@ const NOOP: Ctx = {
   registerFlush: () => () => {},
   flush: async () => true,
   setBlocker: () => {},
-  blocker: null,
 };
+const NOOP: Ctx = { ...NOOP_ACTIONS, state: { kind: 'idle' }, blocker: null };
 
 /** Works outside a provider too — calls become no-ops and `flush()` resolves `true`. */
 export function useSaveStatus(): Ctx {
   return useContext(SaveStatusContext) ?? NOOP;
+}
+
+/** Only the stable callbacks (editors): does not re-render on every status change. */
+export function useSaveActions(): SaveActions {
+  return useContext(SaveActionsContext) ?? NOOP_ACTIONS;
 }
 
 /**
@@ -111,7 +125,7 @@ export function useSaveStatus(): Ctx {
  */
 export function useGuardedNavigation() {
   const router = useRouter();
-  const { flush } = useSaveStatus();
+  const { flush } = useSaveActions();
   return useCallback(
     async (href: string): Promise<boolean> => {
       const ok = await flush();

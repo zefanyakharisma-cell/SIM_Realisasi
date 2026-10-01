@@ -1,4 +1,6 @@
--- 01_config: settings, calendar, holidays, Jenis Kegiatan, SDGs, team membership. Idempotent.
+-- 01_config: settings, calendar, holidays, Jenis Kegiatan, SDGs. Idempotent and deployment-agnostic: also applied to
+-- Supabase by supabase/seed-supabase/01_config.sql. Team membership lives with the accounts (00_kerjasama.sql locally,
+-- seed-supabase/03_accounts.sql on Supabase).
 
 -- Demo deployment: enable demo_today time travel (M9). Production does not run seeds, so the flag stays absent (= off).
 -- To disable on an existing database: update realisasi.deployment_flags set enabled = false where key = 'demo_time_travel';
@@ -65,11 +67,6 @@ insert into realisasi.sdgs (id, name) values
   (13,'Penanganan Perubahan Iklim'), (14,'Ekosistem Lautan'), (15,'Ekosistem Daratan'),
   (16,'Perdamaian, Keadilan dan Kelembagaan yang Tangguh'), (17,'Kemitraan untuk Mencapai Tujuan')
 on conflict (id) do update set name = excluded.name;
-
-insert into realisasi.team_members (account_id, team) values
-  ('00000000-0000-4000-8000-000000000001', 'partnership'), ('00000000-0000-4000-8000-000000000001', 'mobility'),
-  ('00000000-0000-4000-8000-000000000002', 'partnership'), ('00000000-0000-4000-8000-000000000003', 'mobility')
-on conflict do nothing;
 
 select setval('realisasi.academic_years_id_seq', greatest((select max(id) from realisasi.academic_years), 1));
 select setval('realisasi.semesters_id_seq', greatest((select max(id) from realisasi.semesters), 1));

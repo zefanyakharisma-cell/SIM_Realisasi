@@ -14,6 +14,25 @@ export type Team = 'partnership' | 'mobility';
 
 export const SESSION_COOKIE = 'demo_uid';
 
+/**
+ * Security review I-1: the cookie role switcher (`/login`, `demo_uid` = a profile id) is an
+ * UNAUTHENTICATED mockup feature. It is on by default for the demo and switched off with
+ * `DEMO_AUTH=0`; then nobody can sign in (no accounts listed, `loginAs` refused, `demo_uid`
+ * ignored) until real SSO (Supabase Auth / SAML-OIDC with verified JWTs) replaces it.
+ * Never deploy beyond the demo with `DEMO_AUTH` enabled.
+ */
+export function isDemoAuthEnabled(): boolean {
+  return process.env.DEMO_AUTH !== '0';
+}
+
+/**
+ * Security review L-2: `Secure` in production (served over HTTPS). `SESSION_COOKIE_SECURE=0`
+ * opts out for a plain-HTTP demo host; localhost works either way in modern browsers.
+ */
+export function sessionCookieSecure(): boolean {
+  return process.env.NODE_ENV === 'production' && process.env.SESSION_COOKIE_SECURE !== '0';
+}
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -64,13 +83,14 @@ async function selectProfiles(tx: Tx, id: string | null): Promise<ProfileRow[]> 
 
 /** The 8 seed accounts in CONTRACTS §5.3 order (fixed ids sort in that order). */
 export async function listDemoAccounts(): Promise<DemoAccount[]> {
+  if (!isDemoAuthEnabled()) return [];
   const rows = await withSystem((tx) => selectProfiles(tx, null));
   return rows.map(toSessionUser);
 }
 
 /** Loads a profile by id (system access). Exported for the login action's validation. */
 export async function findDemoAccount(id: string): Promise<DemoAccount | null> {
-  if (!UUID_RE.test(id)) return null;
+  if (!isDemoAuthEnabled() || !UUID_RE.test(id)) return null;
   const rows = await withSystem((tx) => selectProfiles(tx, id));
   const row = rows[0];
   return row ? toSessionUser(row) : null;
@@ -156,8 +176,26 @@ export const getToday: () => Promise<string> = cache(async () => {
   return today;
 });
 
-/** `settings.demo_today` ('YYYY-MM-DD') or null when time travel is off; memoised per request. */
+/**
+ * Whether demo time travel is enabled for this deployment (`realisasi.demo_time_travel_enabled()`,
+ * WP-DB amendment 29). Off in production (no seeds); memoised per request.
+ */
+export const getDemoTimeTravelEnabled: () => Promise<boolean> = cache(async () => {
+  try {
+    const rows = await withSystem((tx) => tx<{ on: boolean }[]>`select realisasi.demo_time_travel_enabled() as on`);
+    return rows[0]?.on === true;
+  } catch (e) {
+    console.error('[session] demo_time_travel_enabled() failed', e);
+    return false;
+  }
+});
+
+/**
+ * `settings.demo_today` ('YYYY-MM-DD') or null when time travel is off — either no date is set or
+ * the deployment flag is disabled (then the DB ignores the setting too); memoised per request.
+ */
 export const getDemoToday: () => Promise<string | null> = cache(async () => {
+  if (!(await getDemoTimeTravelEnabled())) return null;
   const rows = await withSystem(
     (tx) => tx<{ v: string | null }[]>`
       select case when jsonb_typeof(value) = 'string' then value #>> '{}' else null end as v

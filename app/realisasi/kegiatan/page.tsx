@@ -8,7 +8,8 @@ import { ActivityTable } from '@/components/realisasi/list/activity-table';
 import { ColumnFilterRow } from '@/components/realisasi/list/column-filters';
 import { ListToolbar } from '@/components/realisasi/list/list-toolbar';
 import { withUser } from '@/lib/db';
-import { can, requireUser } from '@/lib/session';
+import { can, getToday, requireUser } from '@/lib/session';
+import { getSettingsMap } from '@/lib/realisasi/queries/reports';
 import { ACTIVITY_LIST_LIMIT, getActivityFilterOptions, listActivities } from '@/lib/realisasi/queries/activities';
 import {
   PRESETS,
@@ -27,10 +28,14 @@ export default async function KegiatanPage(props: { searchParams: Promise<Search
   // The list never runs as a queue; queue views live under /realisasi/verifikasi/*.
   delete filters.queue;
 
-  const { rows, options } = await withUser(user.id, async (tx) => ({
-    rows: await listActivities(tx, user, filters),
-    options: await getActivityFilterOptions(tx),
-  }));
+  const [{ rows, options, reminderDays }, today] = await Promise.all([
+    withUser(user.id, async (tx) => ({
+      rows: await listActivities(tx, user, filters),
+      options: await getActivityFilterOptions(tx),
+      reminderDays: Number((await getSettingsMap(tx)).deadline_reminder_before_days ?? 7) || 7,
+    })),
+    getToday(),
+  ]);
 
   const filtered = hasActiveFilters(filters);
   const exportParams = activityFiltersToSearchParams(filters);
@@ -94,6 +99,7 @@ export default async function KegiatanPage(props: { searchParams: Promise<Search
         caption="Daftar kegiatan"
         filterRow={<ColumnFilterRow filters={filters} options={options} />}
         empty={empty}
+        deadline={{ today, reminderDays }}
       />
     </div>
   );

@@ -85,7 +85,6 @@ export function FileDrop({
         id={id}
         disabled={disabled}
         data-invalid={aria['aria-invalid'] ? 'true' : undefined}
-        aria-invalid={aria['aria-invalid'] || undefined}
         aria-describedby={describedBy}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
@@ -105,6 +104,8 @@ export function FileDrop({
       >
         <UploadCloud className="size-6 text-muted-foreground" aria-hidden="true" />
         <span className="font-medium">{label}</span>
+        {/* L-8: aria-invalid is not allowed on role=button, so the invalid state is announced as text. */}
+        {aria['aria-invalid'] ? <span className="sr-only">(wajib diisi, belum ada berkas)</span> : null}
         {hint ? (
           <span id={hintId} className="text-xs text-muted-foreground">
             {hint}

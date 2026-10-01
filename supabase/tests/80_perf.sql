@@ -1,16 +1,21 @@
 -- 80_perf: H6/M10 regression timing on a scaled copy (+50 units, +1,500 documents, +6,200 verified activities), rolled back.
 \ir _helpers.inc
 -- deterministic scale-up: +50 units, +1500 docs (chains of 3), +6200 cloned verified activities
-insert into public.units (id, name, kind) select 1000+i, 'Unit Uji '||i, 'prodi' from generate_series(0,49) i;
-insert into public.documents (id, doc_number, title, kind, status, start_date, end_date, auto_renewed, predecessor_id)
-select 10000+i, 'DOC-'||i, 'Dok '||i, case when i%5=0 then 'MoA' else 'MoU' end,
-       case when i%3=0 then 'active' else 'archived' end,
-       date '2018-01-01' + ((i%3)*900 + (i/3)%400), date '2018-01-01' + ((i%3)*900 + (i/3)%400) + 899,
-       (i%37=0), case when i%3<>1 then 10000+i-1 end
+-- written into the SIMKS-shaped local stub tables (proposal id = no + 1000), read through the kerjasama.* adapter views
+insert into public.unit (id, nama, id_jenis_unit) select 1000+i, 'Unit Uji '||i, 1 from generate_series(0,49) i;
+insert into public.proposal_dokumen (id, jenis_kerjasama, tujuan_kerjasama, id_dokumen_sebelumnya)
+select 11000+i, (case when i%5=0 then 'MoA' else 'MoU' end)::public.jenis_kerjasama, 'Dok '||i,
+       case when i%3<>1 then 11000+i-1 end
   from generate_series(1,1500) i order by i;
-insert into public.document_partners select 10000+i, 1 + i%20, true from generate_series(1,1500) i;
-insert into public.document_scope_units select 10000+i, 1000 + i%50 from generate_series(1,1500) i;
-insert into public.document_scope_units select 10000+i, 10 from generate_series(1,1500) i where i%7=0;
+insert into public.dokumen_kerja_sama (no, id_proposal_dokumen, no_dokumen, tanggal_mulai, tanggal_berakhir, status)
+select 10000+i, 11000+i, 'DOC-'||i,
+       date '2018-01-01' + ((i%3)*900 + (i/3)%400), date '2018-01-01' + ((i%3)*900 + (i/3)%400) + 899,
+       case when i%3=0 then 'Aktif' else 'Diarsipkan' end
+  from generate_series(1,1500) i order by i;
+insert into realisasi.document_overrides (document_id, auto_renewed) select 10000+i, true from generate_series(1,1500) i where i%37=0;
+insert into public.partner_pengusul (id_proposal_dokumen, id_partner, is_lead) select 11000+i, 1 + i%20, true from generate_series(1,1500) i;
+insert into public.proposal_dokumen_unit select 11000+i, 1000 + i%50 from generate_series(1,1500) i;
+insert into public.proposal_dokumen_unit select 11000+i, 10 from generate_series(1,1500) i where i%7=0;
 create temp table _src as select row_number() over (order by code) rn, * from realisasi.activities where status='verified';
 create temp table _map as
 select gen_random_uuid() as nid, gen_random_uuid() as ngrp, s.id as sid, k, s.rn

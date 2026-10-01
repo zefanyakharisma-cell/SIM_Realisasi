@@ -19,4 +19,4 @@ with n (recipient, kind, title, body, link, created_at, read_at) as (values
   returning recipient_id, title, body, link, created_at)
 insert into realisasi.email_outbox (to_email, subject, body, created_at, sent_at)
 select p.email, ins.title, coalesce(ins.body, '') || E'\n\n' || coalesce(ins.link, ''), ins.created_at, null
-  from ins join public.profiles p on p.id = ins.recipient_id;
+  from ins join kerjasama.profiles p on p.id = ins.recipient_id;

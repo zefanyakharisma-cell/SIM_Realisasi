@@ -9,7 +9,7 @@ select realisasi.freeze_snapshot(1, 'genap_full_year', '2026-08-30 01:00+07')
 update realisasi.notifications n
    set created_at = k.frozen_at,
        read_at = case when p.app_role = 'io_admin' then k.frozen_at + interval '1 day' end
-  from realisasi.kpi_snapshots k, public.profiles p
+  from realisasi.kpi_snapshots k, kerjasama.profiles p
  where n.kind = 'snapshot_frozen' and n.link = '/realisasi/laporan?report=arsip&snapshot=' || k.id
    and p.id = n.recipient_id and k.academic_year_id = 1 and n.created_at is distinct from k.frozen_at;
 update realisasi.email_outbox o set created_at = k.frozen_at

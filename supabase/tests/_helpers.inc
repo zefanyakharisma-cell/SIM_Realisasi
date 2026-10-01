@@ -62,4 +62,27 @@ exception when others then
 end $$;
 create function pg_temp.aid(n int) returns uuid language sql immutable as $$
   select ('a0000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+-- SIMKS fixture helpers (local stub tables; run as superuser). Proposal id = document no + 1000, as in seed/00_kerjasama.sql.
+-- p_status is the SIMKS status ('Aktif' | 'Akan Berakhir' | 'Diarsipkan' | anything else = in process).
+create function pg_temp.simks_doc(p_no int, p_number text, p_kind text, p_status text, p_start date, p_end date,
+                                  p_prev_no int default null, p_alasan text default null, p_title text default null,
+                                  p_auto_renewed boolean default null, p_terminated_at timestamptz default null,
+                                  p_partners int[] default '{}', p_units int[] default '{}') returns void language plpgsql as $$
+begin
+  insert into public.proposal_dokumen (id, jenis_kerjasama, tujuan_kerjasama, id_dokumen_sebelumnya, sifat_periode_kerjasama)
+  values (p_no + 1000, p_kind::public.jenis_kerjasama, p_title, p_prev_no + 1000, 'Kedua Belah Pihak');
+  insert into public.dokumen_kerja_sama (no, id_proposal_dokumen, no_dokumen, tanggal_mulai, tanggal_berakhir, status, alasan_arsip)
+  values (p_no, p_no + 1000, p_number, p_start, p_end, p_status, p_alasan);
+  insert into public.partner_pengusul (id_proposal_dokumen, id_partner, is_lead)
+  select p_no + 1000, x, o = 1 from unnest(p_partners) with ordinality u(x, o);
+  insert into public.proposal_dokumen_unit (id_proposal_dokumen, id_unit) select p_no + 1000, x from unnest(p_units) x;
+  if p_auto_renewed is not null or p_terminated_at is not null then
+    insert into realisasi.document_overrides (document_id, auto_renewed, terminated_at)
+    values (p_no, coalesce(p_auto_renewed, false), p_terminated_at);
+  end if;
+end $$;
+-- make document p_no a renewal of p_prev_no (SIMKS links the predecessor's PROPOSAL id)
+create function pg_temp.simks_set_prev(p_no int, p_prev_no int) returns void language sql as $$
+  update public.proposal_dokumen p set id_dokumen_sebelumnya = (select id_proposal_dokumen from public.dokumen_kerja_sama where no = p_prev_no)
+   where p.id = (select id_proposal_dokumen from public.dokumen_kerja_sama where no = p_no) $$;
 grant execute on all functions in schema pg_temp to authenticated;

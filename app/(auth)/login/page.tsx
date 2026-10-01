@@ -3,7 +3,7 @@ import { Building2, LogIn, Users } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getSessionUser, listDemoAccounts, type DemoAccount } from '@/lib/session';
+import { getSessionUser, isDemoAuthEnabled, listDemoAccounts, type DemoAccount } from '@/lib/session';
 import { ROLE_LABEL, TRACK_LABEL } from '@/lib/realisasi/status';
 import { loginAs } from '@/lib/realisasi/actions/session';
 
@@ -22,17 +22,37 @@ async function loadAccounts(): Promise<{ accounts: DemoAccount[]; failed: boolea
 export default async function LoginPage(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await props.searchParams;
   const [{ accounts, failed }, current] = await Promise.all([loadAccounts(), getSessionUser().catch(() => null)]);
+  const demo = isDemoAuthEnabled();
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center gap-6 px-4 py-10">
       <div className="space-y-1 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">SIM Realisasi</h1>
-        <p className="text-sm text-muted-foreground">Mockup — pilih akun demo untuk masuk. Tidak ada kata sandi.</p>
+        <p className="text-sm text-muted-foreground">
+          {demo ? 'Mockup — pilih akun demo untuk masuk. Tidak ada kata sandi.' : 'Masuk demo dinonaktifkan.'}
+        </p>
       </div>
+
+      {demo ? (
+        <Alert variant="warning" role="note" data-testid="demo-auth-notice">
+          <AlertDescription>
+            Mode demo: pengalih peran ini tidak memakai autentikasi dan hanya untuk mockup. Nonaktifkan dengan{' '}
+            <code>DEMO_AUTH=0</code> dan ganti dengan SSO institusi sebelum dipakai di luar demo.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            Login demo dinonaktifkan (<code>DEMO_AUTH=0</code>). Aplikasi memerlukan SSO institusi yang belum terpasang pada mockup ini.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {sp.error ? (
         <Alert variant="destructive" role="alert">
-          <AlertDescription>Akun tidak dikenal. Silakan pilih salah satu akun di bawah.</AlertDescription>
+          <AlertDescription>
+            {sp.error === 'nonaktif' ? 'Login demo dinonaktifkan.' : 'Akun tidak dikenal. Silakan pilih salah satu akun di bawah.'}
+          </AlertDescription>
         </Alert>
       ) : null}
       {failed ? (
@@ -95,7 +115,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
               </li>
             ))}
           </ul>
-          {!failed && accounts.length === 0 ? (
+          {demo && !failed && accounts.length === 0 ? (
             <p className="text-sm text-muted-foreground" role="status">
               Belum ada akun demo. Jalankan <code>npm run db:reset</code>.
             </p>

@@ -1,4 +1,5 @@
 // Column definitions shared by the export kinds (CONTRACTS §8.2 column lists, verbatim headers).
+import { formatDiffLines } from '@/lib/realisasi/diff-format';
 import type ExcelJS from 'exceljs';
 import type {
   ActivityKpiRow,
@@ -146,12 +147,12 @@ export function s8Rows(rows: DrilldownResult['rows']): S8Row[] {
       out.push({
         kind: 'Belum dilaporkan',
         ref: String(r.known_id),
-        title: r.title,
+        title: r.title ?? 'Kegiatan internasional (rincian hanya untuk tim IO)',
         date: r.activity_date,
         unit: r.unit_name ?? '',
         partner: r.partner_name ?? '',
         country: r.country_code ?? '',
-        source: [label(KNOWN_SOURCE_LABEL, r.source), r.source_reference].filter(Boolean).join(' · '),
+        source: [r.source ? label(KNOWN_SOURCE_LABEL, r.source) : null, r.source_reference].filter(Boolean).join(' · '),
       });
     }
   }
@@ -286,29 +287,9 @@ export const LATE_ADDITION_COLUMNS: Column<LateAdditionRow>[] = [
   { header: 'KPI', key: 'kpi', value: (r) => joinList(r.kpi_codes) },
 ];
 
+/** Post-freeze diff as text with human field labels (requirements review L-2). */
 export function formatDiff(diff: unknown): string {
-  if (!diff || typeof diff !== 'object') return '';
-  const lines: string[] = [];
-  for (const [field, change] of Object.entries(diff as Record<string, unknown>)) {
-    if (Array.isArray(change) && change.length === 2) {
-      lines.push(`${field}: ${stringify(change[0])} → ${stringify(change[1])}`);
-    } else if (change && typeof change === 'object') {
-      const c = change as { added?: unknown[]; removed?: unknown[] };
-      const parts: string[] = [];
-      if (c.added?.length) parts.push(`+${c.added.map(stringify).join(', ')}`);
-      if (c.removed?.length) parts.push(`−${c.removed.map(stringify).join(', ')}`);
-      lines.push(`${field}: ${parts.join(' ; ') || stringify(change)}`);
-    } else {
-      lines.push(`${field}: ${stringify(change)}`);
-    }
-  }
-  return lines.join('\n');
-}
-function stringify(v: unknown): string {
-  if (v === null || v === undefined || v === '') return '–';
-  if (Array.isArray(v)) return `[${v.map(stringify).join(', ')}]`;
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
+  return formatDiffLines(diff).join('\n');
 }
 
 export const POST_FREEZE_COLUMNS: Column<PostFreezeChangeRow>[] = [

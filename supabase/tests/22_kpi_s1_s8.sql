@@ -59,5 +59,7 @@ select pg_temp.eq((select r ->> 'linked_count' from jsonb_array_elements(realisa
 select pg_temp.eq(realisasi.dashboard(2, 'live', null) #> '{scope,unit_id}', '20'::jsonb, 'submitter dashboard forced to own unit');
 select pg_temp.eq(realisasi.dashboard(2, 'live', 10) #> '{scope,unit_id}', '20'::jsonb, 'submitter cannot pick another unit');
 :as_fsd
-select pg_temp.eq((realisasi.dashboard(2, 'live') -> 'drafts_near_deadline' -> 0 ->> 'days_left')::int, -18, 'S-23 in drafts_near_deadline (deadline passed 18 days ago)');
+-- deadline 2026-09-13; relative to today() so the check holds after midnight WIB too (18 days on 2026-10-01)
+select pg_temp.eq((realisasi.dashboard(2, 'live') -> 'drafts_near_deadline' -> 0 ->> 'days_left')::int, '2026-09-13'::date - realisasi.today(),
+                  'S-23 in drafts_near_deadline (deadline passed)');
 rollback;

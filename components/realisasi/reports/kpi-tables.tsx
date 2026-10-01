@@ -178,14 +178,16 @@ export function KnownKpiTable({ rows }: { rows: KnownKpiRow[] }) {
         {rows.map((r) => (
           <TableRow key={r.known_id}>
             <TableCell className="tabular-nums">{r.known_id}</TableCell>
-            <TableCell className="font-medium">{r.title}</TableCell>
+            <TableCell className="font-medium">
+              {r.title ?? <span className="font-normal text-muted-foreground">Kegiatan internasional (rincian hanya untuk tim IO)</span>}
+            </TableCell>
             <TableCell className="whitespace-nowrap">{formatDate(r.activity_date)}</TableCell>
             <TableCell>{r.unit_name ?? '–'}</TableCell>
             <TableCell>
               {r.partner_name ?? '–'} {r.country_code ? <span className="text-muted-foreground">· {r.country_code}</span> : null}
             </TableCell>
             <TableCell className="text-sm">
-              {KNOWN_SOURCE_LABEL[r.source] ?? r.source}
+              {r.source ? (KNOWN_SOURCE_LABEL[r.source] ?? r.source) : '–'}
               {r.source_reference ? <div className="text-xs text-muted-foreground">{r.source_reference}</div> : null}
             </TableCell>
           </TableRow>

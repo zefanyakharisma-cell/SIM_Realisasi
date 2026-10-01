@@ -121,7 +121,7 @@ begin
   return coalesce((select jsonb_agg(jsonb_build_object(
       'activity_id', a.id, 'code', a.code, 'name', a.name,
       'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
-                               join public.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
+                               join kerjasama.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
       'start_date', a.start_date, 'verified_at', a.verified_at,
       'previous_snapshot_id', p.id, 'previous_snapshot_label', v_plabel,
       'counted_in_this_snapshot', x.counted, 'kpi_codes', to_jsonb(x.codes)) order by a.start_date, a.code)
@@ -167,7 +167,7 @@ begin
       order by l.created_at, l.id)
     from realisasi.activity_log l
     join realisasi.activities a on a.id = l.activity_id
-    left join public.profiles pr on pr.id = l.actor_id
+    left join kerjasama.profiles pr on pr.id = l.actor_id
    where l.in_frozen_period and l.created_at <= s.frozen_at
      and (p.id is null or l.created_at > p.frozen_at)), '[]'::jsonb);
 end $$;

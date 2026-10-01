@@ -62,7 +62,8 @@ create function realisasi._require_uid() returns uuid
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v uuid := auth.uid();
 begin
-  if v is null or not exists (select 1 from public.profiles where id = v) then
+  -- a Realisasi user = a SIMKS account with an active realisasi.account_roles row (kerjasama.profiles.app_role not null)
+  if v is null or not exists (select 1 from kerjasama.profiles where id = v and app_role is not null) then
     perform realisasi._raise('AUTH_REQUIRED', 'Sesi tidak valid. Silakan masuk kembali.');
   end if;
   return v;
@@ -122,9 +123,9 @@ $$;
 create function realisasi.chain_root(p_doc int) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   with recursive up as (
-    select id, predecessor_id, 0 as depth from public.documents where id = p_doc
+    select id, predecessor_id, 0 as depth from kerjasama.documents where id = p_doc
     union all
-    select d.id, d.predecessor_id, up.depth + 1 from public.documents d join up on d.id = up.predecessor_id
+    select d.id, d.predecessor_id, up.depth + 1 from kerjasama.documents d join up on d.id = up.predecessor_id
     where up.depth < 100
   )
   select id from up where predecessor_id is null limit 1
@@ -133,9 +134,9 @@ $$;
 create function realisasi.chain_current(p_doc int) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   with recursive down as (
-    select id, 0 as depth from public.documents where id = p_doc
+    select id, 0 as depth from kerjasama.documents where id = p_doc
     union all
-    select d.id, down.depth + 1 from public.documents d join down on d.predecessor_id = down.id
+    select d.id, down.depth + 1 from kerjasama.documents d join down on d.predecessor_id = down.id
     where down.depth < 100
   )
   select id from down order by depth desc, id desc limit 1
@@ -145,9 +146,9 @@ $$;
 create function realisasi._chain_map() returns table(doc_id int, root_id int, depth int)
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   with recursive m as (
-    select d.id as doc_id, d.id as root_id, 0 as depth from public.documents d where d.predecessor_id is null
+    select d.id as doc_id, d.id as root_id, 0 as depth from kerjasama.documents d where d.predecessor_id is null
     union all
-    select d.id, m.root_id, m.depth + 1 from public.documents d join m on d.predecessor_id = m.doc_id where m.depth < 100
+    select d.id, m.root_id, m.depth + 1 from kerjasama.documents d join m on d.predecessor_id = m.doc_id where m.depth < 100
   )
   select doc_id, root_id, depth from m
 $$;
@@ -175,25 +176,25 @@ $$;
 
 create function realisasi._profile_name(p_id uuid) returns text
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select display_name from public.profiles where id = p_id
+  select display_name from kerjasama.profiles where id = p_id
 $$;
 
 -- Role helpers ------------------------------------------------------------
 create function realisasi.my_role() returns text
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select app_role from public.profiles where id = auth.uid()
+  select app_role from kerjasama.profiles where id = auth.uid()
 $$;
 
 create function realisasi.my_unit() returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select unit_id from public.profiles where id = auth.uid()
+  select unit_id from kerjasama.profiles where id = auth.uid()
 $$;
 
 create function realisasi.in_team(p_team realisasi.team) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select coalesce(realisasi.my_role() = 'io_admin', false)
       or exists (select 1 from realisasi.team_members tm
-                  join public.profiles p on p.id = tm.account_id and p.app_role in ('io_staff','io_admin')
+                  join kerjasama.profiles p on p.id = tm.account_id and p.app_role in ('io_staff','io_admin')
                  where tm.account_id = auth.uid() and tm.team = p_team)
 $$;
 
@@ -355,7 +356,7 @@ create function realisasi._notify(p_recipient uuid, p_kind text, p_title text, p
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_email text;
 begin
-  select email into v_email from public.profiles where id = p_recipient;
+  select email into v_email from kerjasama.profiles where id = p_recipient and app_role is not null;
   if v_email is null then return; end if;
   insert into realisasi.notifications (recipient_id, kind, title, body, link, created_at)
   values (p_recipient, p_kind, p_title, p_body, p_link, realisasi.now_ts());
@@ -381,7 +382,7 @@ $$;
 
 create function realisasi._admin_ids() returns uuid[]
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select coalesce(array_agg(id order by id), '{}') from public.profiles where app_role = 'io_admin'
+  select coalesce(array_agg(id order by id), '{}') from kerjasama.profiles where app_role = 'io_admin'
 $$;
 
 create function realisasi._notify_team(p_team realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
@@ -406,7 +407,7 @@ $$;
 
 create function realisasi._notify_unit(p_unit_id int, p_kind text, p_title text, p_body text, p_link text) returns void
 language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select realisasi._notify_many((select coalesce(array_agg(id), '{}') from public.profiles
+  select realisasi._notify_many((select coalesce(array_agg(id), '{}') from kerjasama.profiles
                                   where app_role = 'submitter' and unit_id = p_unit_id),
                                 p_kind, p_title, p_body, p_link);
   select null::void
@@ -414,7 +415,7 @@ $$;
 
 create function realisasi._notify_viewers(p_kind text, p_title text, p_body text, p_link text) returns void
 language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select realisasi._notify_many((select coalesce(array_agg(id), '{}') from public.profiles where app_role = 'viewer'),
+  select realisasi._notify_many((select coalesce(array_agg(id), '{}') from kerjasama.profiles where app_role = 'viewer'),
                                 p_kind, p_title, p_body, p_link);
   select null::void
 $$;

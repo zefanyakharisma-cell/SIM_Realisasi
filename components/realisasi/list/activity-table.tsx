@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
-import { formatDate } from '@/lib/realisasi/format';
+import { Badge } from '@/components/ui/badge';
+import { Hint } from '@/components/realisasi/hint';
+import { daysBetween, formatDate } from '@/lib/realisasi/format';
 import { FLAG_DESCRIPTION } from '@/lib/realisasi/status';
 import type { ActivityListRow } from '@/lib/realisasi/types';
 
@@ -49,10 +51,41 @@ export function DateRange({ start, end }: { start: string; end: string }) {
   );
 }
 
-/** Flags column (Design §2): Terlambat, SLA per pending track, Di luar lingkup, Duplikat?. */
-export function FlagsCell({ row }: { row: ActivityListRow }) {
+/** Reporting-deadline context for draft rows (requirements review M-2, R-62). */
+export interface DeadlineContext {
+  today: string;
+  /** `settings.deadline_reminder_before_days`: amber from this many days before the deadline. */
+  reminderDays: number;
+}
+
+/** Draft deadline pill: "Lewat tenggat" (red) or "Tenggat 13 Sep 2026" (amber, inside the reminder window). */
+function DeadlinePill({ row, ctx }: { row: ActivityListRow; ctx: DeadlineContext }) {
+  if (row.status !== 'draft' || !row.reporting_deadline) return null;
+  const left = daysBetween(ctx.today, row.reporting_deadline);
+  if (left < 0) {
+    return (
+      <Hint content={`Batas pelaporan ${formatDate(row.reporting_deadline)} telah lewat ${-left} hari; kegiatan akan ditandai Terlambat saat diajukan.`}>
+        <Badge variant="red" appearance="outline" data-flag="deadline_overdue">
+          Lewat tenggat
+        </Badge>
+      </Hint>
+    );
+  }
+  if (left > ctx.reminderDays) return null;
+  return (
+    <Hint content={`Batas pelaporan ${formatDate(row.reporting_deadline)} (${left === 0 ? 'hari ini' : `${left} hari lagi`}).`}>
+      <Badge variant="amber" appearance="outline" data-flag="deadline_soon">
+        Tenggat {formatDate(row.reporting_deadline)}
+      </Badge>
+    </Hint>
+  );
+}
+
+/** Flags column (Design §2): Terlambat / tenggat draf, SLA per pending track, Di luar lingkup, Duplikat?. */
+export function FlagsCell({ row, deadline }: { row: ActivityListRow; deadline?: DeadlineContext }) {
   const items: ReactNode[] = [];
   if (row.is_late) items.push(<FlagPill key="late" flag="late" />);
+  if (deadline && row.status === 'draft' && row.reporting_deadline) items.push(<DeadlinePill key="deadline" row={row} ctx={deadline} />);
   if (row.partnership_sla_level && row.partnership_sla_days !== null && row.partnership_sla_level !== 'ok') {
     items.push(
       <span key="sla-p" className="inline-flex items-center gap-1">
@@ -95,6 +128,8 @@ export interface ActivityTableProps {
   caption: string;
   /** Rendered in the body when `rows` is empty (spans all columns). */
   empty?: ReactNode;
+  /** Enables the draft deadline flags (M-2). */
+  deadline?: DeadlineContext;
 }
 
 export const ACTIVITY_TABLE_COLUMNS = 10;
@@ -103,7 +138,7 @@ export const ACTIVITY_TABLE_COLUMNS = 10;
  * Kegiatan list table (Design §3.2): Kode · Nama · Jenis · Unit · Mitra · Tanggal · Semester ·
  * Status · Jalur (track chips) · Penanda. Server-safe (no hooks).
  */
-export function ActivityTable({ rows, filterRow, caption, empty }: ActivityTableProps) {
+export function ActivityTable({ rows, filterRow, caption, empty, deadline }: ActivityTableProps) {
   return (
     <div className="overflow-x-auto rounded-lg border bg-card" role="region" aria-label={caption} tabIndex={0}>
       <table className="w-full min-w-[1100px] text-sm" data-testid="activity-table">
@@ -156,10 +191,15 @@ export function ActivityTable({ rows, filterRow, caption, empty }: ActivityTable
                 <StatusBadge status={r.status} />
               </td>
               <td className="px-3 py-2.5 align-top">
-                <TrackChips partnership={r.partnership_status} mobility={r.mobility_status} />
+                {r.status === 'draft' ? (
+                  // L-1: a draft has not entered any verification track yet.
+                  <span className="text-xs text-muted-foreground">Belum diajukan</span>
+                ) : (
+                  <TrackChips partnership={r.partnership_status} mobility={r.mobility_status} />
+                )}
               </td>
               <td className="px-3 py-2.5 align-top">
-                <FlagsCell row={r} />
+                <FlagsCell row={r} deadline={deadline} />
               </td>
             </tr>
           ))}

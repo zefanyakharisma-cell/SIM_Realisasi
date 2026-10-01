@@ -1,4 +1,5 @@
 // Arsip snapshot timeline + snapshot detail (Design §3.8). Server-safe.
+import { formatDiffLines } from '@/lib/realisasi/diff-format';
 import Link from 'next/link';
 import { Archive, Lock, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -125,16 +126,8 @@ function LateAdditionsTable({ rows }: { rows: LateAdditionRow[] }) {
 }
 
 function diffLines(diff: PostFreezeChangeRow['diff']): string[] {
-  if (!diff) return [];
-  return Object.entries(diff).map(([k, v]) => {
-    if (Array.isArray(v) && v.length === 2) return `${k}: ${fmt(v[0])} → ${fmt(v[1])}`;
-    return `${k}: ${fmt(v)}`;
-  });
-}
-function fmt(v: unknown): string {
-  if (v === null || v === undefined || v === '') return '–';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
+  // L-2: human field labels, same as Riwayat and the Excel sheet.
+  return formatDiffLines(diff);
 }
 
 function PostFreezeTable({ rows }: { rows: PostFreezeChangeRow[] }) {

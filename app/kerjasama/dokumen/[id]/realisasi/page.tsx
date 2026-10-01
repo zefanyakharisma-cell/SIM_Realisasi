@@ -5,8 +5,10 @@ import { ArrowLeft, Hourglass, Link2 } from 'lucide-react';
 import { withUser } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { parseDbError } from '@/lib/realisasi/errors';
-import { formatDate, formatNumber } from '@/lib/realisasi/format';
+import { formatDate } from '@/lib/realisasi/format';
 import { getAgreementRealization } from '@/lib/realisasi/queries/reports';
+import { DocumentTabs } from '@/components/realisasi/agreements/document-tabs';
+import { RealizationSummary } from '@/components/realisasi/agreements/realization-summary';
 import type { AgreementRealization } from '@/lib/realisasi/types';
 import { PageHeader } from '@/components/realisasi/page-header';
 import { EmptyState } from '@/components/realisasi/empty-state';
@@ -19,16 +21,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 export const dynamic = 'force-dynamic';
 
 const DOC_STATUS: Record<string, string> = { active: 'Aktif', archived: 'Arsip', in_process: 'Dalam proses', rejected: 'Ditolak' };
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-lg border bg-background p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-      {sub ? <p className="text-xs text-muted-foreground">{sub}</p> : null}
-    </div>
-  );
-}
 
 export default async function RealisasiTabPage(props: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -44,7 +36,7 @@ export default async function RealisasiTabPage(props: { params: Promise<{ id: st
   }
   if (!ar?.document) notFound();
 
-  const { document: doc, chain, summary, grace, activities } = ar;
+  const { document: doc, chain, grace, activities } = ar;
 
   return (
     <div className="space-y-6">
@@ -62,29 +54,9 @@ export default async function RealisasiTabPage(props: { params: Promise<{ id: st
         actions={<ExportButton kind="agreement-activities" params={{ document_id: String(doc.id) }} />}
       />
 
-      <nav aria-label="Tab dokumen" className="flex gap-1 border-b">
-        <span className="-mb-px cursor-not-allowed border-b-2 border-transparent px-4 py-2 text-sm text-muted-foreground" aria-disabled="true" title="Tersedia di SIM Kerjasama">
-          Detail
-        </span>
-        <span aria-current="page" className="-mb-px border-b-2 border-primary px-4 py-2 text-sm font-medium text-primary">
-          Realisasi
-        </span>
-      </nav>
+      <DocumentTabs id={doc.id} current="realisasi" />
 
-      <section aria-label="Ringkasan realisasi" className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="realization-summary">
-        <Stat label="Total kegiatan" value={formatNumber(summary.total_activities)} sub="seluruh rantai perpanjangan" />
-        <Stat
-          label="Tahun akademik ini"
-          value={formatNumber(summary.activities_this_ay)}
-          sub={ar.current_ay ? `TA ${ar.current_ay.label}` : undefined}
-        />
-        <Stat
-          label="Mahasiswa (in/out)"
-          value={`${formatNumber(summary.students_inbound)} / ${formatNumber(summary.students_outbound)}`}
-          sub="inbound / outbound, versi disetujui"
-        />
-        <Stat label="Kegiatan terakhir" value={formatDate(summary.last_activity_date)} />
-      </section>
+      <RealizationSummary ar={ar} />
 
       {chain && chain.documents.length > 1 ? (
         <Card className="p-4">

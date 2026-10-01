@@ -96,7 +96,7 @@ end $$;
 create function realisasi._scope_json(p_unit_id int) returns jsonb
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('level', case when p_unit_id is null then 'university' else 'unit' end,
-                            'unit_id', p_unit_id, 'unit_name', (select name from public.units where id = p_unit_id))
+                            'unit_id', p_unit_id, 'unit_name', (select name from kerjasama.units where id = p_unit_id))
 $$;
 
 create function realisasi._forced_unit(p_unit_id int) returns int
@@ -195,7 +195,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
   select jsonb_build_object('row_type', 'activity', 'activity_id', a.id, 'code', a.code, 'name', a.name,
     'type_name', t.name, 'direction', t.direction,
     'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
-                             join public.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
+                             join kerjasama.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
     'partner_names', coalesce((select jsonb_agg(distinct ps.partner_name) from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id), '[]'::jsonb),
     'country_codes', coalesce((select jsonb_agg(distinct ps.country_code) from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id), '[]'::jsonb),
     'start_date', a.start_date, 'semester_label', realisasi.semester_label(a.semester_id),
@@ -239,7 +239,7 @@ begin
                'unit_name', u.name, 'partner_name', case when v_io then k.partner_name end, 'country_code', k.country_code,
                'source', case when v_io then k.source end, 'source_reference', case when v_io then k.source_reference end)
         from _dd_items i join realisasi.known_activities k on k.id = i.ref_id::bigint
-        left join public.units u on u.id = k.unit_id
+        left join kerjasama.units u on u.id = k.unit_id
        where i.kpi_code = '1.19.S8' and i.bucket = 'unmatched_known' and (p_bucket is null or p_bucket = 'unmatched_known')) q;
   else
     select coalesce(jsonb_agg(r order by r ->> 'chain_start', (r ->> 'chain_id')::int), '[]'::jsonb) into v_rows from (
@@ -253,7 +253,7 @@ begin
                     select jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'start_date', a.start_date,
                                      'original_doc_number', d.doc_number) order by a.start_date, a.code)
                       from realisasi.activity_documents ad join realisasi.activities a on a.id = ad.activity_id
-                      join public.documents d on d.id = ad.original_document_id
+                      join kerjasama.documents d on d.id = ad.original_document_id
                      where ad.chain_id = ch.chain_id and a.status = 'verified'
                        and a.verified_at <= coalesce(c.frozen_at, realisasi.now_ts())
                        and a.start_date between c.window_start and c.cutoff
@@ -391,12 +391,12 @@ begin
     'academic_year', (select jsonb_build_object('id', id, 'label', label) from realisasi.academic_years where id = a.academic_year_id),
     'semester', (select jsonb_build_object('id', id, 'term', term, 'label', realisasi.semester_label(id)) from realisasi.semesters where id = a.semester_id),
     'mode', a.mode, 'venue', a.venue, 'city', a.city, 'country_code', a.country_code,
-    'country_name', (select name from public.countries where code = a.country_code),
+    'country_name', (select name from kerjasama.countries where code = a.country_code),
     'sks_recognized', a.sks_recognized, 'funding_source', a.funding_source, 'description', a.description,
-    'submitter_unit', (select jsonb_build_object('id', id, 'name', name) from public.units where id = a.submitter_unit_id),
+    'submitter_unit', (select jsonb_build_object('id', id, 'name', name) from kerjasama.units where id = a.submitter_unit_id),
     'units', coalesce((select jsonb_agg(jsonb_build_object('id', u.id, 'name', u.name, 'is_submitter', au.is_submitter)
                                         order by au.is_submitter desc, u.name)
-                         from realisasi.activity_units au join public.units u on u.id = au.unit_id where au.activity_id = p_id), '[]'::jsonb),
+                         from realisasi.activity_units au join kerjasama.units u on u.id = au.unit_id where au.activity_id = p_id), '[]'::jsonb),
     'status', a.status, 'partnership_status', a.partnership_status, 'mobility_status', a.mobility_status,
     'partnership_since', a.partnership_since, 'mobility_since', a.mobility_since,
     'submitted_at', a.submitted_at, 'verified_at', a.verified_at, 'rejection_reason', a.rejection_reason,
@@ -404,7 +404,7 @@ begin
     'event_group_id', a.event_group_id,
     'linked_activities', coalesce((select jsonb_agg(jsonb_build_object('id', o.id, 'code', o.code, 'name', o.name,
                                      'unit_name', u.name, 'status', o.status) order by o.code)
-                                    from realisasi.activities o join public.units u on u.id = o.submitter_unit_id
+                                    from realisasi.activities o join kerjasama.units u on u.id = o.submitter_unit_id
                                    where o.event_group_id = a.event_group_id and o.id <> a.id), '[]'::jsonb),
     'documents', coalesce((select jsonb_agg(jsonb_build_object(
         'original_document_id', od.id, 'original_doc_number', od.doc_number,
@@ -413,15 +413,15 @@ begin
         'out_of_scope_warning', ad.out_of_scope_warning,
         'partners', coalesce((select jsonb_agg(jsonb_build_object('partner_id', p.id, 'name', p.name, 'country_code', p.country_code,
                                 'country_name', co.name) order by dp.is_lead desc, p.name)
-                               from public.document_partners dp join public.partners p on p.id = dp.partner_id
-                               left join public.countries co on co.code = p.country_code where dp.document_id = od.id), '[]'::jsonb))
+                               from kerjasama.document_partners dp join kerjasama.partners p on p.id = dp.partner_id
+                               left join kerjasama.countries co on co.code = p.country_code where dp.document_id = od.id), '[]'::jsonb))
         order by od.doc_number)
-      from realisasi.activity_documents ad join public.documents od on od.id = ad.original_document_id
-      left join public.documents cd on cd.id = realisasi.chain_current(ad.original_document_id)
+      from realisasi.activity_documents ad join kerjasama.documents od on od.id = ad.original_document_id
+      left join kerjasama.documents cd on cd.id = realisasi.chain_current(ad.original_document_id)
      where ad.activity_id = p_id), '[]'::jsonb),
     'partners', coalesce((select jsonb_agg(jsonb_build_object('document_id', ps.document_id, 'partner_id', ps.partner_id,
                             'partner_name', ps.partner_name, 'country_code', ps.country_code, 'country_name', co.name) order by ps.id)
-                           from realisasi.activity_partner_snapshot ps left join public.countries co on co.code = ps.country_code
+                           from realisasi.activity_partner_snapshot ps left join kerjasama.countries co on co.code = ps.country_code
                           where ps.activity_id = p_id), '[]'::jsonb),
     'is_international', exists (select 1 from realisasi.activity_partner_snapshot ps where ps.activity_id = p_id and ps.country_code <> 'ID'),
     'sdg_ids', coalesce((select jsonb_agg(sdg_id order by sdg_id) from realisasi.activity_sdgs where activity_id = p_id), '[]'::jsonb),
@@ -523,11 +523,11 @@ end $$;
 -- Agreements -----------------------------------------------------------------------
 create function realisasi.agreement_realization(p_document_id int) returns jsonb
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare d public.documents; v_chain int; ch record; ay realisasi.academic_years; v_io boolean; v_grace int;
+declare d kerjasama.documents; v_chain int; ch record; ay realisasi.academic_years; v_io boolean; v_grace int;
         v_acts uuid[]; v_in_grace boolean;
 begin
   perform realisasi._require_uid();
-  select * into d from public.documents where id = p_document_id;
+  select * into d from kerjasama.documents where id = p_document_id;
   if not found then perform realisasi._not_found(); end if;
   v_io := realisasi.is_io();
   v_chain := realisasi.chain_root(d.id);
@@ -548,7 +548,7 @@ begin
                'documents', coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'doc_number', x.doc_number, 'kind', x.kind,
                                'status', x.status, 'start_date', x.start_date, 'end_date', x.end_date, 'predecessor_id', x.predecessor_id)
                                order by x.start_date nulls last, x.id)
-                              from public.documents x join realisasi._chain_map() m on m.doc_id = x.id and m.root_id = v_chain), '[]'::jsonb)),
+                              from kerjasama.documents x join realisasi._chain_map() m on m.doc_id = x.id and m.root_id = v_chain), '[]'::jsonb)),
     'current_ay', case when ay.id is not null then jsonb_build_object('id', ay.id, 'label', ay.label) end,
     'summary', jsonb_build_object(
         'total_activities', cardinality(v_acts),
@@ -570,13 +570,13 @@ begin
     'activities', coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'type_name', t.name,
                      'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
                      'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
-                                              join public.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
+                                              join kerjasama.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
                      'original_doc_number', od.doc_number,
-                     'current_doc_number', (select doc_number from public.documents where id = realisasi.chain_current(od.id)))
+                     'current_doc_number', (select doc_number from kerjasama.documents where id = realisasi.chain_current(od.id)))
                      order by a.start_date, a.code)
                     from realisasi.activities a join realisasi.activity_types t on t.id = a.type_id
                     join realisasi.activity_documents ad on ad.activity_id = a.id and ad.chain_id = v_chain
-                    join public.documents od on od.id = ad.original_document_id
+                    join kerjasama.documents od on od.id = ad.original_document_id
                    where a.id = any(v_acts) and (v_io or realisasi.can_view_activity(a.id))), '[]'::jsonb));   -- M7: list only visible ones
 end $$;
 
@@ -598,7 +598,7 @@ begin
                           then (ch.chain_start + make_interval(months => v_grace))::date end,
       'activities_this_ay', x.n_ay, 'last_activity_date', x.last_date) order by d.id)
     -- H6: chain roots and per-chain activity stats computed once (set-based), not per document
-    from public.documents d
+    from kerjasama.documents d
     left join realisasi._chain_map() r on r.doc_id = d.id
     left join (
       select ad.chain_id,

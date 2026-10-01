@@ -14,6 +14,21 @@ const PDF_MIME = 'application/pdf';
 const IMAGE_MIMES = ['image/jpeg', 'image/png'] as const;
 const EXT_BY_MIME: Record<string, string> = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // '%PDF-'
+const JPEG_MAGIC = [0xff, 0xd8, 0xff];
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** Content type from magic bytes (PDF / JPEG / PNG), or null (security review L-3). */
+export function sniffMime(firstBytes: Uint8Array): 'application/pdf' | 'image/jpeg' | 'image/png' | null {
+  if (startsWith(firstBytes, PDF_MAGIC)) return 'application/pdf';
+  if (startsWith(firstBytes, JPEG_MAGIC)) return 'image/jpeg';
+  if (startsWith(firstBytes, PNG_MAGIC)) return 'image/png';
+  return null;
+}
+
+/** File extension for a sniffed/allowed mime type. */
+export function extensionForMime(mime: string): string {
+  return EXT_BY_MIME[mime] ?? 'bin';
+}
 
 function startsWith(bytes: Uint8Array, magic: readonly number[]): boolean {
   if (bytes.length < magic.length) return false;
@@ -32,7 +47,9 @@ export function validateUpload(
   }
   const typeError = { ok: false as const, code: 'R13_FILE_TYPE' as const, message: `Format berkas tidak diizinkan (${allowedLabel}).` };
   if (!allowedMimes.includes(file.type)) return typeError;
-  if (file.type === PDF_MIME && firstBytes && !startsWith(firstBytes, PDF_MAGIC)) return typeError;
+  // L-3: the content must match the declared type (PDF *and* JPEG/PNG), so arbitrary bytes cannot
+  // be stored as "image/png". Callers store the sniffed type, not the client-declared one.
+  if (firstBytes && sniffMime(firstBytes) !== file.type) return typeError;
   return { ok: true };
 }
 
@@ -73,6 +90,17 @@ export async function getObject(tx: Tx, path: string): Promise<{ data: Buffer; m
     throw Object.assign(new Error('FILE_NOT_FOUND: Berkas tidak ditemukan.'), { detail: '' });
   }
   return { data: row.data, mime: row.mime, size: row.size_bytes };
+}
+
+const STORAGE_PATH_RE =
+  /^(?:realisasi-files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:ia|ir|evidence)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|jpg|png|bin)|realisasi-transcripts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/v[0-9]{1,4}\/[A-Z0-9]{1,20}-[0-9a-f]{8}\.pdf)$/;
+
+/**
+ * Strict grammar of every key this app writes (security review L-4). `/api/files` refuses anything
+ * else before any I/O, so encoded `/`, `..`, NUL bytes or odd characters never reach a backend.
+ */
+export function isValidStoragePath(path: string): boolean {
+  return STORAGE_PATH_RE.test(path);
 }
 
 /** '/api/files/' + path with each segment URI-encoded. */

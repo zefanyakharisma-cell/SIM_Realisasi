@@ -54,6 +54,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   R54_NUDGE_TOO_SOON: 'Pengingat sudah dikirim; tunggu sebelum mengirim ulang.',
   R55_ALREADY_FROZEN: 'Snapshot untuk periode ini sudah dibekukan. Gunakan "Bekukan ulang".',
   R55_NO_SEMESTER: 'Kalender semester untuk periode ini belum diatur.',
+  R55_BEFORE_CUTOFF: 'Snapshot belum dapat dibekukan: tanggal cutoff semester belum tercapai.',
   R58_REASON_REQUIRED: 'Alasan pembekuan ulang wajib diisi.',
   R58_NOT_LIVE: 'Snapshot ini sudah digantikan.',
   SETTINGS_INVALID: 'Pengaturan tidak valid.',

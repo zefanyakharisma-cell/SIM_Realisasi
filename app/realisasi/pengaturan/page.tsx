@@ -1,7 +1,7 @@
 // Pengaturan (Design §3.9) — io_admin only (`settings.manage`); the RPCs re-check the role.
 import Link from 'next/link';
 import { withUser } from '@/lib/db';
-import { can, getToday, requireUser } from '@/lib/session';
+import { can, getDemoTimeTravelEnabled, getToday, requireUser } from '@/lib/session';
 import { getParam } from '@/lib/realisasi/schemas/report';
 import {
   getSettingsMap,
@@ -36,7 +36,7 @@ export default async function PengaturanPage(props: { searchParams: Promise<Reco
   const sp = await props.searchParams;
   const tabRaw = getParam(sp, 'tab');
   const tab: TabKey = TABS.some((t) => t.key === tabRaw) ? (tabRaw as TabKey) : 'umum';
-  const today = await getToday();
+  const [today, timeTravel] = await Promise.all([getToday(), getDemoTimeTravelEnabled()]);
 
   const content = await withUser(user.id, async (tx) => {
     switch (tab) {
@@ -46,7 +46,8 @@ export default async function PengaturanPage(props: { searchParams: Promise<Reco
         const demo = typeof s.demo_today === 'string' ? s.demo_today : null;
         return (
           <div className="space-y-6">
-            <DemoTodayCard demoToday={demo} today={today} />
+            {/* WP-DB amendment 29: the demo-date control exists only where time travel is enabled. */}
+            {timeTravel ? <DemoTodayCard demoToday={demo} today={today} /> : null}
             <GeneralSettingsForm initial={initial} />
           </div>
         );

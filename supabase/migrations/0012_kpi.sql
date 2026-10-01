@@ -74,7 +74,7 @@ with prm as (
   select null::int as su, ch0.* from ch0 where p_scope in ('university','all')
   union all
   select x.unit_id, ch0.* from ch0
-   cross join lateral (select distinct su.unit_id from public.document_scope_units su
+   cross join lateral (select distinct su.unit_id from kerjasama.document_scope_units su
                         where su.document_id = any(ch0.document_ids)
                           and (p_scope = 'all' or (p_scope = 'unit' and su.unit_id = p_unit_id))) x
    where p_scope in ('unit','all')
@@ -165,11 +165,11 @@ begin
                      count(distinct a.event_group_id) n
                 from realisasi.activities a join realisasi.activity_partner_snapshot ps on ps.activity_id = a.id
                where a.id = any(v_base) group by ps.country_code order by 2 desc, 1 limit 10) x
-        left join public.countries co on co.code = x.cc), '[]'::jsonb),
+        left join kerjasama.countries co on co.code = x.cc), '[]'::jsonb),
     'by_unit', case when v_univ then coalesce((select jsonb_agg(jsonb_build_object('unit_id', x.uid, 'unit_name', u.name, 'activities', x.n)
                                              order by x.n desc, u.name)
         from (select au.unit_id uid, count(distinct au.activity_id) n from realisasi.activity_units au
-               where au.activity_id = any(v_base) group by au.unit_id) x join public.units u on u.id = x.uid), '[]'::jsonb)
+               where au.activity_id = any(v_base) group by au.unit_id) x join kerjasama.units u on u.id = x.uid), '[]'::jsonb)
                else '[]'::jsonb end,
     'by_sdg', (select jsonb_agg(jsonb_build_object('sdg_id', g.id, 'name', g.name, 'activities',
                  (select count(distinct a.event_group_id)
@@ -218,7 +218,7 @@ begin
   if p_unit_id is null then
     for u in select un.id, un.name,
                     (select coalesce(jsonb_agg(to_jsonb(i) - 'su'), '[]'::jsonb) from _kc_items i where i.su = un.id) as items
-               from public.units un
+               from kerjasama.units un
               where un.id in (select su from _kc_items
                                where su is not null and (kpi_code = 'base' or (kpi_code = '1.19.24' and bucket in ('denominator','grace_excluded'))))
               order by un.name loop

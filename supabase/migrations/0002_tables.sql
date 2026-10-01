@@ -1,8 +1,10 @@
 -- 0002_tables: Schema §3/§4 with CONTRACTS §2.3 deltas. Extra indexes cover FKs and RLS/helper predicates.
+-- SIM Kerjasama ids (units, countries, documents, profiles) point at kerjasama.* adapter views, which cannot be FK
+-- targets: the RPCs validate them instead (CONTRACTS "Contract amendments (SIMKS integration)").
 
 -- 3.1 Configuration --------------------------------------------------------
 create table realisasi.team_members (
-  account_id uuid references public.profiles(id),
+  account_id uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   team       realisasi.team,
   primary key (account_id, team)
 );
@@ -17,7 +19,7 @@ create table realisasi.deployment_flags (
 create table realisasi.settings (
   key        text primary key,
   value      jsonb not null,
-  updated_by uuid references public.profiles(id),
+  updated_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   updated_at timestamptz default now()
 );
 
@@ -66,7 +68,7 @@ create sequence realisasi.activity_code_seq;
 
 create table realisasi.event_groups (
   id         uuid primary key default gen_random_uuid(),
-  created_by uuid references public.profiles(id),
+  created_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   created_at timestamptz default now()
 );
 create index on realisasi.event_groups (created_by);
@@ -84,12 +86,12 @@ create table realisasi.activities (
   mode                realisasi.activity_mode not null,
   venue               text,
   city                text,
-  country_code        text references public.countries(code),
+  country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
   sks_recognized      numeric(4,1),
   funding_source      realisasi.funding_source,
   description         text not null,
-  submitter_unit_id   int not null references public.units(id),
-  created_by          uuid not null references public.profiles(id),
+  submitter_unit_id   int not null,  -- kerjasama.units.id (no FK: adapter view)
+  created_by          uuid not null,  -- kerjasama.profiles.id (no FK: adapter view)
   submitted_at        timestamptz,
   verified_at         timestamptz,
   status              realisasi.activity_status not null default 'draft',
@@ -116,7 +118,7 @@ create index activities_name_trgm on realisasi.activities using gin (lower(name)
 
 create table realisasi.activity_units (
   activity_id  uuid references realisasi.activities(id),
-  unit_id      int  references public.units(id),
+  unit_id      int ,  -- kerjasama.units.id (no FK: adapter view)
   is_submitter boolean not null default false,
   primary key (activity_id, unit_id)
 );
@@ -124,7 +126,7 @@ create index on realisasi.activity_units (unit_id, activity_id);
 
 create table realisasi.activity_documents (
   activity_id           uuid references realisasi.activities(id),
-  original_document_id  int  not null references public.documents(id),
+  original_document_id  int  not null,  -- kerjasama.documents.id (no FK: adapter view)
   chain_id              int  not null,
   out_of_scope_warning  boolean not null default false,
   primary key (activity_id, original_document_id)
@@ -155,7 +157,7 @@ create table realisasi.activity_external_persons (
   activity_id  uuid not null references realisasi.activities(id),
   full_name    text not null,
   institution  text not null,
-  country_code text not null references public.countries(code),
+  country_code text not null check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
   role         realisasi.person_role not null,
   notes        text
 );
@@ -173,7 +175,7 @@ create table realisasi.activity_files (
   size_bytes   int,
   mime         text,
   is_current   boolean not null default true,
-  uploaded_by  uuid references public.profiles(id),
+  uploaded_by  uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   uploaded_at  timestamptz default now(),
   check (storage_path is not null or url is not null)
 );
@@ -190,9 +192,9 @@ create table realisasi.participant_set_versions (
   activity_id  uuid not null references realisasi.activities(id),
   version      int  not null,
   status       realisasi.pset_status not null default 'draft',
-  submitted_by uuid references public.profiles(id),
+  submitted_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   submitted_at timestamptz default null,
-  reviewed_by  uuid references public.profiles(id),
+  reviewed_by  uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   reviewed_at  timestamptz,
   review_note  text,
   unique (activity_id, version)
@@ -242,7 +244,7 @@ create table realisasi.duplicate_candidates (
   activity_b  uuid not null references realisasi.activities(id),
   score       numeric(3,2) not null,
   status      realisasi.dup_status not null default 'open',
-  resolved_by uuid references public.profiles(id),
+  resolved_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   resolved_at timestamptz,
   check (activity_a < activity_b),
   unique (activity_a, activity_b)
@@ -256,7 +258,7 @@ create table realisasi.activity_log (
   kind        realisasi.log_kind not null,
   track       realisasi.team,
   action      text not null,
-  actor_id    uuid references public.profiles(id),
+  actor_id    uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   note        text,
   diff        jsonb,
   in_frozen_period boolean not null default false,
@@ -271,9 +273,9 @@ create table realisasi.known_activities (
   id                  bigserial primary key,
   title               text not null,
   activity_date       date not null,
-  unit_id             int references public.units(id),
+  unit_id             int,  -- kerjasama.units.id (no FK: adapter view)
   partner_name        text,
-  country_code        text references public.countries(code),
+  country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
   is_international    boolean not null,
   source              realisasi.known_source not null,
   source_reference    text,
@@ -281,7 +283,7 @@ create table realisasi.known_activities (
   status              realisasi.known_status not null default 'unmatched',
   matched_activity_id uuid references realisasi.activities(id),
   nudged_at           timestamptz,
-  created_by          uuid references public.profiles(id),
+  created_by          uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   created_at          timestamptz default now(),
   check ((status = 'matched') = (matched_activity_id is not null))
 );
@@ -293,7 +295,7 @@ create index known_activities_intl_status_idx on realisasi.known_activities (sta
 
 create table realisasi.notifications (
   id           bigserial primary key,
-  recipient_id uuid not null references public.profiles(id),
+  recipient_id uuid not null,  -- kerjasama.profiles.id (no FK: adapter view)
   kind         text not null,
   title        text not null,
   body         text,
@@ -314,7 +316,7 @@ create table realisasi.email_outbox (
 
 create table realisasi.export_log (
   id          bigserial primary key,
-  actor_id    uuid references public.profiles(id),
+  actor_id    uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   export_kind text not null,
   filters     jsonb,
   row_count   int,
@@ -334,7 +336,7 @@ create table realisasi.kpi_snapshots (
   values           jsonb not null,
   settings_used    jsonb not null,
   frozen_at        timestamptz not null default now(),
-  frozen_by        uuid references public.profiles(id),
+  frozen_by        uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   superseded_by    uuid references realisasi.kpi_snapshots(id) deferrable initially deferred,
   refreeze_reason  text
 );
@@ -360,7 +362,7 @@ create table realisasi.file_blobs (
   data       bytea not null,
   mime       text not null,
   size_bytes int  not null check (size_bytes <= 10485760),
-  created_by uuid references public.profiles(id),
+  created_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
   created_at timestamptz not null default now(),
   check (split_part(path,'/',1) = bucket)
 );

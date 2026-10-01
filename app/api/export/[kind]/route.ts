@@ -7,6 +7,7 @@ import { ERROR_MESSAGES, errorResponse } from '@/lib/realisasi/errors';
 import { exportFilename } from '@/lib/realisasi/format';
 import { EXPORTS, ExportParamError, isExportKind } from '@/lib/excel/registry';
 import { toBuffer } from '@/lib/excel/workbook';
+import { exportLimiter } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,14 @@ export async function GET(request: Request, props: { params: Promise<{ kind: str
 
   const def = EXPORTS[kind];
   if (!def.allowed(user)) return json(403, 'AUTH_FORBIDDEN');
+  // L-5: whole-workbook builds are expensive; per-user budget.
+  const limit = exportLimiter.hit(user.id);
+  if (!limit.ok) {
+    return Response.json(
+      { code: 'RATE_LIMITED', message: 'Terlalu banyak unduhan Excel. Coba lagi beberapa menit lagi.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter), 'Cache-Control': 'private, no-store' } },
+    );
+  }
 
   const params = new URL(request.url).searchParams;
   try {

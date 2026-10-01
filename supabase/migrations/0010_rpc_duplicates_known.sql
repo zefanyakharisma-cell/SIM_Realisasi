@@ -177,8 +177,8 @@ begin
     perform realisasi._raise('VALIDATION_REQUIRED', 'Kolom wajib belum diisi: ' || array_to_string(v_missing, ', ') || '.',
                              jsonb_build_object('fields', to_jsonb(v_missing)));
   end if;
-  if k.unit_id is not null and not exists (select 1 from public.units where id = k.unit_id) then perform realisasi._invalid('unit_id'); end if;
-  if k.country_code is not null and not exists (select 1 from public.countries where code = k.country_code) then
+  if k.unit_id is not null and not exists (select 1 from kerjasama.units where id = k.unit_id) then perform realisasi._invalid('unit_id'); end if;
+  if k.country_code is not null and not exists (select 1 from kerjasama.countries where code = k.country_code) then
     perform realisasi._invalid('country_code');
   end if;
   return k;
@@ -231,7 +231,7 @@ begin
   return coalesce((select jsonb_agg(row_to_json(s)::jsonb order by s.score desc, s.code) from (
       select a.id as activity_id, a.code, a.name, a.start_date, a.end_date,
              coalesce((select array_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
-                         join public.units u on u.id = au.unit_id where au.activity_id = a.id), '{}') as unit_names,
+                         join kerjasama.units u on u.id = au.unit_id where au.activity_id = a.id), '{}') as unit_names,
              a.status, round(similarity(lower(a.name), lower(k.title))::numeric, 2) as score
         from realisasi.activities a
        where a.status not in ('draft','rejected')

@@ -68,7 +68,7 @@ export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
         badgeLabel: `${counts.duplicates_open} kandidat terbuka`,
       }),
     );
-  if (can(user, 'known.manage')) realisasi.push(item('/realisasi/kegiatan-diketahui', 'Kegiatan Diketahui', 'book'));
+  if (can(user, 'known.view')) realisasi.push(item('/realisasi/kegiatan-diketahui', 'Kegiatan Diketahui', 'book'));
   realisasi.push(item('/realisasi/laporan', 'Laporan & Ekspor', 'report'));
   if (can(user, 'settings.manage')) realisasi.push(item('/realisasi/pengaturan', 'Pengaturan', 'settings'));
 

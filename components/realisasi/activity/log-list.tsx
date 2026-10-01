@@ -37,8 +37,18 @@ function summarizeObject(o: Record<string, unknown>): string {
     .join('; ');
 }
 
-function isAddedRemoved(v: unknown): v is { added?: unknown[]; removed?: unknown[] } {
+function isAddedRemoved(v: unknown): v is { added?: unknown; removed?: unknown } {
   return typeof v === 'object' && v !== null && !Array.isArray(v) && ('added' in v || 'removed' in v);
+}
+
+/**
+ * `added`/`removed` are id lists — or plain counts when the caller may not see participant
+ * identifiers (WP-DB amendment 26: `{"students":{"added":n,"removed":m}}`).
+ */
+function rowChange(v: unknown): { text: string; any: boolean } {
+  if (typeof v === 'number') return { text: `${v} baris`, any: v > 0 };
+  if (Array.isArray(v)) return { text: v.map(String).join(', '), any: v.length > 0 };
+  return { text: '', any: false };
 }
 
 export function DiffView({ diff }: { diff: Record<string, unknown> }) {
@@ -58,15 +68,19 @@ export function DiffView({ diff }: { diff: Record<string, unknown> }) {
                 <ins className="text-green-800 no-underline">{show(value[1])}</ins>
               </>
             ) : isAddedRemoved(value) ? (
-              <>
-                {value.added && value.added.length > 0 && (
-                  <span className="text-green-800">Ditambah: {value.added.map(String).join(', ')}. </span>
-                )}
-                {value.removed && value.removed.length > 0 && (
-                  <span className="text-red-800">Dihapus: {value.removed.map(String).join(', ')}.</span>
-                )}
-                {!value.added?.length && !value.removed?.length && <span className="text-muted-foreground">Tidak ada perubahan baris.</span>}
-              </>
+              (() => {
+                const added = rowChange(value.added);
+                const removed = rowChange(value.removed);
+                return (
+                  <>
+                    {added.any && <span className="text-green-800">Ditambah: {added.text}. </span>}
+                    {removed.any && <span className="text-red-800">Dihapus: {removed.text}.</span>}
+                    {!added.any && !removed.any && <span className="text-muted-foreground">Tidak ada perubahan baris.</span>}
+                  </>
+                );
+              })()
+            ) : field === 'row_notes' && typeof value === 'number' ? (
+              `${value} catatan baris`
             ) : (
               show(value)
             )}

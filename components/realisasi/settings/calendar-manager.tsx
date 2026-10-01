@@ -118,7 +118,13 @@ export function CalendarManager({
                           {live ? (
                             <RefreezeDialog snapshot={live} />
                           ) : (
-                            <FreezeButton ayId={y.id} kind={kind} label={`${TERM_LABEL[s.term]} ${y.label}`} />
+                            <FreezeButton
+                              ayId={y.id}
+                              kind={kind}
+                              label={`${TERM_LABEL[s.term]} ${y.label}`}
+                              cutoff={s.cutoff_date}
+                              beforeCutoff={today < s.cutoff_date}
+                            />
                           )}
                         </div>
                       </TableCell>
@@ -149,8 +155,39 @@ function useAction() {
   return { pending, run };
 }
 
-function FreezeButton({ ayId, kind, label }: { ayId: number; kind: SnapshotKind; label: string }) {
+/**
+ * "Bekukan sekarang". Freezing before the semester cutoff would snapshot an incomplete period, so
+ * the DB refuses it (`R55_BEFORE_CUTOFF`, WP-DB amendment 24 / requirements review M-3); the button
+ * is disabled with the reason until the cutoff date.
+ */
+function FreezeButton({
+  ayId,
+  kind,
+  label,
+  cutoff,
+  beforeCutoff,
+}: {
+  ayId: number;
+  kind: SnapshotKind;
+  label: string;
+  cutoff: string;
+  beforeCutoff: boolean;
+}) {
   const { pending, run } = useAction();
+  const hintId = `freeze-hint-${ayId}-${kind}`;
+  if (beforeCutoff) {
+    return (
+      <div className="flex flex-col items-end gap-0.5">
+        <Button size="sm" disabled aria-describedby={hintId} data-testid="freeze-now">
+          <Snowflake aria-hidden="true" />
+          Bekukan sekarang
+        </Button>
+        <span id={hintId} className="text-xs text-muted-foreground" data-testid="freeze-before-cutoff">
+          Dapat dibekukan mulai cutoff {formatDate(cutoff)}
+        </span>
+      </div>
+    );
+  }
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>

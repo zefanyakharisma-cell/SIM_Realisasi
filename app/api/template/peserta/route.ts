@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs';
 import { getSessionUser } from '@/lib/session';
-import { MAX_FILE_BYTES } from '@/lib/storage';
+import { canLookupRegistry, forbidden, rateLimited } from '@/lib/api-guard';
+import { checkZip } from '@/lib/excel/zip-guard';
+import { templateLimiter } from '@/lib/rate-limit';
 import { ERROR_MESSAGES } from '@/lib/realisasi/errors';
 import { splitIdTokens } from '@/lib/realisasi/schemas/participants';
 
@@ -12,6 +14,12 @@ type Kind = 'students' | 'staff';
 const HEADER: Record<Kind, string> = { students: 'NRP', staff: 'ID Pegawai' };
 const EXAMPLE: Record<Kind, string> = { students: 'D31240187', staff: 'PG204517' };
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** A 1,000-row id list is a few KB; anything bigger is not a participant template (M-1). */
+const MAX_TEMPLATE_BYTES = 512 * 1024;
+/** Ids returned per file (the wizard checks them in batches). */
+const MAX_TEMPLATE_IDS = 1000;
+const TOO_LARGE_MESSAGE = 'Berkas template terlalu besar. Maksimal 512 KB dan 1.000 baris ID; gunakan template yang disediakan.';
 
 function parseKind(value: string | null): Kind | null {
   return value === 'students' || value === 'staff' ? value : null;
@@ -77,6 +85,16 @@ function cellText(value: ExcelJS.CellValue): string {
 export async function POST(request: Request): Promise<Response> {
   const user = await getSessionUser();
   if (!user) return unauthorized();
+  // Same audience as the registry lookups the parsed ids are fed into (security review H-1 / M-1).
+  if (!canLookupRegistry(user)) return forbidden();
+  const limit = templateLimiter.hit(user.id);
+  if (!limit.ok) return rateLimited(limit);
+
+  // Refuse oversized bodies before buffering them (M-1).
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (declared > MAX_TEMPLATE_BYTES + 64 * 1024) {
+    return Response.json({ code: 'R13_FILE_TOO_LARGE', message: TOO_LARGE_MESSAGE }, { status: 413 });
+  }
 
   let form: FormData;
   try {
@@ -87,24 +105,35 @@ export async function POST(request: Request): Promise<Response> {
   const kind = parseKind(typeof form.get('kind') === 'string' ? (form.get('kind') as string) : null) ?? 'students';
   const file = form.get('file');
   if (!(file instanceof File)) return badRequest('Berkas tidak ditemukan dalam permintaan.');
-  if (file.size > MAX_FILE_BYTES) {
-    return Response.json({ code: 'R13_FILE_TOO_LARGE', message: ERROR_MESSAGES.R13_FILE_TOO_LARGE }, { status: 400 });
+  if (file.size > MAX_TEMPLATE_BYTES) {
+    return Response.json({ code: 'R13_FILE_TOO_LARGE', message: TOO_LARGE_MESSAGE }, { status: 413 });
   }
 
   const name = file.name.toLowerCase();
   const data = Buffer.from(await file.arrayBuffer());
-  let tokens: string[] = [];
+  const tokens: string[] = [];
+  const push = (raw: string) => {
+    for (const t of splitIdTokens(raw)) if (tokens.length <= MAX_TEMPLATE_IDS + 2) tokens.push(t);
+  };
   try {
     if (name.endsWith('.csv') || name.endsWith('.txt')) {
-      tokens = splitIdTokens(data.toString('utf8'));
+      push(data.toString('utf8'));
     } else if (name.endsWith('.xlsx')) {
+      // Bound the inflated size before ExcelJS loads the workbook into memory (M-1).
+      const zip = checkZip(data);
+      if (!zip.ok) {
+        return zip.reason === 'too_large' || zip.reason === 'too_many_entries'
+          ? Response.json({ code: 'R13_FILE_TOO_LARGE', message: TOO_LARGE_MESSAGE }, { status: 413 })
+          : badRequest('Berkas Excel tidak dapat dibaca. Gunakan template yang disediakan.');
+      }
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(data as unknown as ArrayBuffer);
       const ws = wb.worksheets[0];
       if (ws) {
-        ws.eachRow({ includeEmpty: false }, (row) => {
-          tokens.push(...splitIdTokens(cellText(row.getCell(1).value)));
-        });
+        if (ws.rowCount > MAX_TEMPLATE_IDS + 1) {
+          return Response.json({ code: 'R13_FILE_TOO_LARGE', message: TOO_LARGE_MESSAGE }, { status: 413 });
+        }
+        ws.eachRow({ includeEmpty: false }, (row) => push(cellText(row.getCell(1).value)));
       }
     } else {
       return Response.json(
@@ -118,5 +147,5 @@ export async function POST(request: Request): Promise<Response> {
 
   const header = HEADER[kind].toUpperCase();
   const ids = tokens.filter((t) => t !== header && t !== 'NRP' && t !== 'ID' && t !== 'PEGAWAI');
-  return Response.json({ ids: ids.slice(0, 1000) });
+  return Response.json({ ids: ids.slice(0, MAX_TEMPLATE_IDS) });
 }

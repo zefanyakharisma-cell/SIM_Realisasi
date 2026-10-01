@@ -3,34 +3,8 @@
  */
 import type { Direction } from '@/lib/realisasi/types';
 
-/** Indonesian labels for diff fields written by `save_activity_draft` / `edit_verified_activity`. */
-export const DIFF_FIELD_LABEL: Record<string, string> = {
-  name: 'Nama kegiatan',
-  type_id: 'Jenis kegiatan',
-  start_date: 'Tanggal mulai',
-  end_date: 'Tanggal selesai',
-  mode: 'Moda',
-  venue: 'Tempat / platform',
-  city: 'Kota',
-  country_code: 'Negara',
-  sks_recognized: 'SKS diakui',
-  funding_source: 'Sumber dana',
-  description: 'Deskripsi',
-  submitter_unit_id: 'Unit pengaju',
-  co_unit_ids: 'Unit lain',
-  document_ids: 'Kerja sama',
-  sdg_ids: 'SDG',
-  external_persons: 'Pembicara / tamu',
-  students: 'Mahasiswa',
-  staff: 'Pegawai',
-  kind: 'Jenis berkas',
-  filename: 'Nama berkas',
-  version: 'Versi',
-};
-
-export function diffFieldLabel(field: string): string {
-  return DIFF_FIELD_LABEL[field] ?? field;
-}
+// Diff field labels live in lib so the Excel builders share them (requirements review L-2).
+export { DIFF_FIELD_LABEL, diffFieldLabel } from '@/lib/realisasi/diff-format';
 
 /** Helper line under the Jenis select, derived from the type's flags (Design §3.3). */
 export function activityTypeHelper(t: {

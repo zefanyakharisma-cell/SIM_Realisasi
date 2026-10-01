@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
-import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
+import { useSaveActions } from '@/components/realisasi/wizard/save-status';
 import { saveParticipants } from '@/lib/realisasi/actions/submission';
 import { MAX_LOOKUP_IDS, splitIdTokens } from '@/lib/realisasi/schemas/participants';
 import { createDraftSaver, type DraftSaver, type SaveOutcome } from '@/lib/realisasi/save-queue';
@@ -103,7 +103,7 @@ export interface ParticipantsEditorProps {
 }
 
 export function ParticipantsEditor({ activityId, initialVersion, countries, required, onBlockingChange, onSaved, versionNote }: ParticipantsEditorProps) {
-  const save = useSaveStatus();
+  const save = useSaveActions();
   // Single source of truth: `rowsRef` always holds the latest rows (updated synchronously by
   // `dispatch`), `rows` mirrors it for rendering. Late async results are applied as actions to
   // the latest rows, never by replacing them with a stale snapshot (H-2).

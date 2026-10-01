@@ -23,7 +23,7 @@ import { activityTypeHelper, stepHref } from '@/components/realisasi/activity/la
 import { AgreementPicker } from '@/components/realisasi/wizard/agreement-picker';
 import { ExternalPersons, type PersonRowState } from '@/components/realisasi/wizard/external-persons';
 import { SdgChips } from '@/components/realisasi/wizard/sdg-chips';
-import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
+import { useSaveActions } from '@/components/realisasi/wizard/save-status';
 import { editVerifiedActivity, saveActivityDraft } from '@/lib/realisasi/actions/submission';
 import { formatDate } from '@/lib/realisasi/format';
 import { createDraftSaver } from '@/lib/realisasi/save-queue';
@@ -205,7 +205,7 @@ export interface DetailFormProps {
 
 export function DetailForm({ mode, activityId, initial, initialDocuments, options, lockedUnitId, today }: DetailFormProps) {
   const router = useRouter();
-  const save = useSaveStatus();
+  const save = useSaveActions();
   const [state, setState] = useState<FormState>(() => toState(initial, lockedUnitId));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);

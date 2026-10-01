@@ -38,7 +38,7 @@ declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(coalesce(p_group,
         c_part uuid := '00000000-0000-4000-8000-000000000002'; c_mob uuid := '00000000-0000-4000-8000-000000000003';
 begin
   if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
-  v_creator := coalesce((select id from public.profiles where app_role = 'submitter' and unit_id = p_unit order by id limit 1),
+  v_creator := coalesce((select id from kerjasama.profiles where app_role = 'submitter' and unit_id = p_unit order by id limit 1),
                         '00000000-0000-4000-8000-000000000001');
   v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
   insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
@@ -52,7 +52,7 @@ begin
           coalesce(p_psince, v_created), coalesce(p_msince, p_psince, v_created), p_reason, v_g, v_created);
   insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
   insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
-  select v_id, d, not exists (select 1 from public.document_scope_units su where su.document_id = d and su.unit_id = p_unit)
+  select v_id, d, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = d and su.unit_id = p_unit)
     from unnest(p_docs) d;
   insert into realisasi.activity_sdgs (activity_id, sdg_id) select v_id, s from unnest(p_sdgs) s;
   for e in select * from jsonb_array_elements(p_ext) loop
