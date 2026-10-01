@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens (HSL triplets). Inherits the SIM Kerjasama look: PETRA navy primary, neutral slate UI.
+ * Contrast: foreground/background ≥ 12:1; muted-foreground on background ≥ 4.6:1 (WCAG AA).
+ */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 70% 33%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 19% 35%;
+    --accent: 214 40% 93%;
+    --accent-foreground: 222 47% 15%;
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 26% 85%;
+    --input: 214 26% 75%;
+    --ring: 221 83% 45%;
+    --radius: 0.5rem;
+    --sidebar: 222 47% 14%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-accent: 221 45% 24%;
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-muted/40 text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Visible focus for keyboard users everywhere (WCAG 2.4.7 / 2.4.11). */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

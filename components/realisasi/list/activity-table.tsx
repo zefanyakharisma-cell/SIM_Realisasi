@@ -1,0 +1,160 @@
+import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { CountryFlag } from '@/components/realisasi/country-flag';
+import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
+import { formatDate } from '@/lib/realisasi/format';
+import type { ActivityListRow } from '@/lib/realisasi/types';
+
+/** Partner cell: flag + first partner name, "+n" for the rest (full list in title). */
+export function PartnerCell({ row }: { row: Pick<ActivityListRow, 'partner_names' | 'country_codes'> }) {
+  const first = row.partner_names[0];
+  if (!first) return <span className="text-muted-foreground">–</span>;
+  const more = row.partner_names.length - 1;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={row.partner_names.join(', ')}>
+      <span className="flex shrink-0 gap-0.5">
+        {row.country_codes.slice(0, 3).map((c) => (
+          <CountryFlag key={c} code={c} />
+        ))}
+      </span>
+      <span className="truncate">{first}</span>
+      {more > 0 ? <span className="shrink-0 text-xs text-muted-foreground">+{more}</span> : null}
+    </span>
+  );
+}
+
+export function UnitCell({ row }: { row: Pick<ActivityListRow, 'submitter_unit_name' | 'unit_names'> }) {
+  const others = row.unit_names.filter((n) => n !== row.submitter_unit_name);
+  return (
+    <span title={row.unit_names.join(', ')}>
+      {row.submitter_unit_name}
+      {others.length > 0 ? <span className="text-xs text-muted-foreground"> +{others.length} unit</span> : null}
+    </span>
+  );
+}
+
+export function DateRange({ start, end }: { start: string; end: string }) {
+  return (
+    <span className="whitespace-nowrap">
+      {formatDate(start)}
+      {end !== start ? (
+        <>
+          <span aria-hidden="true"> – </span>
+          <span className="sr-only"> sampai </span>
+          {formatDate(end)}
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+/** Flags column (Design §2): Terlambat, SLA per pending track, Di luar lingkup, Duplikat?. */
+export function FlagsCell({ row }: { row: ActivityListRow }) {
+  const items: ReactNode[] = [];
+  if (row.is_late) items.push(<FlagPill key="late" flag="late" />);
+  if (row.partnership_sla_level && row.partnership_sla_days !== null && row.partnership_sla_level !== 'ok') {
+    items.push(
+      <span key="sla-p" title={`SLA Kemitraan: ${row.partnership_sla_days} hari kerja`}>
+        <SlaChip days={row.partnership_sla_days} level={row.partnership_sla_level} />
+      </span>,
+    );
+  }
+  if (row.mobility_sla_level && row.mobility_sla_days !== null && row.mobility_sla_level !== 'ok') {
+    items.push(
+      <span key="sla-m" title={`SLA Mobilitas: ${row.mobility_sla_days} hari kerja`}>
+        <SlaChip days={row.mobility_sla_days} level={row.mobility_sla_level} />
+      </span>,
+    );
+  }
+  if (row.out_of_scope) items.push(<FlagPill key="scope" flag="out_of_scope" />);
+  if (row.duplicate_open) {
+    items.push(
+      <Link key="dup" href="/realisasi/verifikasi/duplikat" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <FlagPill flag="duplicate" />
+      </Link>,
+    );
+  }
+  if (items.length === 0) return <span className="sr-only">Tidak ada penanda</span>;
+  return <div className="flex flex-wrap gap-1">{items}</div>;
+}
+
+export interface ActivityTableProps {
+  rows: ActivityListRow[];
+  /** Optional per-column filter row (client component rendering one `<tr>`). */
+  filterRow?: ReactNode;
+  caption: string;
+  /** Rendered in the body when `rows` is empty (spans all columns). */
+  empty?: ReactNode;
+}
+
+export const ACTIVITY_TABLE_COLUMNS = 10;
+
+/**
+ * Kegiatan list table (Design §3.2): Kode · Nama · Jenis · Unit · Mitra · Tanggal · Semester ·
+ * Status · Jalur (track chips) · Penanda. Server-safe (no hooks).
+ */
+export function ActivityTable({ rows, filterRow, caption, empty }: ActivityTableProps) {
+  return (
+    <div className="overflow-x-auto rounded-lg border bg-card" role="region" aria-label={caption} tabIndex={0}>
+      <table className="w-full min-w-[1100px] text-sm" data-testid="activity-table">
+        <caption className="sr-only">{caption}</caption>
+        <thead className="bg-muted/60 text-left">
+          <tr className="border-b">
+            {['Kode', 'Nama', 'Jenis', 'Unit', 'Mitra', 'Tanggal', 'Semester', 'Status', 'Jalur', 'Penanda'].map((h) => (
+              <th key={h} scope="col" className="h-10 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {h}
+              </th>
+            ))}
+          </tr>
+          {filterRow}
+        </thead>
+        <tbody>
+          {rows.length === 0 && empty ? (
+            <tr>
+              <td colSpan={ACTIVITY_TABLE_COLUMNS} className="p-0">
+                {empty}
+              </td>
+            </tr>
+          ) : null}
+          {rows.map((r) => (
+            <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40" data-testid="activity-row">
+              <td className="whitespace-nowrap px-3 py-2.5 align-top font-mono text-xs">
+                <Link href={`/realisasi/kegiatan/${r.id}`} className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {r.code}
+                </Link>
+              </td>
+              <td className="max-w-[280px] px-3 py-2.5 align-top">
+                <Link href={`/realisasi/kegiatan/${r.id}`} className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {r.name}
+                </Link>
+                {r.linked_count > 0 ? (
+                  <span className="block text-xs text-muted-foreground">Tertaut dengan {r.linked_count} kegiatan lain</span>
+                ) : null}
+              </td>
+              <td className="max-w-[180px] px-3 py-2.5 align-top">{r.type_name}</td>
+              <td className="max-w-[200px] px-3 py-2.5 align-top">
+                <UnitCell row={r} />
+              </td>
+              <td className="max-w-[220px] px-3 py-2.5 align-top">
+                <PartnerCell row={r} />
+              </td>
+              <td className="px-3 py-2.5 align-top">
+                <DateRange start={r.start_date} end={r.end_date} />
+              </td>
+              <td className="whitespace-nowrap px-3 py-2.5 align-top">{r.semester_label ?? '–'}</td>
+              <td className="px-3 py-2.5 align-top">
+                <StatusBadge status={r.status} />
+              </td>
+              <td className="px-3 py-2.5 align-top">
+                <TrackChips partnership={r.partnership_status} mobility={r.mobility_status} />
+              </td>
+              <td className="px-3 py-2.5 align-top">
+                <FlagsCell row={r} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

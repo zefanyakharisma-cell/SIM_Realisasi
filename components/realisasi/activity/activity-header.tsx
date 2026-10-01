@@ -1,0 +1,55 @@
+/**
+ * Activity detail header: code, name, status badge, track chips, flags, SLA chips (Design §3.4).
+ * Server-safe. `actions` is the role-based action bar rendered by the page.
+ */
+import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
+import { REJECT_REASON_LABEL, TRACK_LABEL } from '@/lib/realisasi/status';
+import type { ActivityDetail } from '@/lib/realisasi/types';
+
+export function ActivityHeader({ detail, actions }: { detail: ActivityDetail; actions?: React.ReactNode }) {
+  const { flags } = detail;
+  return (
+    <header className="space-y-3 border-b pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="font-mono text-sm text-muted-foreground" data-testid="activity-code">
+            {detail.code}
+          </p>
+          <h1 className="text-xl font-semibold leading-tight sm:text-2xl">{detail.name}</h1>
+        </div>
+        {actions ? (
+          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Tindakan kegiatan">
+            {actions}
+          </div>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge status={detail.status} />
+        {detail.status !== 'draft' && <TrackChips partnership={detail.partnership_status} mobility={detail.mobility_status} />}
+        {detail.sla.partnership && (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            {TRACK_LABEL.partnership}: <SlaChip days={detail.sla.partnership.days} level={detail.sla.partnership.level} />
+          </span>
+        )}
+        {detail.sla.mobility && (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            {TRACK_LABEL.mobility}: <SlaChip days={detail.sla.mobility.days} level={detail.sla.mobility.level} />
+          </span>
+        )}
+        {flags.late && <FlagPill flag="late" />}
+        {flags.out_of_scope && <FlagPill flag="out_of_scope" />}
+        {flags.duplicate_open && <FlagPill flag="duplicate" />}
+        {flags.late_addition && <FlagPill flag="late_addition" />}
+      </div>
+      {detail.rejection && (
+        <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900" role="status">
+          <span className="font-semibold">Ditolak — {REJECT_REASON_LABEL[detail.rejection.reason]}.</span>{' '}
+          {detail.rejection.note}
+          {detail.rejection.rejected_by_name && (
+            <span className="block text-xs text-red-800">oleh {detail.rejection.rejected_by_name}</span>
+          )}
+        </p>
+      )}
+    </header>
+  );
+}

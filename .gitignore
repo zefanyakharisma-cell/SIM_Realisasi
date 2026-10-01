@@ -8,3 +8,7 @@ next-env.d.ts
 test-results/
 playwright-report/
 .ecc/
+coverage/
+.env*.local
+!.env.example
+tsconfig.tsbuildinfo
