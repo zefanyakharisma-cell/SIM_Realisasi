@@ -1149,3 +1149,25 @@ Additive only; nothing in §6 was removed or renamed.
     - `FileDrop` also accepts `onReject`, `multiple`, `label` and `hint`.
 12. **`/kerjasama/**` pages (WP-REPORTS)** are not under `app/realisasi/layout.tsx`. To get the shell, wrap them in `AppShell` from `components/layout/app-shell.tsx` (needs `user`, `navCounts` from `realisasi.nav_counts()`, `demoToday`), or add `app/kerjasama/layout.tsx` that mirrors `app/realisasi/layout.tsx`.
 13. **Playwright**: `e2e/helpers.ts` exports `ACCOUNTS`, `loginAs(page, email)` and `resetDb()`. Global setup runs `scripts/db-reset.sh` unless `E2E_SKIP_DB_RESET=1`. `webServer` runs `npm run dev`; override it with `E2E_SERVER_COMMAND`/`E2E_PORT`. The Chromium download (`npx playwright install chromium`) was blocked in the build sandbox.
+
+---
+
+## Contract amendments (WP-DB)
+
+All RPC signatures in §3 are unchanged. The items below clarify behaviour or add internal objects. They are listed so app agents can rely on them.
+
+1. **`auth.uid()` stub (§2.4).** The stub uses Supabase's own form: `coalesce(nullif(claim.sub,''), nullif(claims,'')::jsonb->>'sub')::uuid`. It tolerates an empty `request.jwt.claims` GUC, which a pooled connection has after a `withUser` transaction ends. The §2.4 body would raise `invalid input syntax for type json` in that case.
+2. **`save_participants` transcripts (§3.2).** The contract allowed only paths under `v<draft version>/`. A non-null `transcript_path` is now also accepted when it already belongs to an earlier version of the same activity. Without this, rows copied by `ensure_participant_draft` (which keep their v1 paths) could never be re-saved. New uploads must still target the draft version (`storage_put` enforces this).
+3. **Extra invariant.** There is a unique partial index `one_draft_pset` on `participant_set_versions(activity_id) where status='draft'`, so there is at most one draft version.
+4. **Helpers granted to `authenticated`.** These are definer helpers, needed because the security-invoker views call them: `activity_linked_count(uuid)` (`v_activity_list.linked_count`, counted across RLS) and `activity_participant_total(uuid)` (`v_duplicate_candidates.*_participants`). Both return counts only. `alter default privileges … revoke execute on functions from public` is applied in schema `realisasi`.
+5. **Internal objects added (not granted).** `realisasi.period_ctx` (composite type), `_business_days_ago(n)` (lives in 0003; used by seeds), `_kpi_items(…, p_grace_months)`, `_kpi_values`, `_freeze`, `_checklist` and similar.
+6. **Snapshot labels.** `SnapshotListRow.label` / `previous_snapshot_label` / `snapshot_frozen` titles are `Ganjil 2025/2026 (YTD)` and `Genap 2025/2026 (Setahun)`. `PeriodInfo.label` stays as specified (`Setahun 2025/2026`). `frozen_by_name` is `Job terjadwal` when `frozen_by` is null.
+7. **`PeriodInfo` for unfrozen periods.** `window_end` and `cutoff` are the effective values used for computing, `least(nominal, today())`. For `live`, `window_end = cutoff = least(AY end, today())`, so the Live view of a past AY stops at its AY end.
+8. **`submission_checklist` items.** Every item carries a message: the error text when `ok=false` and a short positive Indonesian text when `ok=true`. `R07_REQUIRED_FIELD` also carries `"fields":[…]`. `LATE_NOTICE` text is `Batas pelaporan 13 Sep 2026 telah lewat — kegiatan akan ditandai Terlambat.`
+9. **Logs.** Draft creation is logged as `system/create`, initial submit as `system/submit` (track null), resubmit as `revision/<track>/resubmit`. File changes are logged only in revision (`revision/partnership/file_upload|file_remove`) or verified (`update/partnership/…`) state. `dismiss_duplicate` writes `verification/partnership/dismiss_duplicate` on both activities.
+10. **`commit_participant_edit`.** If the verified activity had `mobility_status='not_required'`, the track becomes `approved`. The overall status stays `verified`.
+11. **Deadline reminders (§5.1).** Every applicable tag (`h7`/`h0`/`w<n>`) is marked once. Each run sends at most one notification per draft: the most advanced tag that is new in that run.
+12. **`delete_draft`.** This also removes the draft's logs, its duplicate candidates and its blobs. Any known activity matched to it reverts to `unmatched`, which cannot happen for drafts but is handled defensively.
+13. **`storage_put`.** For `realisasi-files`, the third path segment must be `ia|ir|evidence`, and paths containing `..` are rejected (`VALIDATION_INVALID`).
+14. **`unlink_activity`.** Returns `{"event_group_id":"<new>","activity_ids":["<p_activity>"]}`. Calling it on an activity that has no linked partners raises `STATE_INVALID`.
+15. **Tests and shared DB.** `scripts/db-test.sh` honours `DATABASE_URL`. While other agents use `sim_realisasi`, run `DATABASE_URL=…/sim_realisasi_<x> scripts/db-reset.sh && … scripts/db-test.sh`; `db-reset` creates the database when it is missing. Test files live in `supabase/tests/*.sql`, and the shared helpers are in `supabase/tests/_helpers.inc`, which is not executed directly.
