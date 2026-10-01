@@ -52,8 +52,8 @@ select pg_temp.ok(not has_function_privilege('authenticated', p.oid, 'EXECUTE'),
   from pg_proc p where p.pronamespace = 'realisasi'::regnamespace
    and (p.proname like '\_%' or p.proname in ('compute_kpis','kpi_items','kpi_1_1','kpi_1_19_s1','kpi_1_19_24','kpi_1_19_s8'));
 
--- every function is security definer with a pinned search_path (trigger fns and pure helpers excepted)
-select pg_temp.ok(p.prosecdef and array_to_string(p.proconfig, ',') like 'search_path=realisasi, public, extensions, pg_temp%',
+-- every function is security definer with a pinned search_path (trigger fns and pure helpers excepted); extensions before public (review L6)
+select pg_temp.ok(p.prosecdef and array_to_string(p.proconfig, ',') like 'search_path=realisasi, extensions, public, pg_temp%',
                   'definer + search_path: ' || p.oid::regprocedure)
   from pg_proc p where p.pronamespace = 'realisasi'::regnamespace
    and has_function_privilege('authenticated', p.oid, 'EXECUTE');

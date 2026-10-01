@@ -7,6 +7,13 @@ create table realisasi.team_members (
   primary key (account_id, team)
 );
 
+-- Deployment flags: written only by the DBA / seeds (no RPC writes them, no grant). See M9 in docs/reviews/database-review.md.
+--   demo_time_travel: when enabled, settings.demo_today shifts today()/now_ts(). Absent or false = production (real clock).
+create table realisasi.deployment_flags (
+  key     text primary key,
+  enabled boolean not null
+);
+
 create table realisasi.settings (
   key        text primary key,
   value      jsonb not null,
@@ -62,6 +69,7 @@ create table realisasi.event_groups (
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
 );
+create index on realisasi.event_groups (created_by);
 
 create table realisasi.activities (
   id                  uuid primary key default gen_random_uuid(),
@@ -103,6 +111,7 @@ create index on realisasi.activities (submitter_unit_id);
 create index on realisasi.activities (type_id);
 create index on realisasi.activities (semester_id);
 create index on realisasi.activities (academic_year_id);
+create index on realisasi.activities (created_by);
 create index activities_name_trgm on realisasi.activities using gin (lower(name) gin_trgm_ops);
 
 create table realisasi.activity_units (
@@ -151,6 +160,7 @@ create table realisasi.activity_external_persons (
   notes        text
 );
 create index on realisasi.activity_external_persons (activity_id);
+create index on realisasi.activity_external_persons (country_code);
 
 create table realisasi.activity_files (
   id           bigserial primary key,
@@ -172,6 +182,7 @@ create unique index one_current_ia_ir
   where is_current and kind in ('ia','ir');
 create index on realisasi.activity_files (activity_id, kind);
 create index on realisasi.activity_files (storage_path);
+create index on realisasi.activity_files (uploaded_by);
 
 -- 3.3 Participants -----------------------------------------------------------
 create table realisasi.participant_set_versions (
@@ -190,6 +201,10 @@ create unique index one_approved_pset
   on realisasi.participant_set_versions (activity_id) where status = 'approved';
 create unique index one_draft_pset
   on realisasi.participant_set_versions (activity_id) where status = 'draft';
+create unique index one_pending_pset
+  on realisasi.participant_set_versions (activity_id) where status = 'pending';
+create index on realisasi.participant_set_versions (submitted_by);
+create index on realisasi.participant_set_versions (reviewed_by);
 
 create table realisasi.participant_students (
   id                  bigserial primary key,
@@ -208,6 +223,7 @@ create table realisasi.participant_students (
   check (section = 'internal' or home_institution is not null)
 );
 create index on realisasi.participant_students (nrp);
+create index on realisasi.participant_students (transcript_path) where transcript_path is not null;
 
 create table realisasi.participant_staff (
   id             bigserial primary key,
@@ -247,6 +263,8 @@ create table realisasi.activity_log (
   created_at  timestamptz default now()
 );
 create index on realisasi.activity_log (activity_id, created_at);
+create index on realisasi.activity_log (activity_id, action, created_at);
+create index on realisasi.activity_log (actor_id);
 create index activity_log_frozen_idx on realisasi.activity_log (created_at) where in_frozen_period;
 
 create table realisasi.known_activities (
@@ -270,6 +288,8 @@ create table realisasi.known_activities (
 create index on realisasi.known_activities (activity_date);
 create index on realisasi.known_activities (matched_activity_id);
 create index on realisasi.known_activities (unit_id);
+create index on realisasi.known_activities (created_by);
+create index known_activities_intl_status_idx on realisasi.known_activities (status, activity_date) where is_international;
 
 create table realisasi.notifications (
   id           bigserial primary key,
@@ -321,6 +341,7 @@ create table realisasi.kpi_snapshots (
 create unique index one_live_snapshot
   on realisasi.kpi_snapshots (academic_year_id, kind) where superseded_by is null;
 create index on realisasi.kpi_snapshots (frozen_at);
+create index on realisasi.kpi_snapshots (frozen_by);
 
 create table realisasi.kpi_snapshot_items (
   snapshot_id     uuid references realisasi.kpi_snapshots(id),

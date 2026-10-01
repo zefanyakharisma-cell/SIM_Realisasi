@@ -1,16 +1,23 @@
 -- 0013_snapshots: freeze / refreeze (R-55..R-59), late additions and post-freeze changes.
 
--- previous live snapshot P of a snapshot (or of a moment): greatest frozen_at < p_before, excluding p_self
-create function realisasi._prev_snapshot(p_before timestamptz, p_self uuid) returns realisasi.kpi_snapshots
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
-  select * from realisasi.kpi_snapshots
-   where superseded_by is null and id is distinct from p_self and frozen_at < p_before
-   order by frozen_at desc limit 1
+-- previous snapshot P of snapshot S (M3): the snapshot of the immediately preceding PERIOD
+-- ((AY, ganjil) -> (previous AY, genap); (AY, genap) -> (AY, ganjil)) that was live at S's frozen_at,
+-- i.e. the latest one of that period with frozen_at < p_before. Re-freezing an unrelated (older) period no longer moves P.
+create function realisasi._prev_snapshot(p_ay int, p_kind realisasi.snapshot_kind, p_before timestamptz) returns realisasi.kpi_snapshots
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select k.* from realisasi.kpi_snapshots k
+   where k.frozen_at < p_before
+     and case when p_kind = 'genap_full_year' then k.academic_year_id = p_ay and k.kind = 'ganjil_ytd'
+              else k.kind = 'genap_full_year'
+                   and k.academic_year_id = (select py.id from realisasi.academic_years py, realisasi.academic_years cy
+                                               where cy.id = p_ay and py.start_date < cy.start_date
+                                               order by py.start_date desc limit 1) end
+   order by k.frozen_at desc limit 1
 $$;
 
 create function realisasi._snapshot_window(p_ay int, p_kind realisasi.snapshot_kind,
                                            out window_start date, out window_end date, out cutoff_date date)
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare ay realisasi.academic_years; s realisasi.semesters;
 begin
   select * into ay from realisasi.academic_years where id = p_ay;
@@ -25,7 +32,7 @@ end $$;
 
 create function realisasi._freeze(p_ay int, p_kind realisasi.snapshot_kind, p_as_of timestamptz, p_actor uuid,
                                   p_reason text, p_old uuid) returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare w record; v_id uuid := gen_random_uuid(); v_vals jsonb; p realisasi.kpi_snapshots; v_label text;
 begin
   select * into w from realisasi._snapshot_window(p_ay, p_kind);
@@ -41,7 +48,7 @@ begin
   values (v_id, p_ay, p_kind, w.window_start, w.window_end, w.cutoff_date, v_vals,
           realisasi.settings_json(), p_as_of, p_actor, p_reason);
 
-  p := realisasi._prev_snapshot(p_as_of, v_id);
+  p := realisasi._prev_snapshot(p_ay, p_kind, p_as_of);
   insert into realisasi.kpi_snapshot_items (snapshot_id, kpi_code, bucket, ref_type, ref_id, is_late_addition)
   select distinct on (i.kpi_code, i.bucket, i.ref_type, i.ref_id) v_id, i.kpi_code, i.bucket, i.ref_type, i.ref_id,
          case
@@ -68,17 +75,29 @@ begin
   return v_id;
 end $$;
 
+-- p_as_of / p_actor are honoured only for the system caller (scheduled job, seeds). A user freeze is stamped
+-- now_ts() / auth.uid() and only allowed once the period's cutoff has passed (M4).
 create function realisasi.freeze_snapshot(p_ay int, p_kind realisasi.snapshot_kind, p_as_of timestamptz default null,
                                           p_actor uuid default null) returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
+declare w record;
 begin
-  if auth.uid() is not null then perform realisasi._require_admin(); end if;
   if p_kind is null then perform realisasi._invalid('kind'); end if;
-  return realisasi._freeze(p_ay, p_kind, coalesce(p_as_of, realisasi.now_ts()), coalesce(p_actor, auth.uid()), null, null);
+  if realisasi._is_system_caller() then
+    return realisasi._freeze(p_ay, p_kind, coalesce(p_as_of, realisasi.now_ts()), p_actor, null, null);
+  end if;
+  perform realisasi._require_admin();
+  select * into w from realisasi._snapshot_window(p_ay, p_kind);
+  if w.cutoff_date > realisasi.today() then
+    perform realisasi._raise('R55_BEFORE_CUTOFF',
+      format('Periode ini baru dapat dibekukan setelah batas %s.', realisasi._fmt_date(w.cutoff_date)),
+      jsonb_build_object('cutoff_date', w.cutoff_date));
+  end if;
+  return realisasi._freeze(p_ay, p_kind, realisasi.now_ts(), auth.uid(), null, null);
 end $$;
 
 create function realisasi.refreeze_snapshot(p_snapshot uuid, p_reason text) returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin(); s realisasi.kpi_snapshots;
 begin
   if nullif(btrim(p_reason), '') is null then perform realisasi._raise('R58_REASON_REQUIRED', 'Alasan pembekuan ulang wajib diisi.'); end if;
@@ -90,12 +109,12 @@ end $$;
 
 -- Late additions (internal; no permission check) -------------------------------
 create function realisasi._snapshot_late_additions(p_snapshot uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare s realisasi.kpi_snapshots; p realisasi.kpi_snapshots; v_plabel text;
 begin
   select * into s from realisasi.kpi_snapshots where id = p_snapshot;
   if not found then return '[]'::jsonb; end if;
-  p := realisasi._prev_snapshot(s.frozen_at, s.id);
+  p := realisasi._prev_snapshot(s.academic_year_id, s.kind, s.frozen_at);
   if p.id is null then return '[]'::jsonb; end if;
   select realisasi._snapshot_label(p.kind, label) into v_plabel from realisasi.academic_years where id = p.academic_year_id;
 
@@ -134,15 +153,17 @@ begin
 end $$;
 
 create function realisasi._snapshot_post_freeze_changes(p_snapshot uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare s realisasi.kpi_snapshots; p realisasi.kpi_snapshots;
 begin
   select * into s from realisasi.kpi_snapshots where id = p_snapshot;
   if not found then return '[]'::jsonb; end if;
-  p := realisasi._prev_snapshot(s.frozen_at, s.id);
+  p := realisasi._prev_snapshot(s.academic_year_id, s.kind, s.frozen_at);
   return coalesce((select jsonb_agg(jsonb_build_object(
       'log_id', l.id, 'activity_id', a.id, 'code', a.code, 'name', a.name, 'kind', l.kind, 'track', l.track,
-      'action', l.action, 'actor_name', pr.display_name, 'note', l.note, 'diff', l.diff, 'created_at', l.created_at)
+      'action', l.action, 'actor_name', pr.display_name, 'note', l.note,
+      'diff', case when realisasi.sees_participant_identifiers() then l.diff else realisasi._mask_log_diff(l.diff) end,   -- M6
+      'created_at', l.created_at)
       order by l.created_at, l.id)
     from realisasi.activity_log l
     join realisasi.activities a on a.id = l.activity_id
@@ -152,14 +173,14 @@ begin
 end $$;
 
 create function realisasi._require_report_reader() returns void
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   perform realisasi._require_uid();
   if realisasi.my_role() not in ('io_staff','io_admin','viewer') then perform realisasi._forbidden(); end if;
 end $$;
 
 create function realisasi.snapshot_late_additions(p_snapshot uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   perform realisasi._require_report_reader();
   if not exists (select 1 from realisasi.kpi_snapshots where id = p_snapshot) then perform realisasi._not_found(); end if;
@@ -167,7 +188,7 @@ begin
 end $$;
 
 create function realisasi.snapshot_post_freeze_changes(p_snapshot uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   perform realisasi._require_report_reader();
   if not exists (select 1 from realisasi.kpi_snapshots where id = p_snapshot) then perform realisasi._not_found(); end if;

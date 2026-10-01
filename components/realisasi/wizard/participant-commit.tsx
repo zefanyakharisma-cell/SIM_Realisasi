@@ -9,22 +9,30 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toaster';
 import { ParticipantsEditor } from '@/components/realisasi/wizard/participants-editor';
+import { SaveStatusProvider, useSaveStatus } from '@/components/realisasi/wizard/save-status';
 import { commitParticipantEdit } from '@/lib/realisasi/actions/submission';
 import type { CountryOption } from '@/lib/realisasi/queries/lookups';
 import type { ParticipantVersion } from '@/lib/realisasi/types';
 
-export function ParticipantCommit({
-  activityId,
-  version,
-  countries,
-  required,
-}: {
+interface Props {
   activityId: string;
   version: ParticipantVersion | null;
   countries: CountryOption[];
   required: { any: boolean; internal: boolean; inbound: boolean };
-}) {
+}
+
+export function ParticipantCommit(props: Props) {
+  return (
+    <SaveStatusProvider>
+      <ParticipantCommitInner {...props} />
+    </SaveStatusProvider>
+  );
+}
+
+function ParticipantCommitInner({ activityId, version, countries, required }: Props) {
   const router = useRouter();
+  const { state: saveState, flush } = useSaveStatus();
+  const saving = saveState.kind === 'saving' || saveState.kind === 'dirty';
   const [blocking, setBlocking] = useState(false);
   const [hasDraft, setHasDraft] = useState(version?.status === 'draft');
   const [note, setNote] = useState('');
@@ -38,6 +46,11 @@ export function ParticipantCommit({
       return;
     }
     startTransition(async () => {
+      // M-1: the commit approves the DB draft, so pending/in-flight edits must land first.
+      if (!(await flush())) {
+        setError('Perubahan peserta terakhir belum tersimpan. Periksa baris bertanda lalu coba lagi.');
+        return;
+      }
       const res = await commitParticipantEdit(activityId, note);
       if (!res.ok) {
         setError(res.message);
@@ -81,7 +94,7 @@ export function ParticipantCommit({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button onClick={commit} loading={pending} disabled={blocking || !hasDraft} data-testid="commit-participants">
+        <Button onClick={commit} loading={pending} disabled={blocking || !hasDraft || (saving && !pending)} data-testid="commit-participants">
           Simpan &amp; setujui versi baru
         </Button>
         {!hasDraft && <p className="text-sm text-muted-foreground">Ubah data peserta terlebih dahulu.</p>}

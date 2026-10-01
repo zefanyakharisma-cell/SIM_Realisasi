@@ -8,7 +8,7 @@
  * ✓ found, ✗ blocking (red, not saved), ⚠ warning (graduated/inactive, allowed). Whenever the set has
  * no blocking rows it is persisted with `saveParticipants` (DB re-validates; row errors map back).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileText, Loader2, Trash2, Upload, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -20,48 +20,25 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
 import { saveParticipants } from '@/lib/realisasi/actions/submission';
-import { splitIdTokens } from '@/lib/realisasi/schemas/participants';
+import { MAX_LOOKUP_IDS, splitIdTokens } from '@/lib/realisasi/schemas/participants';
+import { createDraftSaver, type DraftSaver, type SaveOutcome } from '@/lib/realisasi/save-queue';
 import { MAX_FILE_BYTES } from '@/lib/storage';
-import type {
-  CountryOption,
-  EmployeeLookupResult,
-  EmployeeLookupStatus,
-  StudentLookupResult,
-  StudentLookupStatus,
-} from '@/lib/realisasi/queries/lookups';
-import type { ParticipantVersion, StaffRowPayload, StudentRowPayload, StudentSection } from '@/lib/realisasi/types';
+import {
+  dbRowErrors,
+  fromVersion,
+  hasBlocking,
+  participantsReducer,
+  toParticipantsPayload,
+  type ParticipantsAction,
+  type ParticipantsPayload,
+  type ParticipantsState,
+  type RowStatus,
+  type StaffRow,
+  type StudentRow,
+} from '@/components/realisasi/wizard/participants-model';
+import type { CountryOption, EmployeeLookupResult, StudentLookupResult } from '@/lib/realisasi/queries/lookups';
+import type { ParticipantVersion, StudentSection } from '@/lib/realisasi/types';
 import { cn } from '@/lib/utils';
-
-type RowStatus = StudentLookupStatus | EmployeeLookupStatus;
-
-interface StudentRow {
-  key: string;
-  section: StudentSection;
-  nrp: string;
-  status: RowStatus;
-  blocking: boolean;
-  full_name: string | null;
-  faculty_name: string | null;
-  prodi_name: string | null;
-  home_institution: string;
-  home_student_number: string;
-  home_country_code: string;
-  transcript_path: string | null;
-  transcript_href: string | null;
-  row_note: string | null;
-  serverError?: string;
-}
-
-interface StaffRow {
-  key: string;
-  employee_id: string;
-  status: RowStatus;
-  blocking: boolean;
-  full_name: string | null;
-  unit_name: string | null;
-  row_note: string | null;
-  serverError?: string;
-}
 
 const STATUS_TEXT: Record<RowStatus, string> = {
   ok: 'Ditemukan',
@@ -87,72 +64,26 @@ function rowClass(status: RowStatus, blocking: boolean): string {
 
 const key = () => globalThis.crypto.randomUUID();
 
-function fromVersion(v: ParticipantVersion | null): { students: StudentRow[]; staff: StaffRow[] } {
-  if (!v) return { students: [], staff: [] };
-  return {
-    students: v.students.map((s) => ({
-      key: key(),
-      section: s.section,
-      nrp: s.nrp,
-      status: s.registry_status === 'active' ? 'ok' : s.registry_status,
-      blocking: false,
-      full_name: s.full_name,
-      faculty_name: s.faculty_name,
-      prodi_name: s.prodi_name,
-      home_institution: s.home_institution ?? '',
-      home_student_number: s.home_student_number ?? '',
-      home_country_code: s.home_country_code ?? '',
-      transcript_path: s.transcript_path,
-      transcript_href: s.transcript_href,
-      row_note: s.row_note,
-    })),
-    staff: v.staff.map((s) => ({
-      key: key(),
-      employee_id: s.employee_id,
-      status: s.registry_status === 'active' ? 'ok' : s.registry_status,
-      blocking: false,
-      full_name: s.full_name,
-      unit_name: s.unit_name,
-      row_note: s.row_note,
-    })),
-  };
-}
-
-interface DbRowError {
-  section: 'internal' | 'inbound' | 'staff';
-  index: number;
-  id: string;
-  code: string;
-}
-
-function dbRows(detail: unknown): DbRowError[] {
-  if (typeof detail !== 'object' || detail === null || !('rows' in detail)) return [];
-  const rows = (detail as { rows: unknown }).rows;
-  return Array.isArray(rows) ? (rows.filter((r) => typeof r === 'object' && r !== null && 'id' in r) as DbRowError[]) : [];
-}
-
-const DB_CODE_STATUS: Record<string, RowStatus> = {
-  R16_NRP_NOT_FOUND: 'not_found',
-  R19_EMPLOYEE_NOT_FOUND: 'not_found',
-  R22_DUPLICATE_NRP: 'duplicate',
-  R22_DUPLICATE_EMPLOYEE: 'duplicate',
-  R17_NOT_INBOUND: 'not_inbound',
-  R16_SECTION_MISMATCH: 'is_inbound',
-};
-
 class LookupError extends Error {}
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+/** `service` names the registry in the error copy ("data mahasiswa" / "data pegawai"). */
+async function postJson<T>(url: string, body: unknown, service: string): Promise<T> {
+  const unreachable = `Layanan ${service} tidak dapat dihubungi. Coba lagi.`;
   let res: Response;
   try {
     res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
-    throw new LookupError('Layanan data mahasiswa tidak dapat dihubungi. Coba lagi.');
+    throw new LookupError(unreachable);
   }
   const json = (await res.json().catch(() => ({}))) as T & { message?: string };
-  if (!res.ok) throw new LookupError(json.message ?? 'Layanan data mahasiswa tidak dapat dihubungi. Coba lagi.');
+  if (!res.ok) throw new LookupError(json.message ?? unreachable);
   return json;
 }
+
+type SaveResult = Awaited<ReturnType<typeof saveParticipants>>;
+
+/** Debounce for inbound text fields (ms). */
+const TEXT_DEBOUNCE_MS = 800;
 
 export interface ParticipantsEditorProps {
   activityId: string;
@@ -161,7 +92,7 @@ export interface ParticipantsEditorProps {
   required: { any: boolean; internal: boolean; inbound: boolean };
   /** Reports whether unsaved blocking rows exist (wizard disables "Lanjut"/"Ajukan"). */
   onBlockingChange?: (blocking: boolean) => void;
-  /** Called after a successful save (e.g. router.refresh for the checklist). */
+  /** Called after a save that left no pending edits (e.g. router.refresh for the checklist). */
   onSaved?: (version: number) => void;
   /** Text shown above the panels (e.g. "Versi baru v3 akan dibuat saat disimpan"). */
   versionNote?: string;
@@ -169,114 +100,142 @@ export interface ParticipantsEditorProps {
 
 export function ParticipantsEditor({ activityId, initialVersion, countries, required, onBlockingChange, onSaved, versionNote }: ParticipantsEditorProps) {
   const save = useSaveStatus();
-  const initial = useMemo(() => fromVersion(initialVersion), [initialVersion]);
-  const [students, setStudents] = useState<StudentRow[]>(initial.students);
-  const [staff, setStaff] = useState<StaffRow[]>(initial.staff);
+  // Single source of truth: `rowsRef` always holds the latest rows (updated synchronously by
+  // `dispatch`), `rows` mirrors it for rendering. Late async results are applied as actions to
+  // the latest rows, never by replacing them with a stale snapshot (H-2).
+  const [rows, setRows] = useState<ParticipantsState>(() => fromVersion(initialVersion));
+  const rowsRef = useRef(rows);
+  const { students, staff } = rows;
   const [saveError, setSaveError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [savedVersion, setSavedVersion] = useState<number | null>(initialVersion?.status === 'draft' ? initialVersion.version : null);
   const [saving, setSaving] = useState(false);
-  const dirty = useRef(false);
-  const seq = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const blocking = students.some((s) => s.blocking) || staff.some((s) => s.blocking);
+  const dispatch = useCallback((a: ParticipantsAction) => {
+    rowsRef.current = participantsReducer(rowsRef.current, a);
+    setRows(rowsRef.current);
+  }, []);
+
+  const blocking = hasBlocking(rows);
   useEffect(() => {
     onBlockingChange?.(blocking);
   }, [blocking, onBlockingChange]);
 
-  const persist = useCallback(
-    async (st: StudentRow[], sf: StaffRow[]) => {
-      if (st.some((s) => s.blocking) || sf.some((s) => s.blocking)) return;
-      const mySeq = ++seq.current;
-      setSaving(true);
-      save.setSaving();
-      const payloadStudents: StudentRowPayload[] = st.map((s) =>
-        s.section === 'internal'
-          ? { section: 'internal', nrp: s.nrp }
-          : {
-              section: 'inbound',
-              nrp: s.nrp,
-              home_institution: s.home_institution.trim() || null,
-              home_student_number: s.home_student_number.trim() || null,
-              home_country_code: s.home_country_code || null,
-              transcript_path: s.transcript_path,
-            },
-      );
-      const payloadStaff: StaffRowPayload[] = sf.map((s) => ({ employee_id: s.employee_id }));
-      const res = await saveParticipants(activityId, payloadStudents, payloadStaff);
-      if (mySeq !== seq.current) return; // a newer save superseded this one
-      setSaving(false);
+  // Result handling needs the latest props/context; the saver itself lives for the whole mount.
+  const onResult = useRef<(o: SaveOutcome<SaveResult>, busy: boolean) => void>(() => {});
+  useEffect(() => {
+    onResult.current = ({ result: res, upToDate }, busy) => {
       if (!res.ok) {
         setSaveError(res.message);
         save.setError(res.message);
-        const errs = dbRows(res.detail);
-        if (errs.length) {
-          const mark = (id: string) => errs.find((e) => e.id === id);
-          setStudents((rows) =>
-            rows.map((r) => {
-              const e = mark(r.nrp);
-              return e && e.section !== 'staff'
-                ? { ...r, blocking: true, status: DB_CODE_STATUS[e.code] ?? 'not_found', serverError: res.message }
-                : r;
-            }),
-          );
-          setStaff((rows) =>
-            rows.map((r) => {
-              const e = mark(r.employee_id);
-              return e && e.section === 'staff' ? { ...r, blocking: true, status: DB_CODE_STATUS[e.code] ?? 'not_found', serverError: res.message } : r;
-            }),
-          );
-        }
+        const errs = dbRowErrors(res.detail);
+        if (errs.length) dispatch({ type: 'markDbErrors', errors: errs, message: res.message });
+        if (!busy) setSaving(false);
         return;
       }
-      dirty.current = false;
       setSaveError(null);
       setSavedVersion(res.data.version);
       setWarnings(
-        res.data.warnings.map(
-          (w) => `${w.id}: ${w.status === 'graduated' ? 'sudah lulus' : 'tidak aktif'} (tetap dapat diajukan)`,
-        ),
+        res.data.warnings.map((w) => `${w.id}: ${w.status === 'graduated' ? 'sudah lulus' : 'tidak aktif'} (tetap dapat diajukan)`),
       );
-      save.setSaved();
-      onSaved?.(res.data.version);
-    },
-    [activityId, save, onSaved],
+      if (busy) return; // a newer save is queued; report when it lands
+      setSaving(false);
+      if (upToDate) {
+        save.setSaved();
+        onSaved?.(res.data.version);
+      } else {
+        save.setDirty(); // edits after the snapshot: their debounce timer will save them
+      }
+    };
+  });
+  const [saver] = useState(() => {
+    const s: DraftSaver<ParticipantsPayload, SaveResult> = createDraftSaver<ParticipantsPayload, SaveResult>({
+      run: (p) => saveParticipants(activityId, p.students, p.staff),
+      isOk: (r) => r.ok,
+      onResult: (o) => onResult.current(o, s.busy),
+    });
+    return s;
+  });
+
+  /** Saves the latest rows now (serialized behind any running save; skipped while red rows exist). */
+  const persistNow = useCallback(async (): Promise<void> => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (toParticipantsPayload(rowsRef.current) === null) return;
+    setSaving(true);
+    save.setSaving();
+    try {
+      await saver.save(() => toParticipantsPayload(rowsRef.current));
+    } catch {
+      setSaving(false);
+      const msg = 'Data peserta gagal disimpan. Periksa koneksi lalu coba lagi.';
+      setSaveError(msg);
+      save.setError(msg);
+    }
+  }, [saver, save]);
+
+  // Navigation / submit / commit wait for pending edits (M-1).
+  useEffect(
+    () =>
+      save.registerFlush(async () => {
+        if (saver.dirty || timer.current) await persistNow();
+        await saver.idle();
+        // Red rows are never persisted by design (shown in the blocking alert); nothing to flush.
+        return !saver.dirty || hasBlocking(rowsRef.current);
+      }),
+    [save, saver, persistNow],
   );
 
-  // Debounced persistence of edits to inbound text fields.
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (tick === 0) return;
-    const t = setTimeout(() => void persist(students, staff), 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only on explicit edit ticks; rows read at fire time
-  }, [tick]);
+  // Leaving the step with a debounced edit pending: save it instead of dropping it (M-1).
+  useEffect(
+    () => () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+        void saver.save(() => toParticipantsPayload(rowsRef.current)).catch(() => {});
+      }
+    },
+    [saver],
+  );
 
-  function commit(st: StudentRow[], sf: StaffRow[], immediate = true) {
-    setStudents(st);
-    setStaff(sf);
-    dirty.current = true;
+  function commit(action: ParticipantsAction, immediate = true) {
+    dispatch(action);
+    saver.markEdited();
     save.setDirty();
-    if (immediate) void persist(st, sf);
-    else setTick((n) => n + 1);
+    if (immediate) {
+      void persistNow();
+      return;
+    }
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      void persistNow();
+    }, TEXT_DEBOUNCE_MS);
   }
 
-  async function addStudents(section: StudentSection, raw: string): Promise<string | null> {
-    const tokens = splitIdTokens(raw);
-    if (tokens.length === 0) return 'Tempel minimal satu NRP.';
-    const existing = new Set(students.map((s) => s.nrp));
+  /** Splits pasted ids into fresh ones and repeats (against the latest rows). */
+  function partition(raw: string, existing: Set<string>) {
     const seenNow = new Set<string>();
     const rejected: string[] = [];
     const fresh: string[] = [];
-    for (const t of tokens) {
+    for (const t of splitIdTokens(raw)) {
       if (existing.has(t) || seenNow.has(t)) rejected.push(t);
       else fresh.push(t);
       seenNow.add(t);
     }
-    if (fresh.length > 200) return 'Maksimal 200 NRP per pengecekan.';
+    return { fresh, rejected: [...new Set(rejected)] };
+  }
+
+  async function addStudents(section: StudentSection, raw: string): Promise<string | null> {
+    if (splitIdTokens(raw).length === 0) return 'Tempel minimal satu NRP.';
+    const { fresh, rejected } = partition(raw, new Set(rowsRef.current.students.map((s) => s.nrp)));
+    if (fresh.length > MAX_LOOKUP_IDS) return `Maksimal ${MAX_LOOKUP_IDS} NRP per pengecekan.`;
     let results: StudentLookupResult[] = [];
     if (fresh.length) {
-      const body = await postJson<{ results: StudentLookupResult[] }>('/api/lookup/students', { nrps: fresh, section });
+      const body = await postJson<{ results: StudentLookupResult[] }>('/api/lookup/students', { nrps: fresh, section }, 'data mahasiswa');
       results = body.results;
     }
     const added: StudentRow[] = results.map((r) => ({
@@ -295,26 +254,17 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
       transcript_href: null,
       row_note: null,
     }));
-    commit([...students, ...added], staff);
-    return rejected.length ? `NRP duplikat ditolak (sudah ada dalam daftar): ${[...new Set(rejected)].join(', ')}.` : null;
+    if (added.length) commit({ type: 'addStudents', rows: added });
+    return rejected.length ? `NRP duplikat ditolak (sudah ada dalam daftar): ${rejected.join(', ')}.` : null;
   }
 
   async function addStaff(raw: string): Promise<string | null> {
-    const tokens = splitIdTokens(raw);
-    if (tokens.length === 0) return 'Tempel minimal satu ID pegawai.';
-    const existing = new Set(staff.map((s) => s.employee_id));
-    const seenNow = new Set<string>();
-    const rejected: string[] = [];
-    const fresh: string[] = [];
-    for (const t of tokens) {
-      if (existing.has(t) || seenNow.has(t)) rejected.push(t);
-      else fresh.push(t);
-      seenNow.add(t);
-    }
-    if (fresh.length > 200) return 'Maksimal 200 ID per pengecekan.';
+    if (splitIdTokens(raw).length === 0) return 'Tempel minimal satu ID pegawai.';
+    const { fresh, rejected } = partition(raw, new Set(rowsRef.current.staff.map((s) => s.employee_id)));
+    if (fresh.length > MAX_LOOKUP_IDS) return `Maksimal ${MAX_LOOKUP_IDS} ID per pengecekan.`;
     let results: EmployeeLookupResult[] = [];
     if (fresh.length) {
-      const body = await postJson<{ results: EmployeeLookupResult[] }>('/api/lookup/employees', { ids: fresh });
+      const body = await postJson<{ results: EmployeeLookupResult[] }>('/api/lookup/employees', { ids: fresh }, 'data pegawai');
       results = body.results;
     }
     const added: StaffRow[] = results.map((r) => ({
@@ -326,18 +276,14 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
       unit_name: r.employee?.unit_name ?? null,
       row_note: null,
     }));
-    commit(students, [...staff, ...added]);
-    return rejected.length ? `ID pegawai duplikat ditolak (sudah ada dalam daftar): ${[...new Set(rejected)].join(', ')}.` : null;
+    if (added.length) commit({ type: 'addStaff', rows: added });
+    return rejected.length ? `ID pegawai duplikat ditolak (sudah ada dalam daftar): ${rejected.join(', ')}.` : null;
   }
 
-  const removeStudent = (k: string) => commit(students.filter((s) => s.key !== k), staff);
-  const removeStaff = (k: string) => commit(students, staff.filter((s) => s.key !== k));
-  const patchStudent = (k: string, patch: Partial<StudentRow>, immediate = false) =>
-    commit(
-      students.map((s) => (s.key === k ? { ...s, ...patch } : s)),
-      staff,
-      immediate,
-    );
+  const removeStudent = (k: string) => commit({ type: 'removeStudent', key: k });
+  const removeStaff = (k: string) => commit({ type: 'removeStaff', key: k });
+  const patchStudent = (k: string, patch: Partial<Omit<StudentRow, 'key'>>, immediate = false) =>
+    commit({ type: 'patchStudent', key: k, patch }, immediate);
 
   async function uploadTranscript(row: StudentRow, file: File) {
     const fd = new FormData();
@@ -347,11 +293,14 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
     fd.set('file', file);
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const body = (await res.json()) as { path?: string; href?: string; message?: string };
+      const body = (await res.json().catch(() => ({}))) as { path?: string; href?: string; message?: string };
       if (!res.ok || !body.path) throw new Error(body.message ?? 'Transkrip gagal diunggah.');
-      patchStudent(row.key, { transcript_path: body.path, transcript_href: body.href ?? null }, true);
+      // Patch only this row's transcript on the latest rows (H-2).
+      if (rowsRef.current.students.some((s) => s.key === row.key)) {
+        patchStudent(row.key, { transcript_path: body.path, transcript_href: body.href ?? null }, true);
+      }
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : 'Transkrip gagal diunggah.');
+      setSaveError(e instanceof Error && !(e instanceof SyntaxError) ? e.message : 'Transkrip gagal diunggah.');
     }
   }
 
@@ -665,7 +614,7 @@ function Panel({
     setMessage(null);
     try {
       const res = await fetch('/api/template/peserta', { method: 'POST', body: fd });
-      const body = (await res.json()) as { ids?: string[]; message?: string };
+      const body = (await res.json().catch(() => ({}))) as { ids?: string[]; message?: string };
       if (!res.ok || !body.ids) throw new Error(body.message ?? 'Berkas tidak dapat dibaca.');
       if (body.ids.length === 0) {
         setMessage({ tone: 'error', text: 'Tidak ada ID di kolom A berkas tersebut.' });
@@ -686,8 +635,9 @@ function Panel({
     <details open className="group rounded-lg border" data-testid={id}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span>{title}</span>
-        <Badge variant="neutral" aria-label={`${count} baris`}>
+        <Badge variant="neutral">
           {count}
+          <span className="sr-only"> baris</span>
         </Badge>
         {required && <Badge variant="red">Wajib</Badge>}
         <span className="ml-auto text-xs text-muted-foreground group-open:hidden">Tampilkan</span>

@@ -24,11 +24,19 @@ select pg_temp.eq(realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01
                   'AT-09 Live S8: denominator = reported + 2');
 select pg_temp.eq((select reported || '/' || unmatched_known || '/' || pct from realisasi.kpi_1_19_s8('2026-08-01', '2026-10-01')), '4/2/66.7', 'Schema wrapper kpi_1_19_s8');
 select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2, null, 20) #>> '{kpi_1_19_s8,unmatched_known}')::int, 1, 'unit FBE: known #6');
-select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2, '2026-09-15 00:00+07') #>> '{kpi_1_19_s8,unmatched_known}')::int, 1,
-                  'as_of: known #7 created 2026-09-23 not yet known');
--- R-50 matching an entry removes it from the gap
+-- as_of 2026-09-15: #7 (created 2026-09-23) not yet known; #2..#4 are matched to activities verified only after
+-- 2026-09-15, so at that moment they are still gaps (review H3: matched counts only via a qualifying reported activity)
+select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2, '2026-09-15 00:00+07') #>> '{kpi_1_19_s8,unmatched_known}')::int, 4,
+                  'as_of: known #7 not yet known; #2..#4 matched to not-yet-verified activities are gaps');
+-- R-50 matching an entry to its (verified, international) SIM activity removes it from the gap
 :as_part
 select realisasi.match_known_activity(6, pg_temp.aid(17));
+reset role;
+select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) #>> '{kpi_1_19_s8,unmatched_known}')::int, 2,
+                  'R-50/H3 entry matched to an activity still in revision stays in the gap');
+:as_part
+select realisasi.unmatch_known_activity(6);
+select realisasi.match_known_activity(6, pg_temp.aid(10));
 reset role;
 select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) #>> '{kpi_1_19_s8,unmatched_known}')::int, 1, 'R-50 matched entry leaves the gap');
 :as_part

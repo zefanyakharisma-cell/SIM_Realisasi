@@ -1,5 +1,9 @@
 -- 01_config: settings, calendar, holidays, Jenis Kegiatan, SDGs, team membership. Idempotent.
 
+-- Demo deployment: enable demo_today time travel (M9). Production does not run seeds, so the flag stays absent (= off).
+-- To disable on an existing database: update realisasi.deployment_flags set enabled = false where key = 'demo_time_travel';
+insert into realisasi.deployment_flags (key, enabled) values ('demo_time_travel', true) on conflict (key) do nothing;
+
 insert into realisasi.settings (key, value) values
   ('grace_period_months', '6'), ('reporting_deadline_days', '30'), ('sla_yellow_days', '3'), ('sla_red_days', '5'),
   ('revision_reminder_days', '7'), ('revision_escalate_days', '14'), ('dup_date_window_days', '3'),

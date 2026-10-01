@@ -80,6 +80,15 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
   const k24 = values.kpi_1_19_24;
   const s8 = values.kpi_1_19_s8;
   const canRegister = can(user, 'known.view');
+  // M-3: open the register with the same scope the S8 card counts (CONTRACTS §4.2): international,
+  // unmatched, inside the period window, and the unit when unit-scoped.
+  const unmatchedHref = `/realisasi/kegiatan-diketahui?${new URLSearchParams({
+    status: 'unmatched',
+    intl: '1',
+    from: period.window_start,
+    to: period.window_end,
+    ...(scope.unit_id ? { unit_id: String(scope.unit_id) } : {}),
+  }).toString()}`;
 
   return (
     <div className="space-y-6">
@@ -170,7 +179,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
           <p data-testid="kpi-s8-unmatched">
             {canRegister ? (
               <Link
-                href="/realisasi/kegiatan-diketahui?status=unmatched"
+                href={unmatchedHref}
                 className="font-medium text-amber-900 underline underline-offset-2"
               >
                 {formatNumber(s8.unmatched_known)} kegiatan belum dilaporkan

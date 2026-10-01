@@ -76,12 +76,15 @@ export function splitIdTokens(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Max ids per lookup request (security review H-1; the wizard checks in batches of this size). */
+export const MAX_LOOKUP_IDS = 200;
+
 /** Request bodies of the lookup routes (CONTRACTS §8.1). */
 export const studentLookupRequestSchema = z.object({
-  nrps: z.array(z.string().trim().toUpperCase().min(1).max(20)).min(1, 'Daftar NRP kosong.').max(200, 'Maksimal 200 NRP per permintaan.'),
+  nrps: z.array(z.string().trim().toUpperCase().min(1).max(20)).min(1, 'Daftar NRP kosong.').max(MAX_LOOKUP_IDS, `Maksimal ${MAX_LOOKUP_IDS} NRP per permintaan.`),
   section: z.enum(['internal', 'inbound']),
 });
 
 export const employeeLookupRequestSchema = z.object({
-  ids: z.array(z.string().trim().toUpperCase().min(1).max(20)).min(1, 'Daftar ID pegawai kosong.').max(200, 'Maksimal 200 ID per permintaan.'),
+  ids: z.array(z.string().trim().toUpperCase().min(1).max(20)).min(1, 'Daftar ID pegawai kosong.').max(MAX_LOOKUP_IDS, `Maksimal ${MAX_LOOKUP_IDS} ID per permintaan.`),
 });

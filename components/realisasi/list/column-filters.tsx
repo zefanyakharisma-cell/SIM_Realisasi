@@ -18,11 +18,18 @@ export function useFilterNavigation(filters: ActivityListFilters) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  // Latest filters including patches whose navigation has not landed yet, so a debounced apply
+  // (search box) never rebuilds the URL from a stale closure and drops other filters (M-2).
+  const latest = useRef(filters);
+  useEffect(() => {
+    latest.current = filters;
+  }, [filters]);
   function apply(patch: Partial<ActivityListFilters>) {
-    const next: ActivityListFilters = { ...filters, ...patch };
+    const next: ActivityListFilters = { ...latest.current, ...patch };
     for (const k of Object.keys(patch) as Array<keyof ActivityListFilters>) {
       if (patch[k] === undefined) delete next[k];
     }
+    latest.current = next;
     const qs = activityFiltersToSearchParams(next).toString();
     startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
   }
@@ -60,7 +67,8 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
       apply({ q: value || undefined });
     }, 400);
     return () => clearTimeout(t);
-    // `apply` is recreated each render; only the typed value should re-arm the timer.
+    // `apply` is recreated each render but reads the latest filters from a ref (M-2), so only
+    // the typed value needs to re-arm the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
@@ -148,25 +156,11 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
           <label htmlFor="flt-from" className="sr-only">
             Tanggal mulai dari
           </label>
-          <Input
-            id="flt-from"
-            type="date"
-            value={filters.from ?? ''}
-            max={filters.to}
-            onChange={(e) => apply({ from: e.target.value || undefined })}
-            className="h-8 text-xs"
-          />
+          <DateFilter id="flt-from" value={filters.from} max={filters.to} onApply={(v) => apply({ from: v })} />
           <label htmlFor="flt-to" className="sr-only">
             Tanggal mulai sampai
           </label>
-          <Input
-            id="flt-to"
-            type="date"
-            value={filters.to ?? ''}
-            min={filters.from}
-            onChange={(e) => apply({ to: e.target.value || undefined })}
-            className="h-8 text-xs"
-          />
+          <DateFilter id="flt-to" value={filters.to} min={filters.from} onApply={(v) => apply({ to: v })} />
         </div>
       </td>
       <td className={cellClass}>
@@ -283,5 +277,53 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
         </NativeSelect>
       </td>
     </tr>
+  );
+}
+
+/**
+ * Date input that applies on blur / Enter / after an 800 ms pause instead of on every change (L-16): typing a year emits
+ * intermediate valid dates (e.g. 0002-05-01) that would each trigger a navigation and a query.
+ */
+function DateFilter({
+  id,
+  value,
+  min,
+  max,
+  onApply,
+}: {
+  id: string;
+  value: string | undefined;
+  min?: string;
+  max?: string;
+  onApply: (v: string | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => setDraft(value ?? ''), [value]);
+  const commit = () => {
+    const v = draft || undefined;
+    // Years before 1900 are intermediate keystrokes ("0002-05-01"), not real filters.
+    if (v !== value && (v === undefined || (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= '1900'))) onApply(v);
+  };
+  // Picking from the calendar popup applies after a short pause; typing keeps re-arming it.
+  useEffect(() => {
+    if ((draft || undefined) === value) return;
+    const t = setTimeout(commit, 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm only when the typed value changes
+  }, [draft]);
+  return (
+    <Input
+      id={id}
+      type="date"
+      value={draft}
+      min={min}
+      max={max}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+      }}
+      className="h-8 text-xs"
+    />
   );
 }

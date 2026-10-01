@@ -2,7 +2,7 @@
 
 -- Period context ---------------------------------------------------------------------
 create function realisasi._resolve_ay(p_ay_id int) returns int
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select coalesce(
     (select id from realisasi.academic_years where id = p_ay_id),
     case when p_ay_id is null then
@@ -16,7 +16,7 @@ create type realisasi.period_ctx as (ay_id int, ay_label text, period text, kind
   frozen_at timestamptz, frozen_by_name text, grace_months int);
 
 create function realisasi._period_ctx(p_ay_id int, p_period text, p_snapshot uuid default null) returns realisasi.period_ctx
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare ay realisasi.academic_years; s realisasi.kpi_snapshots; w record; r realisasi.period_ctx;
 begin
   if p_snapshot is not null then
@@ -58,7 +58,7 @@ begin
 end $$;
 
 create function realisasi._period_json(c realisasi.period_ctx) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('ay_id', c.ay_id, 'ay_label', c.ay_label, 'period', c.period, 'kind', c.kind, 'label', c.label,
     'window_start', c.window_start, 'window_end', c.window_end, 'cutoff', c.cutoff, 'frozen', c.frozen,
     'snapshot_id', c.snapshot_id, 'frozen_at', c.frozen_at, 'frozen_by_name', c.frozen_by_name, 'today', realisasi.today(),
@@ -67,7 +67,7 @@ language sql stable security definer set search_path = realisasi, public, extens
 $$;
 
 create function realisasi.period_info(p_ay_id int, p_period text) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare c realisasi.period_ctx;
 begin
   perform realisasi._require_uid();
@@ -77,7 +77,7 @@ end $$;
 
 -- KPI values for a context (frozen -> snapshot, else live) ------------------------
 create function realisasi._ctx_values(c realisasi.period_ctx, p_unit_id int) returns jsonb
-language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v jsonb; e jsonb;
 begin
   if c.frozen then
@@ -94,18 +94,18 @@ begin
 end $$;
 
 create function realisasi._scope_json(p_unit_id int) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('level', case when p_unit_id is null then 'university' else 'unit' end,
                             'unit_id', p_unit_id, 'unit_name', (select name from public.units where id = p_unit_id))
 $$;
 
 create function realisasi._forced_unit(p_unit_id int) returns int
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select case when realisasi.my_role() = 'submitter' then realisasi.my_unit() else p_unit_id end
 $$;
 
 create function realisasi.dashboard(p_ay_id int default null, p_period text default 'live', p_unit_id int default null) returns jsonb
-language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare c realisasi.period_ctx; pc realisasi.period_ctx; v_unit int; v_vals jsonb; v_prev jsonb := null; v_prev_ay realisasi.academic_years;
         v_pvals jsonb; v_late int; v_drafts jsonb := '[]'::jsonb; v_today date := realisasi.today();
 begin
@@ -165,7 +165,7 @@ end $$;
 -- Drill-down -------------------------------------------------------------------------
 create function realisasi._drill_items(c realisasi.period_ctx, p_unit_id int)
 returns table(kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_late boolean)
-language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   if c.frozen and p_unit_id is null then
     return query
@@ -191,7 +191,7 @@ begin
 end $$;
 
 create function realisasi._activity_kpi_row(p_activity uuid, p_bucket text, p_students int, p_late boolean) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('row_type', 'activity', 'activity_id', a.id, 'code', a.code, 'name', a.name,
     'type_name', t.name, 'direction', t.direction,
     'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
@@ -206,8 +206,8 @@ $$;
 
 create function realisasi.kpi_drilldown(p_ay_id int, p_period text, p_kpi text, p_bucket text default null,
                                         p_unit_id int default null, p_snapshot_id uuid default null) returns jsonb
-language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
-declare c realisasi.period_ctx; v_unit int; v_rows jsonb;
+language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
+declare c realisasi.period_ctx; v_unit int; v_rows jsonb; v_io boolean := realisasi.is_io();
 begin
   perform realisasi._require_uid();
   if p_kpi is null or p_kpi not in ('1.1','1.19.S1','1.19.24','1.19.S8','base') then perform realisasi._invalid('kpi'); end if;
@@ -233,9 +233,11 @@ begin
       select 0 o, realisasi._activity_kpi_row(activity_id, bucket, null, is_late) r
         from _dd_items where kpi_code = '1.19.S8' and bucket = 'reported' and (p_bucket is null or p_bucket = 'reported')
       union all
-      select 1, jsonb_build_object('row_type', 'known', 'known_id', k.id, 'title', k.title, 'activity_date', k.activity_date,
-               'unit_name', u.name, 'partner_name', k.partner_name, 'country_code', k.country_code,
-               'source', k.source, 'source_reference', k.source_reference)
+      -- M7: the Known Activities register is IO-only (Rules §10); others get the gap rows without register details
+      select 1, jsonb_build_object('row_type', 'known', 'known_id', k.id,
+               'title', case when v_io then k.title end, 'activity_date', k.activity_date,
+               'unit_name', u.name, 'partner_name', case when v_io then k.partner_name end, 'country_code', k.country_code,
+               'source', case when v_io then k.source end, 'source_reference', case when v_io then k.source_reference end)
         from _dd_items i join realisasi.known_activities k on k.id = i.ref_id::bigint
         left join public.units u on u.id = k.unit_id
        where i.kpi_code = '1.19.S8' and i.bucket = 'unmatched_known' and (p_bucket is null or p_bucket = 'unmatched_known')) q;
@@ -276,7 +278,7 @@ end $$;
 
 create function realisasi.kpi_participant_rows(p_ay_id int, p_period text, p_unit_id int default null,
                                                p_snapshot_id uuid default null) returns jsonb
-language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare c realisasi.period_ctx; v_unit int;
 begin
   perform realisasi._require_uid();
@@ -297,14 +299,15 @@ begin
     from realisasi._drill_items(c, v_unit) i
     join realisasi.activities a on a.id = i.activity_id
     join realisasi.activity_types t on t.id = a.type_id
-    join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
-    join realisasi.participant_students s on s.set_version_id = v.id and s.nrp = split_part(i.ref_id, ':', 2)
+    -- M2: the version that counted at the snapshot's as-of (frozen) or the current approved one (live)
+    join realisasi.participant_students s on s.set_version_id = realisasi._pset_as_of(a.id, c.frozen_at)
+                                         and s.nrp = split_part(i.ref_id, ':', 2)
    where i.kpi_code = '1.1'), '[]'::jsonb);
 end $$;
 
 -- Activity detail ------------------------------------------------------------------
 create function realisasi._pset_counts(p_version uuid) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('version', v.version, 'status', v.status,
     'internal_students', (select count(*) from realisasi.participant_students s where s.set_version_id = v.id and s.section = 'internal'),
     'inbound_students', (select count(*) from realisasi.participant_students s where s.set_version_id = v.id and s.section = 'inbound'),
@@ -313,14 +316,14 @@ language sql stable security definer set search_path = realisasi, public, extens
 $$;
 
 create function realisasi._counts_version(p_activity uuid) returns uuid
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select coalesce((select id from realisasi.participant_set_versions where activity_id = p_activity and status = 'approved'),
                   (select id from realisasi.participant_set_versions where activity_id = p_activity and status <> 'draft'
                     order by version desc limit 1))
 $$;
 
 create function realisasi.participant_counts(p_activity uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   perform realisasi._require_uid();
   if not exists (select 1 from realisasi.activities where id = p_activity) or not realisasi.can_view_activity(p_activity) then
@@ -330,12 +333,12 @@ begin
 end $$;
 
 create function realisasi._sees_draft_versions(p_activity uuid) returns boolean
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._is_unit_editor(p_activity) or realisasi.in_team('mobility')
 $$;
 
 create function realisasi.activity_detail(p_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; t realisasi.activity_types; v_role text; v_editor boolean; v_perm jsonb;
         v_io boolean; v_linked int; v_p_team boolean; v_m_team boolean; v_rev jsonb; v_rej jsonb;
 begin
@@ -353,7 +356,7 @@ begin
     'can_edit_detail', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested'),
     'can_edit_files', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested'),
     'can_edit_participants', realisasi._can_edit_participants(p_id, false),
-    'can_submit', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested' or a.mobility_status = 'revision_requested'),
+    'can_submit', v_editor and a.status <> 'rejected' and (a.status = 'draft' or a.partnership_status = 'revision_requested' or a.mobility_status = 'revision_requested'),
     'can_partnership_verify', v_p_team and a.partnership_status = 'pending' and a.status not in ('draft','rejected'),
     'can_reject', v_p_team and a.partnership_status = 'pending' and a.status not in ('draft','rejected'),
     'can_mobility_verify', v_m_team and a.mobility_status = 'pending' and a.status not in ('draft','rejected'),
@@ -449,7 +452,9 @@ begin
     'rejection', v_rej,
     'log', case when v_role = 'viewer' then '[]'::jsonb else coalesce((select jsonb_agg(jsonb_build_object(
               'id', l.id, 'kind', l.kind, 'track', l.track, 'action', l.action, 'actor_name', realisasi._profile_name(l.actor_id),
-              'note', l.note, 'diff', l.diff, 'in_frozen_period', l.in_frozen_period, 'created_at', l.created_at)
+              'note', l.note,
+              'diff', case when realisasi.can_view_participants(p_id) then l.diff else realisasi._mask_log_diff(l.diff) end,   -- M6
+              'in_frozen_period', l.in_frozen_period, 'created_at', l.created_at)
               order by l.created_at desc, l.id desc) from realisasi.activity_log l where l.activity_id = p_id), '[]'::jsonb) end,
     'duplicates', case when not v_io then '[]'::jsonb else coalesce((select jsonb_agg(jsonb_build_object(
               'candidate_id', dc.id, 'other_activity_id', o.id, 'other_code', o.code, 'other_name', o.name,
@@ -467,7 +472,7 @@ begin
 end $$;
 
 create function realisasi.participant_version(p_activity uuid, p_version int default null) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v realisasi.participant_set_versions; v_drafts boolean;
 begin
   perform realisasi._require_uid();
@@ -501,7 +506,7 @@ begin
 end $$;
 
 create function realisasi.nav_counts() returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid();
 begin
   return jsonb_build_object(
@@ -517,7 +522,7 @@ end $$;
 
 -- Agreements -----------------------------------------------------------------------
 create function realisasi.agreement_realization(p_document_id int) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare d public.documents; v_chain int; ch record; ay realisasi.academic_years; v_io boolean; v_grace int;
         v_acts uuid[]; v_in_grace boolean;
 begin
@@ -543,7 +548,7 @@ begin
                'documents', coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'doc_number', x.doc_number, 'kind', x.kind,
                                'status', x.status, 'start_date', x.start_date, 'end_date', x.end_date, 'predecessor_id', x.predecessor_id)
                                order by x.start_date nulls last, x.id)
-                              from public.documents x where realisasi.chain_root(x.id) = v_chain), '[]'::jsonb)),
+                              from public.documents x join realisasi._chain_map() m on m.doc_id = x.id and m.root_id = v_chain), '[]'::jsonb)),
     'current_ay', case when ay.id is not null then jsonb_build_object('id', ay.id, 'label', ay.label) end,
     'summary', jsonb_build_object(
         'total_activities', cardinality(v_acts),
@@ -572,11 +577,11 @@ begin
                     from realisasi.activities a join realisasi.activity_types t on t.id = a.type_id
                     join realisasi.activity_documents ad on ad.activity_id = a.id and ad.chain_id = v_chain
                     join public.documents od on od.id = ad.original_document_id
-                   where a.id = any(v_acts)), '[]'::jsonb));
+                   where a.id = any(v_acts) and (v_io or realisasi.can_view_activity(a.id))), '[]'::jsonb));   -- M7: list only visible ones
 end $$;
 
 create function realisasi.agreement_flags(p_ay_id int default null) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare ay realisasi.academic_years; v_cut date; v_grace int := coalesce(realisasi.setting_int('grace_period_months'), 6);
 begin
   perform realisasi._require_uid();
@@ -585,28 +590,30 @@ begin
   v_cut := least(ay.end_date, realisasi.today());
   return coalesce((select jsonb_agg(jsonb_build_object('document_id', d.id, 'chain_id', x.chain_id,
       'flag', case when ch.chain_id is null or d.status in ('in_process','rejected')
-                     or not (ch.chain_start <= v_cut and (ch.auto_renewed or ch.chain_end >= ay.start_date)) then 'inactive'
+                     or not (ch.chain_start <= v_cut and ((ch.auto_renewed and ch.terminated_at is null) or ch.chain_end >= ay.start_date)) then 'inactive'
                    when not ch.auto_renewed and ch.chain_start > (v_cut - make_interval(months => v_grace))::date then 'grace'
                    when x.n_win > 0 then 'realized' else 'not_realized' end,
       'grace_until', case when ch.chain_id is not null and not ch.auto_renewed
                            and ch.chain_start > (v_cut - make_interval(months => v_grace))::date
                           then (ch.chain_start + make_interval(months => v_grace))::date end,
       'activities_this_ay', x.n_ay, 'last_activity_date', x.last_date) order by d.id)
+    -- H6: chain roots and per-chain activity stats computed once (set-based), not per document
     from public.documents d
-    cross join lateral (select realisasi.chain_root(d.id) as chain_id) r
-    cross join lateral (
-      select r.chain_id,
+    left join realisasi._chain_map() r on r.doc_id = d.id
+    left join (
+      select ad.chain_id,
              count(distinct a.id) filter (where a.start_date between ay.start_date and v_cut) as n_win,
              count(distinct a.id) filter (where a.start_date between ay.start_date and ay.end_date) as n_ay,
              max(a.start_date) as last_date
         from realisasi.activity_documents ad join realisasi.activities a on a.id = ad.activity_id and a.status = 'verified'
-       where ad.chain_id = r.chain_id) x
+       group by ad.chain_id) st on st.chain_id = r.root_id
+    cross join lateral (select r.root_id as chain_id, coalesce(st.n_win, 0) as n_win, coalesce(st.n_ay, 0) as n_ay, st.last_date) x
     left join realisasi.v_chains ch on ch.chain_id = x.chain_id), '[]'::jsonb);
 end $$;
 
 -- Snapshot archive -----------------------------------------------------------------
 create function realisasi._snapshot_row(p_snapshot uuid, p_unit_id int) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare s realisasi.kpi_snapshots; ay realisasi.academic_years; v jsonb; e jsonb;
 begin
   select * into s from realisasi.kpi_snapshots where id = p_snapshot;
@@ -630,7 +637,7 @@ begin
 end $$;
 
 create function realisasi.snapshot_list(p_ay_id int default null) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_unit int;
 begin
   perform realisasi._require_uid();
@@ -640,7 +647,7 @@ begin
 end $$;
 
 create function realisasi.snapshot_detail(p_snapshot uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare s realisasi.kpi_snapshots;
 begin
   perform realisasi._require_report_reader();

@@ -9,34 +9,45 @@ select ad.activity_id, ad.original_document_id, ad.chain_id, ad.out_of_scope_war
   join public.documents od on od.id = ad.original_document_id
   left join public.documents cd on cd.id = realisasi.chain_current(ad.original_document_id);
 
+-- v_chains: one row per renewal chain. Chain membership comes from one recursive pass (_chain_map; H6).
+-- auto_renewed / terminated_at describe the chain's CURRENT valid document (deepest non in_process/rejected document),
+-- so a terminated or replaced auto-renewed agreement stops being open-ended (H2). terminated_at is an additive column.
 create view realisasi.v_chains as
-with docs as (
-  select d.*, realisasi.chain_root(d.id) as chain_id
-    from public.documents d
+with m as (
+  select * from realisasi._chain_map()
+), docs as (
+  select d.*, m.root_id as chain_id, m.depth
+    from public.documents d join m on m.doc_id = d.id
    where d.start_date is not null and d.status not in ('in_process','rejected')
 ), agg as (
   select chain_id,
          min(start_date) as chain_start,
          max(coalesce(terminated_at::date, end_date)) as chain_end,
-         bool_or(auto_renewed) as auto_renewed,
+         (array_agg(auto_renewed order by depth desc, id desc))[1] as auto_renewed,
+         (array_agg(terminated_at order by depth desc, id desc))[1] as terminated_at,
          array_agg(id order by start_date, id) as document_ids,
          array_agg(doc_number order by start_date, id) as doc_numbers
     from docs group by chain_id
+), cur as (                                   -- = chain_current(root): deepest document of any status
+  select distinct on (root_id) root_id, doc_id from m order by root_id, depth desc, doc_id desc
+), prt as (
+  select dc.chain_id, bool_or(p.country_code <> 'ID') as is_international,
+         array_agg(distinct p.name order by p.name) as partner_names,
+         array_agg(distinct p.country_code order by p.country_code) as country_codes
+    from docs dc join public.document_partners dp on dp.document_id = dc.id join public.partners p on p.id = dp.partner_id
+   group by dc.chain_id
 )
 select a.chain_id, a.chain_start, a.chain_end, a.auto_renewed,
-       coalesce((select bool_or(p.country_code <> 'ID')
-                   from public.document_partners dp join public.partners p on p.id = dp.partner_id
-                  where dp.document_id = any(a.document_ids)), false) as is_international,
+       coalesce(prt.is_international, false) as is_international,
        a.document_ids, a.doc_numbers,
-       cur.id as current_document_id, cur.doc_number as current_doc_number, cur.kind, cur.title,
-       coalesce((select array_agg(distinct p.name order by p.name)
-                   from public.document_partners dp join public.partners p on p.id = dp.partner_id
-                  where dp.document_id = any(a.document_ids)), '{}') as partner_names,
-       coalesce((select array_agg(distinct p.country_code order by p.country_code)
-                   from public.document_partners dp join public.partners p on p.id = dp.partner_id
-                  where dp.document_id = any(a.document_ids)), '{}') as country_codes
+       cd.id as current_document_id, cd.doc_number as current_doc_number, cd.kind, cd.title,
+       coalesce(prt.partner_names, '{}') as partner_names,
+       coalesce(prt.country_codes, '{}') as country_codes,
+       a.terminated_at
   from agg a
-  left join public.documents cur on cur.id = realisasi.chain_current(a.chain_id);
+  left join cur on cur.root_id = a.chain_id
+  left join public.documents cd on cd.id = cur.doc_id
+  left join prt on prt.chain_id = a.chain_id;
 
 create view realisasi.v_activity_list with (security_invoker = true) as
 select a.id, a.code, a.name, a.type_id, t.name as type_name, t.direction,

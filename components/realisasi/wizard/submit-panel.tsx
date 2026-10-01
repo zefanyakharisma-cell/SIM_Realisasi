@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
 import { submitActivity } from '@/lib/realisasi/actions/submission';
+import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
 import type { ChecklistItem } from '@/lib/realisasi/types';
 
 const CHECK_LABEL: Record<string, string> = {
@@ -55,6 +56,7 @@ export function SubmitPanel({
   redirectTo?: string;
 }) {
   const router = useRouter();
+  const { blocker, flush } = useSaveStatus();
   const [pending, startTransition] = useTransition();
   const [serverFailures, setServerFailures] = useState<Failure[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +64,19 @@ export function SubmitPanel({
   const items = (checklist ?? []).filter((c) => c.code !== 'LATE_NOTICE');
   const late = (checklist ?? []).find((c) => c.code === 'LATE_NOTICE' && c.late);
   const failing = items.filter((c) => !c.ok);
-  const disabled = failing.length > 0 || Boolean(blockedReason) || checklist === null;
+  // M-1: unsaved Detail edits (revision mode has no autosave) also block "Ajukan ulang".
+  const reason = blockedReason ?? blocker;
+  const disabled = failing.length > 0 || Boolean(reason) || checklist === null;
 
   function onSubmit() {
     setError(null);
     setServerFailures([]);
     startTransition(async () => {
+      // M-1: pending participant edits must be stored before the DB re-validates and submits.
+      if (!(await flush())) {
+        setError('Perubahan terakhir belum tersimpan. Periksa isian yang ditandai lalu coba lagi.');
+        return;
+      }
       const res = await submitActivity(activityId);
       if (!res.ok) {
         setError(res.message);
@@ -117,10 +126,10 @@ export function SubmitPanel({
         </Alert>
       )}
 
-      {blockedReason && (
-        <Alert variant="destructive" role="status">
+      {reason && (
+        <Alert variant="destructive" role="status" data-testid="submit-blocked">
           <XCircle aria-hidden />
-          <AlertDescription>{blockedReason}</AlertDescription>
+          <AlertDescription>{reason}</AlertDescription>
         </Alert>
       )}
 

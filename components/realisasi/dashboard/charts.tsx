@@ -206,11 +206,15 @@ export function DashboardCharts({
 
   const countries: Datum[] = charts.by_country.slice(0, 10).map((d) => ({ name: d.country_name || d.country_code, value: d.activities, extra: d.country_code }));
   const units: Datum[] = charts.by_unit.map((d) => ({ name: d.unit_name, value: d.activities }));
-  const realization: Datum[] = charts.realization_by_unit.map((d) => ({
-    name: d.unit_name,
-    value: d.pct ?? 0,
-    extra: `${formatNumber(d.numerator)} dari ${formatNumber(d.denominator)} kerja sama`,
-  }));
+  // M-5: units without active agreements have pct = null ("–"), not 0 %; they get no bar.
+  const realization: Datum[] = charts.realization_by_unit
+    .filter((d) => d.pct !== null)
+    .map((d) => ({
+      name: d.unit_name,
+      value: d.pct ?? 0,
+      extra: `${formatNumber(d.numerator)} dari ${formatNumber(d.denominator)} kerja sama`,
+    }));
+  const noAgreements = charts.realization_by_unit.filter((d) => d.pct === null).map((d) => d.unit_name);
   const partners: Datum[] = charts.top_partners.slice(0, 10).map((d) => ({ name: d.partner_name, value: d.activities, extra: d.country_code }));
 
   return (
@@ -263,7 +267,18 @@ export function DashboardCharts({
           rows: charts.realization_by_unit.map((d) => [d.unit_name, formatNumber(d.numerator), formatNumber(d.denominator), formatPct(d.pct)]),
         }}
       >
-        {level === 'unit' ? <EmptyChart text={unitOnly} /> : <HBar data={realization} valueFormat={pct} domainMax={100} />}
+        {level === 'unit' ? (
+          <EmptyChart text={unitOnly} />
+        ) : (
+          <>
+            <HBar data={realization} valueFormat={pct} domainMax={100} />
+            {noAgreements.length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground" data-testid="realization-no-agreements">
+                Tidak ada kerja sama aktif (–): {noAgreements.join(', ')}
+              </p>
+            )}
+          </>
+        )}
       </ChartCard>
 
       <ChartCard

@@ -55,7 +55,9 @@ export async function saveActivityDraft(id: string | null, data: ActivityDetailP
       return { id: row!.r };
     }),
   );
-  if (res.ok) revalidate();
+  // No revalidatePath here (frontend review M-7): every /realisasi page is dynamic, and a
+  // revalidation inside a server action makes Next re-render the whole wizard route in the
+  // response of every 1.5 s autosave. Callers refresh explicitly where they need fresh data.
   return res;
 }
 
@@ -104,7 +106,7 @@ export async function saveParticipants(
       return row!.r;
     }),
   );
-  if (res.ok) revalidate();
+  // No revalidatePath (M-7, see saveActivityDraft).
   return res;
 }
 

@@ -18,10 +18,12 @@ export interface StepperProps {
   current: number;
   className?: string;
   'aria-label'?: string;
+  /** Intercepts step-link clicks (e.g. to save pending edits before navigating). */
+  onStepClick?: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void;
 }
 
 /** Wizard progress (Design §3.3): ordered list, current step has aria-current="step". */
-export function Stepper({ steps, current, className, 'aria-label': ariaLabel = 'Langkah pengisian' }: StepperProps) {
+export function Stepper({ steps, current, className, 'aria-label': ariaLabel = 'Langkah pengisian', onStepClick }: StepperProps) {
   return (
     <nav aria-label={ariaLabel} className={className}>
       <ol className="flex flex-wrap items-center gap-2 text-sm">
@@ -55,7 +57,11 @@ export function Stepper({ steps, current, className, 'aria-label': ariaLabel = '
           return (
             <li key={step.label} className="flex items-center gap-2">
               {step.href && !step.disabled && state !== 'current' ? (
-                <Link href={step.href} className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent">
+                <Link
+                  href={step.href}
+                  className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent"
+                  onClick={onStepClick ? (e) => onStepClick(e, step.href!) : undefined}
+                >
                   {text}
                 </Link>
               ) : (

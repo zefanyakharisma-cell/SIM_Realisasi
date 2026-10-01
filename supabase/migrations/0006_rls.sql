@@ -7,35 +7,45 @@ begin
   end loop;
 end $$;
 
+-- Activity visibility (Rules §10) is evaluated once per statement: role checks are (select …) initplans and the
+-- visible-id sets are hashed subplans, instead of a definer call per row (M10). Same semantics as can_view_activity().
 create policy activities_select on realisasi.activities for select to authenticated
-  using (realisasi.can_view_activity(id));
+  using ((select realisasi.is_io())
+         or ((select realisasi.my_role()) = 'viewer' and status = 'verified')
+         or id in (select realisasi.my_activity_ids()));
 
 create policy activity_units_select on realisasi.activity_units for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 create policy activity_documents_select on realisasi.activity_documents for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 create policy activity_partner_snapshot_select on realisasi.activity_partner_snapshot for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 create policy activity_sdgs_select on realisasi.activity_sdgs for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 create policy activity_external_persons_select on realisasi.activity_external_persons for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 create policy activity_files_select on realisasi.activity_files for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
 
 create policy event_groups_select on realisasi.event_groups for select to authenticated using (true);
 
 create policy participant_set_versions_select on realisasi.participant_set_versions for select to authenticated
-  using (realisasi.can_view_activity(activity_id));
+  using ((select realisasi.is_io()) or activity_id in (select realisasi.visible_activity_ids()));
+-- = can_view_participants(activity): io_admin, mobility team, submitter of an own/co-unit activity
 create policy participant_students_select on realisasi.participant_students for select to authenticated
-  using (realisasi.can_view_participants((select v.activity_id from realisasi.participant_set_versions v
-                                           where v.id = set_version_id)));
+  using ((select realisasi.my_role()) = 'io_admin'
+         or ((select realisasi.my_role()) = 'io_staff' and (select realisasi.in_team('mobility')))
+         or set_version_id in (select realisasi.my_pset_ids()));
 create policy participant_staff_select on realisasi.participant_staff for select to authenticated
-  using (realisasi.can_view_participants((select v.activity_id from realisasi.participant_set_versions v
-                                           where v.id = set_version_id)));
+  using ((select realisasi.my_role()) = 'io_admin'
+         or ((select realisasi.my_role()) = 'io_staff' and (select realisasi.in_team('mobility')))
+         or set_version_id in (select realisasi.my_pset_ids()));
 
+-- Log rows carrying participant identifiers (mobility edits / row notes) only for callers who may see participants (M6)
 create policy activity_log_select on realisasi.activity_log for select to authenticated
-  using (realisasi.can_view_activity(activity_id) and realisasi.my_role() <> 'viewer');
+  using (((select realisasi.is_io()) or activity_id in (select realisasi.my_activity_ids()))
+         and (not (coalesce(diff ? 'students', false) or coalesce(diff ? 'staff', false) or coalesce(diff ? 'row_notes', false))
+              or (select realisasi.sees_participant_identifiers())));
 
 create policy duplicate_candidates_select on realisasi.duplicate_candidates for select to authenticated
   using ((select realisasi.is_io()));

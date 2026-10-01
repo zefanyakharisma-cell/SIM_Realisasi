@@ -27,7 +27,10 @@ grant execute on function
   realisasi.my_role(), realisasi.my_unit(), realisasi.in_team(realisasi.team), realisasi.is_io(),
   realisasi.can_view_activity(uuid), realisasi.can_view_participants(uuid),
   realisasi.in_frozen_period(uuid), realisasi.is_late_addition(uuid),
-  realisasi.activity_linked_count(uuid), realisasi.activity_participant_total(uuid)
+  realisasi.activity_linked_count(uuid), realisasi.activity_participant_total(uuid),
+  realisasi.demo_time_travel_enabled(),
+  realisasi.my_activity_ids(), realisasi.visible_activity_ids(), realisasi.my_pset_ids(),
+  realisasi.sees_participant_identifiers()
   to authenticated;
 
 -- RPC catalogue (CONTRACTS §3)

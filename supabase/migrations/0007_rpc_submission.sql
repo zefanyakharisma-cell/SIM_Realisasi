@@ -1,25 +1,36 @@
 -- 0007_rpc_submission: lookups, drafts, participants, checklist, submit, duplicate scan.
 
 -- Lookups (Schema §4) ------------------------------------------------------
+-- Registry lookups: only roles that enter participants (submitter, mobility team, io_admin); at most 500 ids (L5)
+create function realisasi._require_registry_reader(p_n int) returns void
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+begin
+  perform realisasi._require_uid();
+  if not (coalesce(realisasi.my_role() in ('submitter','io_admin'), false) or realisasi.in_team('mobility')) then
+    perform realisasi._forbidden();
+  end if;
+  if coalesce(p_n, 0) > 500 then perform realisasi._invalid('ids'); end if;
+end $$;
+
 create function realisasi.lookup_students(p_nrps text[]) returns setof mock_baak.students
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
-  select s.* from mock_baak.students s
-   where auth.uid() is not null and s.nrp = any(p_nrps)
-   order by s.nrp
-$$;
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+begin
+  perform realisasi._require_registry_reader(cardinality(p_nrps));
+  return query select s.* from mock_baak.students s where s.nrp = any(p_nrps) order by s.nrp;
+end $$;
 
 create function realisasi.lookup_employees(p_ids text[]) returns setof mock_hr.employees
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
-  select e.* from mock_hr.employees e
-   where auth.uid() is not null and e.employee_id = any(p_ids)
-   order by e.employee_id
-$$;
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+begin
+  perform realisasi._require_registry_reader(cardinality(p_ids));
+  return query select e.* from mock_hr.employees e where e.employee_id = any(p_ids) order by e.employee_id;
+end $$;
 
 create function realisasi.documents_valid_between(p_start date, p_end date, p_unit_id int default null)
 returns table(document_id int, doc_number text, title text, kind text, status text, start_date date, end_date date,
               auto_renewed boolean, is_archived boolean, chain_id int, current_doc_number text, partners jsonb,
               in_scope boolean)
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select d.id, d.doc_number, d.title, d.kind, d.status, d.start_date, d.end_date, d.auto_renewed,
          d.status = 'archived', realisasi.chain_root(d.id),
          (select c.doc_number from public.documents c where c.id = realisasi.chain_current(d.id)),
@@ -35,18 +46,24 @@ language sql stable security definer set search_path = realisasi, public, extens
    where p_start is not null and p_end is not null
      and d.status not in ('in_process','rejected')
      and d.start_date <= p_end
-     and (d.auto_renewed or coalesce(d.terminated_at::date, d.end_date) >= p_start)
+     -- validity end (H2): termination date; for an auto-renewed document the day before its first valid successor
+     -- starts (open-ended when it has none); otherwise end_date
+     and case when d.terminated_at is not null then d.terminated_at::date >= p_start
+              when d.auto_renewed then not exists (select 1 from public.documents x where x.predecessor_id = d.id
+                                                     and x.status not in ('in_process','rejected') and x.start_date is not null
+                                                     and greatest(d.end_date, x.start_date - 1) < p_start)
+              else d.end_date >= p_start end
    order by d.doc_number
 $$;
 
 -- Small internal helpers ------------------------------------------------------
 create function realisasi._jtext(p jsonb, p_key text) returns text
-language sql immutable set search_path = realisasi, public, extensions, pg_temp as $$
+language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
   select nullif(btrim(p ->> p_key), '')
 $$;
 
 create function realisasi._int_array(p jsonb, p_field text) returns int[]
-language plpgsql set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql set search_path = realisasi, extensions, public, pg_temp as $$
 declare v int[];
 begin
   if p is null or jsonb_typeof(p) = 'null' then return '{}'; end if;
@@ -62,40 +79,40 @@ begin
 end $$;
 
 create function realisasi._invalid(p_field text) returns void
-language sql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._raise('VALIDATION_INVALID', format('Nilai tidak valid: %s.', p_field),
                           jsonb_build_object('fields', jsonb_build_array(p_field)))
 $$;
 
 create function realisasi._status_result(p_id uuid) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object('id', a.id, 'status', a.status, 'partnership_status', a.partnership_status,
                             'mobility_status', a.mobility_status, 'verified_at', a.verified_at)
     from realisasi.activities a where a.id = p_id
 $$;
 
 create function realisasi._draft_pset(p_activity uuid) returns uuid
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select id from realisasi.participant_set_versions where activity_id = p_activity and status = 'draft'
 $$;
 
 -- draft version if present, else latest version (any status)
 create function realisasi._relevant_pset(p_activity uuid) returns uuid
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select coalesce(realisasi._draft_pset(p_activity),
                   (select id from realisasi.participant_set_versions where activity_id = p_activity
                     order by version desc limit 1))
 $$;
 
 create function realisasi._pset_rows(p_version uuid) returns int
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select ((select count(*) from realisasi.participant_students where set_version_id = p_version)
         + (select count(*) from realisasi.participant_staff where set_version_id = p_version))::int
 $$;
 
 -- current state of an activity as a payload-shaped jsonb (used for diffs)
 create function realisasi._activity_state(p_id uuid) returns jsonb
-language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object(
     'name', a.name, 'type_id', a.type_id, 'start_date', a.start_date, 'end_date', a.end_date,
     'mode', a.mode, 'venue', a.venue, 'city', a.city, 'country_code', a.country_code,
@@ -113,7 +130,7 @@ language sql stable security definer set search_path = realisasi, public, extens
 $$;
 
 create function realisasi._json_diff(p_old jsonb, p_new jsonb) returns jsonb
-language sql immutable set search_path = realisasi, public, extensions, pg_temp as $$
+language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
   select coalesce(jsonb_object_agg(k, jsonb_build_array(p_old -> k, p_new -> k) order by k), '{}'::jsonb)
     from jsonb_object_keys(p_new) k
    where (p_old -> k) is distinct from (p_new -> k)
@@ -121,7 +138,7 @@ $$;
 
 -- Core create/update of the Detail payload. p_mode: create | draft | revision | verified. Returns the diff.
 create function realisasi._apply_activity_payload(p_id uuid, p_data jsonb, p_mode text) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   v_old jsonb := case when p_id is null then '{}'::jsonb else realisasi._activity_state(p_id) end;
   v_m jsonb;            -- merged payload
@@ -272,7 +289,7 @@ end $$;
 
 -- Load an activity the caller may see (NOT_FOUND otherwise), locking it.
 create function realisasi._get_activity(p_id uuid, p_lock boolean default true) returns realisasi.activities
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v realisasi.activities;
 begin
   if p_lock then
@@ -286,7 +303,7 @@ end $$;
 
 -- save_activity_draft ---------------------------------------------------------
 create function realisasi.save_activity_draft(p_id uuid, p_data jsonb) returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_role text := realisasi.my_role();
         v_act realisasi.activities; v_res jsonb; v_unit int;
 begin
@@ -324,7 +341,7 @@ end $$;
 
 -- delete_draft (R-15) ------------------------------------------------------------
 create function realisasi.delete_draft(p_id uuid) returns void
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_act realisasi.activities;
 begin
   v_act := realisasi._get_activity(p_id);
@@ -353,7 +370,7 @@ end $$;
 -- Participants ----------------------------------------------------------------------
 -- copy the latest version into a new draft version (internal)
 create function realisasi._copy_pset_to_draft(p_activity uuid) returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_src uuid; v_new uuid; v_ver int;
 begin
   select id into v_src from realisasi.participant_set_versions where activity_id = p_activity order by version desc limit 1;
@@ -373,7 +390,7 @@ begin
 end $$;
 
 create function realisasi.ensure_participant_draft(p_activity uuid) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_act realisasi.activities; v_id uuid; v_created boolean := false;
 begin
   v_act := realisasi._get_activity(p_activity);
@@ -392,7 +409,7 @@ begin
 end $$;
 
 create function realisasi.save_participants(p_activity uuid, p_students jsonb, p_staff jsonb) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   v_draft jsonb; v_vid uuid; v_ver int;
   v_rows jsonb; v_list text;
@@ -534,7 +551,7 @@ end $$;
 
 -- Checklist (internal, raises nothing) ------------------------------------------
 create function realisasi._checklist(p_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   a realisasi.activities; t realisasi.activity_types;
   v_out jsonb := '[]'::jsonb; v_missing text[] := '{}'; v_bad text; v_list text;
@@ -642,7 +659,7 @@ begin
 end $$;
 
 create function realisasi.submission_checklist(p_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   perform realisasi._require_uid();
   if not exists (select 1 from realisasi.activities where id = p_id) or not realisasi.can_view_activity(p_id) then
@@ -653,11 +670,15 @@ end $$;
 
 -- Duplicate scan (R-33), internal --------------------------------------------------
 create function realisasi._scan_duplicates(p_activity uuid) returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_w int := coalesce(realisasi.setting_int('dup_date_window_days'), 3);
         v_t numeric := coalesce(realisasi.setting_num('dup_name_similarity'), 0.5);
-        r record; n int := 0;
+        r record; n int := 0; c int;
 begin
+  -- serialise scans per renewal chain so two concurrent submits on one chain see each other (L3)
+  for c in select distinct chain_id from realisasi.activity_documents where activity_id = p_activity order by 1 loop
+    perform pg_advisory_xact_lock(hashtext('realisasi.dup_scan'), c);
+  end loop;
   for r in
     with ins as (
       insert into realisasi.duplicate_candidates (activity_a, activity_b, score)
@@ -684,7 +705,7 @@ end $$;
 
 -- submit_activity -------------------------------------------------------------------
 create function realisasi.submit_activity(p_id uuid) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   v_uid uuid := realisasi._require_uid(); a realisasi.activities; t realisasi.activity_types;
   v_check jsonb; v_fail jsonb; v_draft uuid; v_required boolean; v_dups int := 0;
@@ -764,6 +785,9 @@ begin
       v_promote := true; v_new_m := 'pending';
     end if;
     if v_promote then
+      -- an older version still pending is replaced by the new one (H4/L2; one_pending_pset)
+      update realisasi.participant_set_versions set status = 'superseded'
+       where activity_id = p_id and status = 'pending' and id <> v_draft;
       update realisasi.participant_set_versions set status = 'pending', submitted_by = v_uid, submitted_at = v_ts where id = v_draft;
       v_notify_m := true;
     end if;
@@ -785,6 +809,8 @@ begin
       perform realisasi._notify_team('mobility', 'submission_received', 'Pengajuan baru: ' || a.code,
         'Data peserta kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
     end if;
+    -- name/date/agreement may have changed in the revision: rescan (L3)
+    if v_p_rev then v_dups := realisasi._scan_duplicates(p_id); end if;
   end if;
 
   select * into a from realisasi.activities where id = p_id;

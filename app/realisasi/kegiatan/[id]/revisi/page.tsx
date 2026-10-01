@@ -10,6 +10,7 @@ import { RevisionBanner } from '@/components/realisasi/activity/revision-banner'
 import { DetailForm } from '@/components/realisasi/wizard/detail-form';
 import { FilesEditor } from '@/components/realisasi/wizard/files-editor';
 import { RevisionWorkspace } from '@/components/realisasi/wizard/revision-workspace';
+import { SaveStatusProvider } from '@/components/realisasi/wizard/save-status';
 import { withUser } from '@/lib/db';
 import { getToday, requireUser } from '@/lib/session';
 import { getActivityDetail, getParticipantVersion } from '@/lib/realisasi/queries/activity';
@@ -77,63 +78,67 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
   const partnershipRevision = detail.partnership_status === 'revision_requested' && p.can_edit_detail;
   const required = participantRequirements(detail.type);
 
+  // SaveStatusProvider links the editors to "Ajukan ulang": unsaved Detail edits block it and
+  // pending participant edits are flushed before submitting (frontend review M-1).
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <PageHeader
-        title={`Revisi ${detail.code}`}
-        description={detail.name}
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/realisasi/kegiatan/${detail.id}`}>Lihat detail kegiatan</Link>
-          </Button>
-        }
-      />
-      <RevisionBanner detail={detail} showAction={false} />
+    <SaveStatusProvider>
+      <div className="mx-auto max-w-5xl space-y-8">
+        <PageHeader
+          title={`Revisi ${detail.code}`}
+          description={detail.name}
+          actions={
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/realisasi/kegiatan/${detail.id}`}>Lihat detail kegiatan</Link>
+            </Button>
+          }
+        />
+        <RevisionBanner detail={detail} showAction={false} />
 
-      {partnershipRevision && (
-        <>
-          <section aria-labelledby="rev-detail" className="space-y-4">
-            <h2 id="rev-detail" className="text-lg font-semibold">
-              Detail
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Setiap penyimpanan dicatat di Riwayat. Mengubah Jenis kegiatan dapat mengatur ulang verifikasi Mobilitas (R-24).
-            </p>
-            <DetailForm
-              mode="revision"
-              activityId={detail.id}
-              initial={detailToPayload(detail)}
-              initialDocuments={detailDocumentsAsOptions(detail)}
-              options={options}
-              lockedUnitId={detail.submitter_unit.id}
-              today={today}
-            />
-          </section>
-          <section aria-labelledby="rev-files" className="space-y-4">
-            <h2 id="rev-files" className="text-lg font-semibold">
-              Berkas
-            </h2>
-            <FilesEditor activityId={detail.id} files={detail.files} />
-          </section>
-        </>
-      )}
+        {partnershipRevision && (
+          <>
+            <section aria-labelledby="rev-detail" className="space-y-4">
+              <h2 id="rev-detail" className="text-lg font-semibold">
+                Detail
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Setiap penyimpanan dicatat di Riwayat. Mengubah Jenis kegiatan dapat mengatur ulang verifikasi Mobilitas (R-24).
+              </p>
+              <DetailForm
+                mode="revision"
+                activityId={detail.id}
+                initial={detailToPayload(detail)}
+                initialDocuments={detailDocumentsAsOptions(detail)}
+                options={options}
+                lockedUnitId={detail.submitter_unit.id}
+                today={today}
+              />
+            </section>
+            <section aria-labelledby="rev-files" className="space-y-4">
+              <h2 id="rev-files" className="text-lg font-semibold">
+                Berkas
+              </h2>
+              <FilesEditor activityId={detail.id} files={detail.files} />
+            </section>
+          </>
+        )}
 
-      {reviewed && (
-        <details className="rounded-lg border p-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            Versi v{reviewed.version} yang diminta revisi (hanya baca, dengan catatan IO per baris)
-          </summary>
-          <div className="mt-4">
-            <ParticipantTable version={reviewed} />
-          </div>
-        </details>
-      )}
+        {reviewed && (
+          <details className="rounded-lg border p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Versi v{reviewed.version} yang diminta revisi (hanya baca, dengan catatan IO per baris)
+            </summary>
+            <div className="mt-4">
+              <ParticipantTable version={reviewed} />
+            </div>
+          </details>
+        )}
 
-      <RevisionWorkspace
-        activityId={detail.id}
-        participants={p.can_edit_participants ? { version: latest, countries: options.countries, required } : null}
-        checklist={detail.checklist}
-      />
-    </div>
+        <RevisionWorkspace
+          activityId={detail.id}
+          participants={p.can_edit_participants ? { version: latest, countries: options.countries, required } : null}
+          checklist={detail.checklist}
+        />
+      </div>
+    </SaveStatusProvider>
   );
 }

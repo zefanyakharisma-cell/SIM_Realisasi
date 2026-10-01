@@ -1,7 +1,7 @@
 -- 0009_rpc_verification: Partnership / Mobility tracks and post-verification edits (R-23..R-31).
 
 create function realisasi._notify_activity_unit(p_activity uuid, p_kind text, p_title_prefix text, p_body text, p_link text) returns void
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities;
 begin
   select * into a from realisasi.activities where id = p_activity;
@@ -10,7 +10,7 @@ begin
 end $$;
 
 create function realisasi._require_team(p_activity uuid, p_team realisasi.team) returns realisasi.activities
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities;
 begin
   perform realisasi._require_uid();
@@ -25,12 +25,12 @@ begin
 end $$;
 
 create function realisasi._track_not_pending() returns void
-language sql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._raise('TRACK_NOT_PENDING', 'Jalur verifikasi ini tidak sedang menunggu verifikasi.')
 $$;
 
 create function realisasi._after_track_change(p_activity uuid, p_was_verified boolean) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities;
 begin
   select * into a from realisasi.activities where id = p_activity;
@@ -43,7 +43,7 @@ end $$;
 
 -- Partnership -----------------------------------------------------------------
 create function realisasi.partnership_approve(p_activity uuid, p_note text default null) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities;
 begin
   a := realisasi._require_team(p_activity, 'partnership');
@@ -55,7 +55,7 @@ begin
 end $$;
 
 create function realisasi.partnership_request_revision(p_activity uuid, p_note text) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities;
 begin
   a := realisasi._require_team(p_activity, 'partnership');
@@ -69,8 +69,8 @@ begin
 end $$;
 
 create function realisasi.partnership_reject(p_activity uuid, p_reason text, p_note text) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
-declare a realisasi.activities;
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
+declare a realisasi.activities; v_known jsonb;
 begin
   a := realisasi._require_team(p_activity, 'partnership');
   if a.status in ('draft','rejected') then perform realisasi._state_invalid(); end if;
@@ -81,13 +81,20 @@ begin
   if nullif(btrim(p_note), '') is null then perform realisasi._raise('R26_NOTE_REQUIRED', 'Catatan penolakan wajib diisi.'); end if;
   update realisasi.activities set partnership_status = 'rejected', rejection_reason = p_reason where id = p_activity;
   perform realisasi._log(p_activity, 'verification', 'partnership', 'reject', btrim(p_note), jsonb_build_object('reason', p_reason));
+  -- a rejected activity no longer represents any known activity (H3, R-50): revert its matches
+  with u as (update realisasi.known_activities set status = 'unmatched', matched_activity_id = null
+              where matched_activity_id = p_activity returning id)
+  select jsonb_agg(id order by id) into v_known from u;
+  if v_known is not null then
+    perform realisasi._log(p_activity, 'verification', 'partnership', 'unmatch_known', null, jsonb_build_object('known_activity_ids', v_known));
+  end if;
   perform realisasi._notify_activity_unit(p_activity, 'activity_rejected', 'Kegiatan ditolak: ', btrim(p_note), '/realisasi/kegiatan/{id}');
   return realisasi._status_result(p_activity);
 end $$;
 
 -- Mobility --------------------------------------------------------------------
 create function realisasi.mobility_approve(p_activity uuid, p_note text default null) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; v_uid uuid := auth.uid(); v_ver uuid;
 begin
   a := realisasi._require_team(p_activity, 'mobility');
@@ -106,7 +113,7 @@ begin
 end $$;
 
 create function realisasi.mobility_request_revision(p_activity uuid, p_note text, p_row_notes jsonb default '[]') returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; v_uid uuid := auth.uid(); v_ver uuid; r jsonb;
 begin
   a := realisasi._require_team(p_activity, 'mobility');
@@ -139,8 +146,26 @@ begin
 end $$;
 
 -- Post-verification edits (R-29..R-31) ------------------------------------------
+-- R-11/R-12 for a participant set version against a Jenis (raises; used when Jenis changes after verification, M1,
+-- and by commit_participant_edit)
+create function realisasi._check_pset_for_type(p_version uuid, p_type int) returns void
+language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+declare t realisasi.activity_types;
+begin
+  select * into t from realisasi.activity_types where id = p_type;
+  if t.requires_mobility_review and coalesce(realisasi._pset_rows(p_version), 0) = 0 then
+    perform realisasi._raise('R11_PARTICIPANTS_REQUIRED', 'Jenis kegiatan ini wajib memiliki data peserta.');
+  end if;
+  if t.direction = 'outbound' and not exists (select 1 from realisasi.participant_students where set_version_id = p_version and section = 'internal') then
+    perform realisasi._raise('R12_OUTBOUND_STUDENT_REQUIRED', 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.');
+  end if;
+  if t.direction = 'inbound' and not exists (select 1 from realisasi.participant_students where set_version_id = p_version and section = 'inbound') then
+    perform realisasi._raise('R12_INBOUND_STUDENT_REQUIRED', 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.');
+  end if;
+end $$;
+
 create function realisasi.edit_verified_activity(p_id uuid, p_data jsonb, p_note text) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; v_res jsonb; v_end date; v_frozen_before boolean; v_frozen boolean := false; v_log bigint;
 begin
   a := realisasi._require_team(p_id, 'partnership');
@@ -158,6 +183,16 @@ begin
   if (select academic_year_id from realisasi.activities where id = p_id) is null then
     perform realisasi._raise('R09_NO_ACADEMIC_YEAR', 'Tanggal mulai berada di luar tahun akademik yang terdaftar. Hubungi Admin IO.');
   end if;
+  -- M1: a Jenis change must still satisfy R-11/R-12 with the approved participant set
+  if (v_res -> 'diff') ? 'type_id' then
+    perform realisasi._check_pset_for_type(
+      (select id from realisasi.participant_set_versions where activity_id = p_id and status = 'approved'),
+      (select type_id from realisasi.activities where id = p_id));
+  end if;
+  -- L3: name/date/agreement edits can create new duplicate candidates
+  if (v_res -> 'diff') ?| array['name','start_date','end_date','document_ids'] then
+    perform realisasi._scan_duplicates(p_id);
+  end if;
   if (v_res -> 'diff') <> '{}'::jsonb then
     v_log := realisasi._log(p_id, 'update', 'partnership', 'edit', nullif(btrim(p_note), ''), v_res -> 'diff');
     update realisasi.activity_log set in_frozen_period = in_frozen_period or v_frozen_before where id = v_log
@@ -167,7 +202,7 @@ begin
 end $$;
 
 create function realisasi.commit_participant_edit(p_activity uuid, p_note text) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; t realisasi.activity_types; v_uid uuid := auth.uid(); v_draft uuid; v_prev uuid;
         v_list text; v_diff jsonb; v_log bigint; v_frozen boolean; v_ver int;
 begin
@@ -189,12 +224,7 @@ begin
   select string_agg(employee_id, ', ' order by id) into v_list from realisasi.participant_staff st
    where set_version_id = v_draft and not exists (select 1 from mock_hr.employees e where e.employee_id = st.employee_id);
   if v_list is not null then perform realisasi._raise('R19_EMPLOYEE_NOT_FOUND', format('ID pegawai tidak ditemukan di data SDM: %s.', v_list)); end if;
-  if t.direction = 'outbound' and not exists (select 1 from realisasi.participant_students where set_version_id = v_draft and section = 'internal') then
-    perform realisasi._raise('R12_OUTBOUND_STUDENT_REQUIRED', 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.');
-  end if;
-  if t.direction = 'inbound' and not exists (select 1 from realisasi.participant_students where set_version_id = v_draft and section = 'inbound') then
-    perform realisasi._raise('R12_INBOUND_STUDENT_REQUIRED', 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.');
-  end if;
+  perform realisasi._check_pset_for_type(v_draft, a.type_id);    -- R-11 (L9) and R-12
 
   select id into v_prev from realisasi.participant_set_versions where activity_id = p_activity and status = 'approved';
   v_diff := jsonb_build_object(

@@ -26,6 +26,7 @@ import { SdgChips } from '@/components/realisasi/wizard/sdg-chips';
 import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
 import { editVerifiedActivity, saveActivityDraft } from '@/lib/realisasi/actions/submission';
 import { formatDate } from '@/lib/realisasi/format';
+import { createDraftSaver } from '@/lib/realisasi/save-queue';
 import { activityDetailSchema, activityDetailSubmitSchema, fieldErrors } from '@/lib/realisasi/schemas/activity';
 import { FUNDING_LABEL, MODE_LABEL } from '@/lib/realisasi/status';
 import type { FormOptions } from '@/lib/realisasi/queries/lookups';
@@ -121,6 +122,13 @@ function toState(p: ActivityDetailPayload | null, defaultUnit: number | null): F
 
 const blank = (s: string): string | null => (s.trim() === '' ? null : s.trim());
 
+const SKS_RE = /^\d+([.,]\d+)?$/;
+/** M-6: a non-empty SKS value must be a number ("2", "2,5", "2.5"); never silently dropped. */
+function sksError(raw: string): string | null {
+  const v = raw.trim();
+  return v === '' || SKS_RE.test(v) ? null : 'SKS harus berupa angka (mis. 2 atau 2,5).';
+}
+
 function toPayload(s: FormState): ActivityDetailPayload {
   const sks = s.sks_recognized.trim() === '' ? null : Number(s.sks_recognized.replace(',', '.'));
   return {
@@ -204,8 +212,24 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   const [note, setNote] = useState('');
   const [pending, startTransition] = useTransition();
   const summaryRef = useRef<HTMLDivElement>(null);
-  const dirtyRef = useRef(false);
-  const savingRef = useRef(false);
+  // Latest form state for timers / flush (updated after every render).
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
+  // Id of the draft once created, so a save queued behind the create updates instead of creating twice.
+  const draftIdRef = useRef<string | null>(activityId);
+  useEffect(() => {
+    if (activityId) draftIdRef.current = activityId;
+  }, [activityId]);
+  // All saves go through one serialized queue with an edit counter (frontend review H-1).
+  const [saver] = useState(() =>
+    createDraftSaver<ActivityDetailPayload, Awaited<ReturnType<typeof saveActivityDraft>>>({
+      run: (payload) => saveActivityDraft(draftIdRef.current, payload),
+      isOk: (r) => r.ok,
+    }),
+  );
+  const autosave = mode === 'wizard' && activityId !== null;
 
   const unitEditable = mode === 'wizard' && activityId === null && lockedUnitId === null;
   const type = options.activityTypes.find((t) => String(t.id) === state.type_id) ?? null;
@@ -220,10 +244,11 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   );
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    dirtyRef.current = true;
+    saver.markEdited();
     setState((s) => ({ ...s, [key]: value }));
     if (errors[key as string]) setErrors(({ [key as string]: _drop, ...rest }) => rest);
-    if (mode === 'wizard' && activityId) save.setDirty();
+    if (autosave) save.setDirty();
+    else if (mode !== 'wizard') save.setBlocker('detail-form', 'Perubahan Detail belum disimpan. Simpan perubahan Detail terlebih dahulu.');
   };
 
   const showErrors = useCallback((errs: Record<string, string>, message?: string) => {
@@ -232,44 +257,93 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
     requestAnimationFrame(() => summaryRef.current?.focus());
   }, []);
 
-  /** Persists the draft (create/update). Returns the id on success. */
+  /** Valid draft payload of the latest state, or null (autosave never sends invalid data). */
+  const latestDraftPayload = useCallback((): ActivityDetailPayload | null => {
+    const s = stateRef.current;
+    if (sksError(s.sks_recognized)) return null;
+    const parsed = activityDetailSchema.safeParse(toPayload(s));
+    return parsed.success ? parsed.data : null;
+  }, []);
+
+  /**
+   * Persists the draft (create/update) through the save queue. A save requested while another
+   * runs waits for it (never dropped); "Tersimpan" is shown only when no edit happened after the
+   * saved snapshot. Returns the draft id on success.
+   */
   const persistDraft = useCallback(
-    async (payload: ActivityDetailPayload, opts: { silent: boolean }): Promise<string | null> => {
-      if (savingRef.current) return null;
-      savingRef.current = true;
+    async (getPayload: () => ActivityDetailPayload | null, opts: { silent: boolean }): Promise<string | null> => {
       save.setSaving();
+      let out;
       try {
-        const res = await saveActivityDraft(activityId, payload);
-        if (!res.ok) {
-          save.setError(res.message);
-          if (!opts.silent) showErrors(serverFieldErrors(res.code, res.message, res.detail), res.message);
-          return null;
-        }
-        dirtyRef.current = false;
-        save.setSaved();
-        return res.data.id;
-      } finally {
-        savingRef.current = false;
+        out = await saver.save(getPayload);
+      } catch {
+        const msg = 'Draf gagal disimpan. Periksa koneksi lalu coba lagi.';
+        save.setError(msg);
+        if (!opts.silent) showErrors({}, msg);
+        return null;
       }
+      if (!out) {
+        if (!saver.busy) save.setDirty();
+        return null;
+      }
+      const res = out.result;
+      if (!res.ok) {
+        save.setError(res.message);
+        if (!opts.silent) showErrors(serverFieldErrors(res.code, res.message, res.detail), res.message);
+        return null;
+      }
+      draftIdRef.current = res.data.id;
+      if (!saver.busy) {
+        if (out.upToDate) save.setSaved();
+        else save.setDirty();
+      }
+      if (out.upToDate && mode !== 'wizard') save.setBlocker('detail-form', null);
+      return res.data.id;
     },
-    [activityId, save, showErrors],
+    [save, saver, showErrors, mode],
   );
 
-  // Autosave (wizard + existing draft only): debounce valid edits.
+  // Autosave (wizard + existing draft only): debounce valid edits; the timer reads the latest state.
   useEffect(() => {
-    if (mode !== 'wizard' || !activityId || !dirtyRef.current) return;
+    if (!autosave || !saver.dirty) return;
     const timer = setTimeout(() => {
-      const parsed = activityDetailSchema.safeParse(toPayload(state));
-      if (parsed.success) void persistDraft(parsed.data, { silent: true });
+      if (latestDraftPayload()) void persistDraft(latestDraftPayload, { silent: true });
     }, 1500);
     return () => clearTimeout(timer);
-  }, [state, mode, activityId, persistDraft]);
+  }, [state, autosave, saver, persistDraft, latestDraftPayload]);
+
+  // Navigation (stepper, Kembali/Lanjut) waits for pending edits (M-1).
+  useEffect(() => {
+    if (!autosave) return;
+    return save.registerFlush(async () => {
+      if (saver.dirty) {
+        if (!latestDraftPayload()) {
+          await saver.idle();
+          return false; // invalid edits cannot be saved as a draft
+        }
+        await persistDraft(latestDraftPayload, { silent: true });
+      }
+      await saver.idle();
+      return !saver.dirty;
+    });
+  }, [autosave, save, saver, persistDraft, latestDraftPayload]);
+
+  // Unmounting with an unsaved valid edit (e.g. browser back): save it instead of dropping it.
+  useEffect(
+    () => () => {
+      if (autosave && saver.dirty && !saver.busy && latestDraftPayload()) void saver.save(latestDraftPayload).catch(() => {});
+      if (mode !== 'wizard') save.setBlocker('detail-form', null);
+    },
+    [autosave, saver, latestDraftPayload, mode, save],
+  );
 
   function validate(strict: boolean): ActivityDetailPayload | null {
     const schema = strict ? activityDetailSubmitSchema : activityDetailSchema;
     const parsed = schema.safeParse(toPayload(state));
-    if (!parsed.success) {
-      showErrors(fieldErrors(parsed.error), 'Periksa kembali isian yang ditandai.');
+    const sks = sksError(state.sks_recognized);
+    if (!parsed.success || sks) {
+      const errs = parsed.success ? {} : fieldErrors(parsed.error);
+      showErrors(sks ? { ...errs, sks_recognized: sks } : errs, 'Periksa kembali isian yang ditandai.');
       return null;
     }
     setErrors({});
@@ -281,7 +355,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
     const payload = validate(next);
     if (!payload) return;
     startTransition(async () => {
-      const id = await persistDraft(payload, { silent: false });
+      const id = await persistDraft(() => payload, { silent: false });
       if (!id) return;
       if (next) router.push(stepHref(id, 2));
       else if (!activityId) router.replace(stepHref(id, 1));
@@ -293,7 +367,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
     const payload = validate(false);
     if (!payload || !activityId) return;
     startTransition(async () => {
-      const id = await persistDraft(payload, { silent: false });
+      const id = await persistDraft(() => payload, { silent: false });
       if (!id) return;
       toast.success('Perubahan Detail tersimpan.');
       router.refresh();
@@ -342,6 +416,19 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
       .map(([key, msg]) => ({ key, msg, target: key.includes('.') ? key.split('.')[0]! : key })),
   ).concat(errors.note ? [{ key: 'note', msg: errors.note, target: 'note' }] : []);
 
+  /** L-9: error-summary links move focus into the actual control (radios, combobox triggers). */
+  const targetId = (t: string) => (t === 'mode' ? `f-mode-${state.mode}` : `f-${t}`);
+  function focusField(ev: React.MouseEvent<HTMLAnchorElement>, t: string) {
+    const el = document.getElementById(targetId(t)) ?? document.getElementById(`f-${t}-label`);
+    if (!el) return;
+    ev.preventDefault();
+    const focusable = el.matches('input,select,textarea,button,[tabindex]')
+      ? el
+      : el.querySelector<HTMLElement>('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
+    el.scrollIntoView({ block: 'center' });
+    (focusable ?? el).focus({ preventScroll: true });
+  }
+
   const endAfterToday = /^\d{4}-\d{2}-\d{2}$/.test(state.end_date) && state.end_date > today;
 
   return (
@@ -366,7 +453,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
                 <ul className="mt-1 list-disc pl-5">
                   {errorList.map((e) => (
                     <li key={e.key}>
-                      <a href={`#f-${e.target}`} className="underline">
+                      <a href={`#${targetId(e.target)}`} className="underline" onClick={(ev) => focusField(ev, e.target)}>
                         {FIELD_LABEL[e.target] ?? e.target}
                       </a>
                       : {e.msg}

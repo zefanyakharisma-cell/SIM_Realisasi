@@ -43,8 +43,8 @@ select pg_temp.eq((select linked_count from realisasi.v_activity_list where id =
 select pg_temp.throws(format('select realisasi.link_duplicates(%s)', (select min(id) from _cand)), 'STATE_INVALID', 'candidate no longer open');
 select pg_temp.throws(format('select realisasi.link_activities(%L, %L, %L)', pg_temp.id('n'), pg_temp.aid(14), 'x'), 'DUP_SAME_GROUP', 'already same group');
 select pg_temp.throws(format('select realisasi.link_activities(%L, %L, %L)', pg_temp.id('n'), pg_temp.aid(23), 'x'), 'STATE_INVALID', 'cannot link a draft');
-select realisasi.dismiss_duplicate((select max(id) from _cand), 'sudah ditautkan');
-select pg_temp.eq((select status::text from realisasi.duplicate_candidates where id = (select max(id) from _cand)), 'dismissed', 'dismiss');
+-- the second open candidate of n now lies inside one group: resolved automatically (review L4), so it cannot be dismissed
+select pg_temp.eq((select status::text from realisasi.duplicate_candidates where id = (select max(id) from _cand)), 'linked', 'open candidate in the merged group auto-resolved');
 select pg_temp.throws(format('select realisasi.dismiss_duplicate(%s)', (select max(id) from _cand)), 'STATE_INVALID', 'dismiss only open');
 -- R-35: linked activities keep their own records; KPI S1 counts the group once (internal fn: superuser)
 reset role;

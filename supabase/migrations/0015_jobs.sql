@@ -1,21 +1,27 @@
 -- 0015_jobs: daily jobs (CONTRACTS §5.1). "Once" semantics via job_marks.
 
 create function realisasi._mark_once(p_key text) returns boolean
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   insert into realisasi.job_marks (key, created_at) values (p_key, realisasi.now_ts()) on conflict (key) do nothing;
   return found;
 end $$;
 
 create function realisasi.run_daily_jobs() returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   v_today date := realisasi.today();
   v_sla int := 0; v_rem int := 0; v_esc int := 0; v_dl int := 0; v_frozen jsonb := '[]'::jsonb;
   r record; v_days int; v_level text; v_since timestamptz; v_team realisasi.team; v_queue text; v_tag text; v_kind text;
   v_n int; v_id uuid; v_epoch bigint;
 begin
-  if auth.uid() is not null then perform realisasi._require_admin(); end if;
+  -- system caller (pg_cron/psql) or io_admin; an `authenticated` session with empty claims is refused (M4)
+  if not realisasi._is_system_caller() then perform realisasi._require_admin(); end if;
+
+  -- L8: SIM Kerjasama may re-parent documents; refresh the stored chain id of agreement links
+  update realisasi.activity_documents ad set chain_id = m.root_id
+    from realisasi._chain_map() m
+   where m.doc_id = ad.original_document_id and ad.chain_id is distinct from m.root_id;
 
   -- SLA notices (R-60)
   for r in select a.*, x.track from realisasi.activities a

@@ -1,7 +1,7 @@
 -- 0011_rpc_admin: settings, calendar, Jenis, holidays (io_admin) + notifications / export log.
 
 create function realisasi._require_admin() returns uuid
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v uuid := realisasi._require_uid();
 begin
   if realisasi.my_role() is distinct from 'io_admin' then perform realisasi._forbidden(); end if;
@@ -9,12 +9,12 @@ begin
 end $$;
 
 create function realisasi._settings_invalid(p_key text) returns void
-language sql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._raise('SETTINGS_INVALID', format('Pengaturan %s tidak valid.', p_key), jsonb_build_object('key', p_key))
 $$;
 
 create function realisasi.update_settings(p_values jsonb) returns jsonb
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin(); k text; v jsonb; v_merged jsonb;
   c_int text[] := array['grace_period_months','reporting_deadline_days','sla_yellow_days','sla_red_days',
                         'revision_reminder_days','revision_escalate_days','dup_date_window_days',
@@ -34,6 +34,8 @@ begin
     elsif k = 'demo_today' then
       if jsonb_typeof(v) not in ('null','string') then perform realisasi._settings_invalid(k); end if;
       if jsonb_typeof(v) = 'string' then
+        -- M9: time travel only where the deployment enables it (demo); clearing it is always allowed
+        if not realisasi.demo_time_travel_enabled() then perform realisasi._settings_invalid(k); end if;
         begin perform (v #>> '{}')::date; exception when others then perform realisasi._settings_invalid(k); end;
         if (v #>> '{}') !~ '^\d{4}-\d{2}-\d{2}$' then perform realisasi._settings_invalid(k); end if;
       end if;
@@ -49,12 +51,17 @@ begin
   insert into realisasi.settings (key, value, updated_by)
   select key, value, v_uid from jsonb_each(p_values)
   on conflict (key) do update set value = excluded.value, updated_by = excluded.updated_by;
+  -- L8: drafts follow a changed reporting window (submitted activities keep the deadline they were judged against)
+  if p_values ? 'reporting_deadline_days' then
+    update realisasi.activities set reporting_deadline = end_date + (p_values ->> 'reporting_deadline_days')::int
+     where status = 'draft' and reporting_deadline is distinct from end_date + (p_values ->> 'reporting_deadline_days')::int;
+  end if;
   return (select jsonb_object_agg(key, value order by key) from realisasi.settings);
 end $$;
 
 -- re-derive academic year / semester of every activity after calendar changes
 create function realisasi._rederive_periods() returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare n int;
 begin
   with calc as (
@@ -72,12 +79,12 @@ begin
 end $$;
 
 create function realisasi._cal_invalid() returns void
-language sql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._raise('CAL_INVALID_RANGE', 'Rentang tanggal kalender tidak valid atau tumpang tindih.')
 $$;
 
 create function realisasi.upsert_academic_year(p_id int, p_label text, p_start date, p_end date) returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin(); v_id int; v_gend date;
 begin
   if nullif(btrim(p_label), '') is null then
@@ -112,7 +119,7 @@ end $$;
 
 create function realisasi.upsert_semester(p_id int, p_ay_id int, p_term realisasi.semester_term,
                                           p_start date, p_end date, p_cutoff date) returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin(); ay realisasi.academic_years; v_id int;
 begin
   select * into ay from realisasi.academic_years where id = p_ay_id;
@@ -141,7 +148,7 @@ begin
 end $$;
 
 create function realisasi.upsert_activity_type(p_id int, p_data jsonb) returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin(); t realisasi.activity_types; v_id int;
 begin
   if p_data is null or jsonb_typeof(p_data) <> 'object' then perform realisasi._invalid('payload'); end if;
@@ -181,7 +188,7 @@ begin
 end $$;
 
 create function realisasi.upsert_holiday(p_day date, p_name text) returns void
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin();
 begin
   if p_day is null or nullif(btrim(p_name), '') is null then
@@ -191,7 +198,7 @@ begin
 end $$;
 
 create function realisasi.delete_holiday(p_day date) returns void
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_admin();
 begin
   delete from realisasi.holidays where day = p_day;
@@ -199,7 +206,7 @@ begin
 end $$;
 
 create function realisasi.mark_notifications_read(p_ids bigint[] default null) returns int
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); n int;
 begin
   update realisasi.notifications set read_at = realisasi.now_ts()
@@ -209,7 +216,7 @@ begin
 end $$;
 
 create function realisasi.log_export(p_kind text, p_filters jsonb, p_row_count int, p_contains_personal boolean) returns bigint
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_id bigint;
 begin
   if nullif(btrim(p_kind), '') is null then perform realisasi._invalid('kind'); end if;

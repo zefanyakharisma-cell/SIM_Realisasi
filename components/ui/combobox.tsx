@@ -103,11 +103,14 @@ export function Combobox({
                       value={`${o.label} ${o.value}`}
                       keywords={o.keywords}
                       disabled={o.disabled}
-                      aria-selected={isSelected}
+                      data-checked={isSelected || undefined}
                       onSelect={() => toggle(o.value)}
                     >
                       <Check className={cn('mt-0.5 self-start', isSelected ? 'opacity-100' : 'opacity-0')} aria-hidden="true" />
                       <div className="min-w-0 flex-1">{o.content ?? o.label}</div>
+                      {/* cmdk overwrites aria-selected with the highlight state, so the chosen
+                          state is part of the accessible name instead (frontend review M-4). */}
+                      {isSelected ? <span className="sr-only">, terpilih</span> : null}
                     </CommandItem>
                   );
                 })}

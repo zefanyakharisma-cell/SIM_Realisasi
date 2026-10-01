@@ -39,12 +39,16 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
   const step = draftId ? requestedStep : 1;
   const today = await getToday();
 
-  const { options, detail, version } = await withUser(user.id, async (tx) => {
+  const { options, detail, version, savedAt } = await withUser(user.id, async (tx) => {
     const options = await getFormOptions(tx);
-    if (!draftId) return { options, detail: null, version: null };
+    if (!draftId) return { options, detail: null, version: null, savedAt: null };
     const detail = await getActivityDetail(tx, draftId);
     const version = detail && step === 2 ? await getParticipantVersion(tx, draftId) : null;
-    return { options, detail, version };
+    // L-3: show "Tersimpan sebagai draf · HH:MM" for an existing draft right away.
+    const [row] = detail
+      ? await tx<{ updated_at: string | null }[]>`select updated_at from realisasi.v_activities where id = ${draftId}::uuid`
+      : [];
+    return { options, detail, version, savedAt: row?.updated_at ?? null };
   });
 
   if (draftId && !detail) {
@@ -82,7 +86,7 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
         title={detail ? `Draf ${detail.code}` : 'Laporkan Kegiatan Baru'}
         description={detail ? detail.name : 'Laporkan realisasi kegiatan kerja sama unit Anda. Draf tersimpan otomatis setelah langkah Detail.'}
       />
-      <WizardShell draftId={detail?.id ?? null} step={step} invalidSteps={invalidSteps}>
+      <WizardShell draftId={detail?.id ?? null} step={step} savedAt={savedAt} invalidSteps={invalidSteps}>
         {step === 1 && (
           <DetailForm
             key={detail?.id ?? 'new'}

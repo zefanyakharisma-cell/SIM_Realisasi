@@ -2,7 +2,7 @@
 
 -- Period derivation: academic year + semester from start_date (NULL when outside the calendar; R-09 at submit)
 create function realisasi._trg_derive_period() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   select ay.id into new.academic_year_id from realisasi.academic_years ay
    where new.start_date between ay.start_date and ay.end_date order by ay.start_date limit 1;
@@ -17,7 +17,7 @@ create trigger trg_activities_derive_period
 
 -- Reporting deadline + lateness (R-10)
 create function realisasi._trg_derive_deadline() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.reporting_deadline := new.end_date + coalesce(realisasi.setting_int('reporting_deadline_days'), 30);
   new.is_late := new.submitted_at is not null
@@ -30,7 +30,7 @@ create trigger trg_activities_derive_deadline
 
 -- Overall status (R-25), verified_at (R-28), track clocks
 create function realisasi._trg_activity_status() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.status := case
     when new.submitted_at is null then 'draft'
@@ -67,7 +67,7 @@ create trigger trg_activities_status
 
 -- Agreement link: chain id + partner snapshot (R-03, R-06)
 create function realisasi._trg_activity_documents_chain() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.chain_id := realisasi.chain_root(new.original_document_id);
   return new;
@@ -77,7 +77,7 @@ create trigger trg_activity_documents_snapshot
   for each row execute function realisasi._trg_activity_documents_chain();
 
 create function realisasi._trg_activity_documents_partners() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   if tg_op = 'INSERT' then
     insert into realisasi.activity_partner_snapshot (activity_id, document_id, partner_id, partner_name, country_code, captured_at)
@@ -98,7 +98,7 @@ create trigger trg_activity_documents_snapshot_after
 
 -- Participant versions: approving a version supersedes the previous approved one (R-21)
 create function realisasi._trg_pset_supersede() returns trigger
-language plpgsql security definer set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   if new.status = 'approved' and old.status is distinct from 'approved' then
     update realisasi.participant_set_versions
@@ -113,7 +113,7 @@ create trigger trg_pset_supersede
 
 -- settings.updated_at
 create function realisasi._trg_touch_updated_at() returns trigger
-language plpgsql set search_path = realisasi, public, extensions, pg_temp as $$
+language plpgsql set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.updated_at := now();
   return new;
