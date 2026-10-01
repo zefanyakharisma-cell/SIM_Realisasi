@@ -1,0 +1,649 @@
+-- 0014_reads: read RPCs returning the JSON shapes of CONTRACTS §4.
+
+-- Period context ---------------------------------------------------------------------
+create function realisasi._resolve_ay(p_ay_id int) returns int
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select coalesce(
+    (select id from realisasi.academic_years where id = p_ay_id),
+    case when p_ay_id is null then
+      coalesce((select id from realisasi.academic_years where realisasi.today() between start_date and end_date limit 1),
+               (select id from realisasi.academic_years where start_date <= realisasi.today() order by start_date desc limit 1),
+               (select id from realisasi.academic_years order by start_date limit 1)) end)
+$$;
+
+create type realisasi.period_ctx as (ay_id int, ay_label text, period text, kind realisasi.snapshot_kind, label text,
+  window_start date, window_end date, cutoff date, frozen boolean, snapshot_id uuid,
+  frozen_at timestamptz, frozen_by_name text, grace_months int);
+
+create function realisasi._period_ctx(p_ay_id int, p_period text, p_snapshot uuid default null) returns realisasi.period_ctx
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare ay realisasi.academic_years; s realisasi.kpi_snapshots; w record; r realisasi.period_ctx;
+begin
+  if p_snapshot is not null then
+    select * into s from realisasi.kpi_snapshots where id = p_snapshot;
+    if not found then perform realisasi._not_found(); end if;
+    select * into ay from realisasi.academic_years where id = s.academic_year_id;
+    r.period := case when s.kind = 'ganjil_ytd' then 'ganjil' else 'full' end;
+  else
+    if p_period is null or p_period not in ('ganjil','full','live') then perform realisasi._invalid('period'); end if;
+    select * into ay from realisasi.academic_years where id = realisasi._resolve_ay(p_ay_id);
+    if not found then perform realisasi._not_found(); end if;
+    r.period := p_period;
+  end if;
+  r.ay_id := ay.id; r.ay_label := ay.label; r.frozen := false;
+  r.grace_months := coalesce(realisasi.setting_int('grace_period_months'), 6);
+  if r.period = 'live' then
+    r.kind := null; r.label := 'Live ' || ay.label;
+    r.window_start := ay.start_date; r.window_end := least(ay.end_date, realisasi.today()); r.cutoff := r.window_end;
+    return r;
+  end if;
+  r.kind := case when r.period = 'ganjil' then 'ganjil_ytd' else 'genap_full_year' end;
+  r.label := case when r.period = 'ganjil' then 'Ganjil ' || ay.label || ' (YTD)' else 'Setahun ' || ay.label end;
+  if s.id is null then
+    select * into s from realisasi.kpi_snapshots where academic_year_id = ay.id and kpi_snapshots.kind = r.kind
+       and superseded_by is null;
+  end if;
+  if s.id is not null then
+    r.frozen := true; r.snapshot_id := s.id; r.frozen_at := s.frozen_at;
+    r.frozen_by_name := coalesce(realisasi._profile_name(s.frozen_by), 'Job terjadwal');
+    r.window_start := s.window_start; r.window_end := s.window_end; r.cutoff := s.cutoff_date;
+    r.grace_months := coalesce((s.settings_used ->> 'grace_period_months')::int, r.grace_months);
+  else
+    select * into w from realisasi._snapshot_window(ay.id, r.kind);
+    r.window_start := w.window_start;
+    r.window_end := least(w.window_end, realisasi.today());
+    r.cutoff := least(w.cutoff_date, realisasi.today());
+  end if;
+  return r;
+end $$;
+
+create function realisasi._period_json(c realisasi.period_ctx) returns jsonb
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select jsonb_build_object('ay_id', c.ay_id, 'ay_label', c.ay_label, 'period', c.period, 'kind', c.kind, 'label', c.label,
+    'window_start', c.window_start, 'window_end', c.window_end, 'cutoff', c.cutoff, 'frozen', c.frozen,
+    'snapshot_id', c.snapshot_id, 'frozen_at', c.frozen_at, 'frozen_by_name', c.frozen_by_name, 'today', realisasi.today(),
+    'academic_years', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'label', label) order by start_date)
+                                  from realisasi.academic_years), '[]'::jsonb))
+$$;
+
+create function realisasi.period_info(p_ay_id int, p_period text) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare c realisasi.period_ctx;
+begin
+  perform realisasi._require_uid();
+  c := realisasi._period_ctx(p_ay_id, p_period);
+  return realisasi._period_json(c);
+end $$;
+
+-- KPI values for a context (frozen -> snapshot, else live) ------------------------
+create function realisasi._ctx_values(c realisasi.period_ctx, p_unit_id int) returns jsonb
+language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare v jsonb; e jsonb;
+begin
+  if c.frozen then
+    select values into v from realisasi.kpi_snapshots where id = c.snapshot_id;
+    if p_unit_id is null then return v; end if;
+    select x into e from jsonb_array_elements(v -> 'by_unit') x where (x ->> 'unit_id')::int = p_unit_id;
+    if e is null then
+      e := realisasi._kpi_values('[]'::jsonb, c.window_start, c.window_end, c.ay_id, p_unit_id);
+    end if;
+    return jsonb_build_object('params', (v -> 'params') || jsonb_build_object('unit_id', p_unit_id))
+           || (e - 'unit_id' - 'unit_name');
+  end if;
+  return realisasi.compute_kpis(c.window_start, c.window_end, c.cutoff, c.ay_id, null, p_unit_id);
+end $$;
+
+create function realisasi._scope_json(p_unit_id int) returns jsonb
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select jsonb_build_object('level', case when p_unit_id is null then 'university' else 'unit' end,
+                            'unit_id', p_unit_id, 'unit_name', (select name from public.units where id = p_unit_id))
+$$;
+
+create function realisasi._forced_unit(p_unit_id int) returns int
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select case when realisasi.my_role() = 'submitter' then realisasi.my_unit() else p_unit_id end
+$$;
+
+create function realisasi.dashboard(p_ay_id int default null, p_period text default 'live', p_unit_id int default null) returns jsonb
+language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare c realisasi.period_ctx; pc realisasi.period_ctx; v_unit int; v_vals jsonb; v_prev jsonb := null; v_prev_ay realisasi.academic_years;
+        v_pvals jsonb; v_late int; v_drafts jsonb := '[]'::jsonb; v_today date := realisasi.today();
+begin
+  perform realisasi._require_uid();
+  v_unit := realisasi._forced_unit(p_unit_id);
+  c := realisasi._period_ctx(p_ay_id, coalesce(p_period, 'live'));
+  v_vals := realisasi._ctx_values(c, v_unit);
+
+  select ay.* into v_prev_ay from realisasi.academic_years ay
+    join realisasi.academic_years cur on cur.id = c.ay_id
+   where ay.start_date < cur.start_date order by ay.start_date desc limit 1;
+  if v_prev_ay.id is not null then
+    if c.period = 'live' then
+      v_pvals := realisasi.compute_kpis(v_prev_ay.start_date, least(v_prev_ay.end_date, (v_today - interval '1 year')::date),
+                                        least(v_prev_ay.end_date, (v_today - interval '1 year')::date), v_prev_ay.id, null, v_unit);
+    else
+      begin
+        pc := realisasi._period_ctx(v_prev_ay.id, c.period);
+        v_pvals := realisasi._ctx_values(pc, v_unit);
+      exception when others then v_pvals := null;
+      end;
+    end if;
+    if v_pvals is not null then
+      v_prev := jsonb_build_object('ay_label', v_prev_ay.label,
+        'kpi_1_1', jsonb_build_object('total', v_pvals #> '{kpi_1_1,total}', 'inbound', v_pvals #> '{kpi_1_1,inbound}',
+                                      'outbound', v_pvals #> '{kpi_1_1,outbound}'),
+        'kpi_1_19_s1', jsonb_build_object('international', v_pvals #> '{kpi_1_19_s1,international}'),
+        'kpi_1_19_24', jsonb_build_object('pct', v_pvals #> '{kpi_1_19_24,all,pct}'),
+        'kpi_1_19_s8', jsonb_build_object('pct', v_pvals #> '{kpi_1_19_s8,pct}'));
+    end if;
+  end if;
+
+  if c.frozen then
+    select count(*) into v_late from jsonb_array_elements(realisasi._snapshot_late_additions(c.snapshot_id)) x
+     where v_unit is null or exists (select 1 from realisasi.activity_units au
+                                      where au.activity_id = (x ->> 'activity_id')::uuid and au.unit_id = v_unit);
+  else
+    select count(*) into v_late from realisasi.activities a
+     where a.status = 'verified' and a.start_date between c.window_start and c.window_end
+       and (v_unit is null or exists (select 1 from realisasi.activity_units au where au.activity_id = a.id and au.unit_id = v_unit))
+       and realisasi.is_late_addition(a.id);
+  end if;
+
+  if v_unit is not null then
+    select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'end_date', a.end_date,
+             'reporting_deadline', a.reporting_deadline, 'days_left', a.reporting_deadline - v_today)
+             order by a.reporting_deadline, a.code), '[]'::jsonb)
+      into v_drafts
+      from realisasi.activities a
+     where a.status = 'draft' and a.submitter_unit_id = v_unit and a.reporting_deadline <= v_today + 14;
+  end if;
+
+  return jsonb_build_object('period', realisasi._period_json(c), 'scope', realisasi._scope_json(v_unit),
+    'values', v_vals, 'previous', v_prev, 'late_additions', v_late, 'drafts_near_deadline', v_drafts);
+end $$;
+
+-- Drill-down -------------------------------------------------------------------------
+create function realisasi._drill_items(c realisasi.period_ctx, p_unit_id int)
+returns table(kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_late boolean)
+language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+begin
+  if c.frozen and p_unit_id is null then
+    return query
+      select i.kpi_code, i.bucket, i.ref_type, i.ref_id,
+             case when i.ref_type = 'activity' then i.ref_id::uuid
+                  when i.ref_type = 'participant' then split_part(i.ref_id, ':', 1)::uuid end,
+             i.is_late_addition
+        from realisasi.kpi_snapshot_items i where i.snapshot_id = c.snapshot_id;
+  elsif c.frozen then
+    return query
+      select i.kpi_code, i.bucket, i.ref_type, i.ref_id, i.activity_id,
+             coalesce(i.activity_id is not null and realisasi.is_late_addition(i.activity_id), false)
+        from realisasi._kpi_items(c.window_start, c.window_end, c.cutoff, c.ay_id, c.frozen_at, p_unit_id, c.grace_months) i
+       where i.activity_id is null
+          or i.activity_id::text in (select b.ref_id from realisasi.kpi_snapshot_items b
+                                      where b.snapshot_id = c.snapshot_id and b.kpi_code = 'base');
+  else
+    return query
+      select i.kpi_code, i.bucket, i.ref_type, i.ref_id, i.activity_id,
+             coalesce(i.activity_id is not null and realisasi.is_late_addition(i.activity_id), false)
+        from realisasi._kpi_items(c.window_start, c.window_end, c.cutoff, c.ay_id, null, p_unit_id, c.grace_months) i;
+  end if;
+end $$;
+
+create function realisasi._activity_kpi_row(p_activity uuid, p_bucket text, p_students int, p_late boolean) returns jsonb
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select jsonb_build_object('row_type', 'activity', 'activity_id', a.id, 'code', a.code, 'name', a.name,
+    'type_name', t.name, 'direction', t.direction,
+    'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
+                             join public.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
+    'partner_names', coalesce((select jsonb_agg(distinct ps.partner_name) from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id), '[]'::jsonb),
+    'country_codes', coalesce((select jsonb_agg(distinct ps.country_code) from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id), '[]'::jsonb),
+    'start_date', a.start_date, 'semester_label', realisasi.semester_label(a.semester_id),
+    'event_group_id', a.event_group_id, 'linked_count', realisasi.activity_linked_count(a.id),
+    'bucket', p_bucket, 'students', p_students, 'is_late_addition', coalesce(p_late, false))
+  from realisasi.activities a join realisasi.activity_types t on t.id = a.type_id where a.id = p_activity
+$$;
+
+create function realisasi.kpi_drilldown(p_ay_id int, p_period text, p_kpi text, p_bucket text default null,
+                                        p_unit_id int default null, p_snapshot_id uuid default null) returns jsonb
+language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare c realisasi.period_ctx; v_unit int; v_rows jsonb;
+begin
+  perform realisasi._require_uid();
+  if p_kpi is null or p_kpi not in ('1.1','1.19.S1','1.19.24','1.19.S8','base') then perform realisasi._invalid('kpi'); end if;
+  v_unit := realisasi._forced_unit(p_unit_id);
+  c := realisasi._period_ctx(p_ay_id, coalesce(p_period, 'live'), p_snapshot_id);
+  create temp table if not exists _dd_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_late boolean) on commit drop;
+  truncate _dd_items;
+  insert into _dd_items select * from realisasi._drill_items(c, v_unit);
+
+  if p_kpi = '1.1' then
+    select coalesce(jsonb_agg(r order by r ->> 'start_date', r ->> 'code', r ->> 'bucket'), '[]'::jsonb) into v_rows from (
+      select realisasi._activity_kpi_row(activity_id, bucket, count(*)::int, bool_or(is_late)) r
+        from _dd_items where kpi_code = '1.1' and (p_bucket is null or bucket = p_bucket)
+       group by activity_id, bucket) q;
+  elsif p_kpi in ('1.19.S1','base') then
+    select coalesce(jsonb_agg(r order by r ->> 'start_date', r ->> 'code'), '[]'::jsonb) into v_rows from (
+      select realisasi._activity_kpi_row(activity_id, bucket, null, is_late) r
+        from _dd_items where kpi_code = p_kpi and (p_bucket is null or bucket = p_bucket)) q;
+  elsif p_kpi = '1.19.S8' then
+    select coalesce(jsonb_agg(r order by o, r ->> 'start_date', r ->> 'activity_date', r ->> 'code'), '[]'::jsonb) into v_rows from (
+      select 0 o, realisasi._activity_kpi_row(activity_id, bucket, null, is_late) r
+        from _dd_items where kpi_code = '1.19.S8' and bucket = 'reported' and (p_bucket is null or p_bucket = 'reported')
+      union all
+      select 1, jsonb_build_object('row_type', 'known', 'known_id', k.id, 'title', k.title, 'activity_date', k.activity_date,
+               'unit_name', u.name, 'partner_name', k.partner_name, 'country_code', k.country_code,
+               'source', k.source, 'source_reference', k.source_reference)
+        from _dd_items i join realisasi.known_activities k on k.id = i.ref_id::bigint
+        left join public.units u on u.id = k.unit_id
+       where i.kpi_code = '1.19.S8' and i.bucket = 'unmatched_known' and (p_bucket is null or p_bucket = 'unmatched_known')) q;
+  else
+    select coalesce(jsonb_agg(r order by r ->> 'chain_start', (r ->> 'chain_id')::int), '[]'::jsonb) into v_rows from (
+      select jsonb_build_object('row_type', 'chain', 'chain_id', ch.chain_id, 'current_document_id', ch.current_document_id,
+               'current_doc_number', ch.current_doc_number, 'doc_numbers', to_jsonb(ch.doc_numbers), 'kind', ch.kind,
+               'title', ch.title, 'partner_names', to_jsonb(ch.partner_names), 'country_codes', to_jsonb(ch.country_codes),
+               'is_international', ch.is_international, 'chain_start', ch.chain_start, 'chain_end', ch.chain_end,
+               'auto_renewed', ch.auto_renewed, 'bucket', x.b,
+               'grace_until', case when x.b = 'grace_excluded' then (ch.chain_start + make_interval(months => c.grace_months))::date end,
+               'activities', case when x.b = 'realized' then coalesce((
+                    select jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'start_date', a.start_date,
+                                     'original_doc_number', d.doc_number) order by a.start_date, a.code)
+                      from realisasi.activity_documents ad join realisasi.activities a on a.id = ad.activity_id
+                      join public.documents d on d.id = ad.original_document_id
+                     where ad.chain_id = ch.chain_id and a.status = 'verified'
+                       and a.verified_at <= coalesce(c.frozen_at, realisasi.now_ts())
+                       and a.start_date between c.window_start and c.cutoff
+                       and (v_unit is null or exists (select 1 from realisasi.activity_units au where au.activity_id = a.id and au.unit_id = v_unit))),
+                    '[]'::jsonb) else '[]'::jsonb end,
+               'is_late_addition', x.late) r
+        from (select ref_id::int chain_id,
+                     case when bool_or(bucket = 'grace_excluded') then 'grace_excluded'
+                          when bool_or(bucket = 'numerator') then 'realized' else 'not_realized' end b,
+                     bool_or(is_late) late
+                from _dd_items where kpi_code = '1.19.24' group by ref_id) x
+        join realisasi.v_chains ch on ch.chain_id = x.chain_id
+       where p_bucket is null
+          or (p_bucket = 'numerator' and x.b = 'realized')
+          or (p_bucket = 'denominator' and x.b in ('realized','not_realized'))
+          or (p_bucket in ('realized','not_realized','grace_excluded') and x.b = p_bucket)) q;
+  end if;
+
+  return jsonb_build_object('period', realisasi._period_json(c), 'scope', realisasi._scope_json(v_unit),
+                            'kpi', p_kpi, 'bucket', p_bucket, 'rows', v_rows);
+end $$;
+
+create function realisasi.kpi_participant_rows(p_ay_id int, p_period text, p_unit_id int default null,
+                                               p_snapshot_id uuid default null) returns jsonb
+language plpgsql volatile security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare c realisasi.period_ctx; v_unit int;
+begin
+  perform realisasi._require_uid();
+  if realisasi.my_role() = 'submitter' then
+    v_unit := realisasi.my_unit();
+  elsif realisasi.in_team('mobility') then
+    v_unit := p_unit_id;
+  else
+    perform realisasi._forbidden();
+  end if;
+  c := realisasi._period_ctx(p_ay_id, coalesce(p_period, 'live'), p_snapshot_id);
+  return coalesce((select jsonb_agg(jsonb_build_object(
+      'activity_id', a.id, 'code', a.code, 'name', a.name, 'direction', t.direction, 'event_group_id', a.event_group_id,
+      'section', s.section, 'nrp', s.nrp, 'full_name', s.full_name, 'faculty_name', s.faculty_name, 'prodi_name', s.prodi_name,
+      'home_institution', s.home_institution, 'home_country_code', s.home_country_code,
+      'start_date', a.start_date, 'semester_label', realisasi.semester_label(a.semester_id))
+      order by a.start_date, a.code, s.section, s.nrp)
+    from realisasi._drill_items(c, v_unit) i
+    join realisasi.activities a on a.id = i.activity_id
+    join realisasi.activity_types t on t.id = a.type_id
+    join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
+    join realisasi.participant_students s on s.set_version_id = v.id and s.nrp = split_part(i.ref_id, ':', 2)
+   where i.kpi_code = '1.1'), '[]'::jsonb);
+end $$;
+
+-- Activity detail ------------------------------------------------------------------
+create function realisasi._pset_counts(p_version uuid) returns jsonb
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select jsonb_build_object('version', v.version, 'status', v.status,
+    'internal_students', (select count(*) from realisasi.participant_students s where s.set_version_id = v.id and s.section = 'internal'),
+    'inbound_students', (select count(*) from realisasi.participant_students s where s.set_version_id = v.id and s.section = 'inbound'),
+    'staff', (select count(*) from realisasi.participant_staff s where s.set_version_id = v.id))
+  from realisasi.participant_set_versions v where v.id = p_version
+$$;
+
+create function realisasi._counts_version(p_activity uuid) returns uuid
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select coalesce((select id from realisasi.participant_set_versions where activity_id = p_activity and status = 'approved'),
+                  (select id from realisasi.participant_set_versions where activity_id = p_activity and status <> 'draft'
+                    order by version desc limit 1))
+$$;
+
+create function realisasi.participant_counts(p_activity uuid) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+begin
+  perform realisasi._require_uid();
+  if not exists (select 1 from realisasi.activities where id = p_activity) or not realisasi.can_view_activity(p_activity) then
+    perform realisasi._not_found();
+  end if;
+  return realisasi._pset_counts(realisasi._counts_version(p_activity));
+end $$;
+
+create function realisasi._sees_draft_versions(p_activity uuid) returns boolean
+language sql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+  select realisasi._is_unit_editor(p_activity) or realisasi.in_team('mobility')
+$$;
+
+create function realisasi.activity_detail(p_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare a realisasi.activities; t realisasi.activity_types; v_role text; v_editor boolean; v_perm jsonb;
+        v_io boolean; v_linked int; v_p_team boolean; v_m_team boolean; v_rev jsonb; v_rej jsonb;
+begin
+  perform realisasi._require_uid();
+  select * into a from realisasi.activities where id = p_id;
+  if not found or not realisasi.can_view_activity(p_id) then perform realisasi._not_found(); end if;
+  select * into t from realisasi.activity_types where id = a.type_id;
+  v_role := realisasi.my_role(); v_editor := realisasi._is_unit_editor(p_id); v_io := realisasi.is_io();
+  v_linked := realisasi.activity_linked_count(p_id);
+  v_p_team := realisasi.in_team('partnership'); v_m_team := realisasi.in_team('mobility');
+
+  v_perm := jsonb_build_object(
+    'can_edit_draft', v_editor and a.status = 'draft',
+    'can_delete_draft', v_editor and a.status = 'draft',
+    'can_edit_detail', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested'),
+    'can_edit_files', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested'),
+    'can_edit_participants', realisasi._can_edit_participants(p_id, false),
+    'can_submit', v_editor and (a.status = 'draft' or a.partnership_status = 'revision_requested' or a.mobility_status = 'revision_requested'),
+    'can_partnership_verify', v_p_team and a.partnership_status = 'pending' and a.status not in ('draft','rejected'),
+    'can_reject', v_p_team and a.partnership_status = 'pending' and a.status not in ('draft','rejected'),
+    'can_mobility_verify', v_m_team and a.mobility_status = 'pending' and a.status not in ('draft','rejected'),
+    'can_edit_verified_detail', a.status = 'verified' and v_p_team,
+    'can_edit_verified_participants', a.status = 'verified' and v_m_team,
+    'can_link_duplicate', v_p_team and a.status not in ('draft','rejected'),
+    'can_unlink_duplicate', v_role = 'io_admin' and v_linked > 0,
+    'can_view_participants', realisasi.can_view_participants(p_id),
+    'can_view_log', v_role <> 'viewer');
+
+  v_rev := jsonb_build_object(
+    'partnership', case when a.partnership_status = 'revision_requested' then (
+        select jsonb_build_object('note', l.note, 'requested_by_name', realisasi._profile_name(l.actor_id), 'requested_at', l.created_at)
+          from realisasi.activity_log l where l.activity_id = p_id and l.track = 'partnership' and l.action = 'request_revision'
+         order by l.created_at desc, l.id desc limit 1) end,
+    'mobility', case when a.mobility_status = 'revision_requested' then (
+        select jsonb_build_object('note', l.note, 'requested_by_name', realisasi._profile_name(l.actor_id), 'requested_at', l.created_at)
+          from realisasi.activity_log l where l.activity_id = p_id and l.track = 'mobility' and l.action = 'request_revision'
+         order by l.created_at desc, l.id desc limit 1) end);
+  if a.status = 'rejected' then
+    select jsonb_build_object('reason', a.rejection_reason, 'note', l.note, 'rejected_by_name', realisasi._profile_name(l.actor_id),
+                              'rejected_at', l.created_at) into v_rej
+      from realisasi.activity_log l where l.activity_id = p_id and l.action = 'reject' order by l.created_at desc limit 1;
+    v_rej := coalesce(v_rej, jsonb_build_object('reason', a.rejection_reason, 'note', null, 'rejected_by_name', null, 'rejected_at', null));
+  end if;
+
+  return jsonb_build_object(
+    'id', a.id, 'code', a.code, 'name', a.name,
+    'type', jsonb_build_object('id', t.id, 'name', t.name, 'direction', t.direction, 'counts_as_mobility', t.counts_as_mobility,
+                               'counts_for_s1', t.counts_for_s1, 'requires_mobility_review', t.requires_mobility_review),
+    'start_date', a.start_date, 'end_date', a.end_date, 'duration_days', a.end_date - a.start_date + 1,
+    'academic_year', (select jsonb_build_object('id', id, 'label', label) from realisasi.academic_years where id = a.academic_year_id),
+    'semester', (select jsonb_build_object('id', id, 'term', term, 'label', realisasi.semester_label(id)) from realisasi.semesters where id = a.semester_id),
+    'mode', a.mode, 'venue', a.venue, 'city', a.city, 'country_code', a.country_code,
+    'country_name', (select name from public.countries where code = a.country_code),
+    'sks_recognized', a.sks_recognized, 'funding_source', a.funding_source, 'description', a.description,
+    'submitter_unit', (select jsonb_build_object('id', id, 'name', name) from public.units where id = a.submitter_unit_id),
+    'units', coalesce((select jsonb_agg(jsonb_build_object('id', u.id, 'name', u.name, 'is_submitter', au.is_submitter)
+                                        order by au.is_submitter desc, u.name)
+                         from realisasi.activity_units au join public.units u on u.id = au.unit_id where au.activity_id = p_id), '[]'::jsonb),
+    'status', a.status, 'partnership_status', a.partnership_status, 'mobility_status', a.mobility_status,
+    'partnership_since', a.partnership_since, 'mobility_since', a.mobility_since,
+    'submitted_at', a.submitted_at, 'verified_at', a.verified_at, 'rejection_reason', a.rejection_reason,
+    'reporting_deadline', a.reporting_deadline, 'is_late', a.is_late,
+    'event_group_id', a.event_group_id,
+    'linked_activities', coalesce((select jsonb_agg(jsonb_build_object('id', o.id, 'code', o.code, 'name', o.name,
+                                     'unit_name', u.name, 'status', o.status) order by o.code)
+                                    from realisasi.activities o join public.units u on u.id = o.submitter_unit_id
+                                   where o.event_group_id = a.event_group_id and o.id <> a.id), '[]'::jsonb),
+    'documents', coalesce((select jsonb_agg(jsonb_build_object(
+        'original_document_id', od.id, 'original_doc_number', od.doc_number,
+        'current_document_id', cd.id, 'current_doc_number', cd.doc_number, 'kind', od.kind, 'title', od.title,
+        'chain_id', ad.chain_id, 'start_date', od.start_date, 'end_date', od.end_date, 'is_archived', od.status = 'archived',
+        'out_of_scope_warning', ad.out_of_scope_warning,
+        'partners', coalesce((select jsonb_agg(jsonb_build_object('partner_id', p.id, 'name', p.name, 'country_code', p.country_code,
+                                'country_name', co.name) order by dp.is_lead desc, p.name)
+                               from public.document_partners dp join public.partners p on p.id = dp.partner_id
+                               left join public.countries co on co.code = p.country_code where dp.document_id = od.id), '[]'::jsonb))
+        order by od.doc_number)
+      from realisasi.activity_documents ad join public.documents od on od.id = ad.original_document_id
+      left join public.documents cd on cd.id = realisasi.chain_current(ad.original_document_id)
+     where ad.activity_id = p_id), '[]'::jsonb),
+    'partners', coalesce((select jsonb_agg(jsonb_build_object('document_id', ps.document_id, 'partner_id', ps.partner_id,
+                            'partner_name', ps.partner_name, 'country_code', ps.country_code, 'country_name', co.name) order by ps.id)
+                           from realisasi.activity_partner_snapshot ps left join public.countries co on co.code = ps.country_code
+                          where ps.activity_id = p_id), '[]'::jsonb),
+    'is_international', exists (select 1 from realisasi.activity_partner_snapshot ps where ps.activity_id = p_id and ps.country_code <> 'ID'),
+    'sdg_ids', coalesce((select jsonb_agg(sdg_id order by sdg_id) from realisasi.activity_sdgs where activity_id = p_id), '[]'::jsonb),
+    'external_persons', coalesce((select jsonb_agg(jsonb_build_object('id', e.id, 'full_name', e.full_name, 'institution', e.institution,
+                                    'country_code', e.country_code, 'role', e.role, 'notes', e.notes) order by e.id)
+                                   from realisasi.activity_external_persons e where e.activity_id = p_id), '[]'::jsonb),
+    'files', coalesce((select jsonb_agg(jsonb_build_object('id', f.id, 'kind', f.kind, 'version', f.version, 'storage_path', f.storage_path,
+                         'url', f.url, 'filename', f.filename, 'size_bytes', f.size_bytes, 'mime', f.mime, 'is_current', f.is_current,
+                         'uploaded_by_name', realisasi._profile_name(f.uploaded_by), 'uploaded_at', f.uploaded_at,
+                         'href', coalesce(case when f.storage_path is not null then realisasi._file_href(f.storage_path) end, f.url))
+                         order by f.kind, f.version desc, f.id desc)
+                        from realisasi.activity_files f where f.activity_id = p_id), '[]'::jsonb),
+    'participants', jsonb_build_object(
+        'can_view_rows', realisasi.can_view_participants(p_id),
+        'counts', realisasi._pset_counts(realisasi._counts_version(p_id)),
+        'versions', coalesce((select jsonb_agg(realisasi._pset_counts(v.id) - 'version' - 'status' || jsonb_build_object(
+                         'id', v.id, 'version', v.version, 'status', v.status, 'submitted_at', v.submitted_at,
+                         'submitted_by_name', realisasi._profile_name(v.submitted_by), 'reviewed_at', v.reviewed_at,
+                         'reviewed_by_name', realisasi._profile_name(v.reviewed_by), 'review_note', v.review_note) order by v.version)
+                       from realisasi.participant_set_versions v
+                      where v.activity_id = p_id and (v.status <> 'draft' or realisasi._sees_draft_versions(p_id))), '[]'::jsonb)),
+    'sla', jsonb_build_object(
+        'partnership', case when a.partnership_status = 'pending' and a.status not in ('draft','rejected') then
+            jsonb_build_object('days', realisasi.sla_days(a.partnership_since), 'level', realisasi.sla_level(realisasi.sla_days(a.partnership_since))) end,
+        'mobility', case when a.mobility_status = 'pending' and a.status not in ('draft','rejected') then
+            jsonb_build_object('days', realisasi.sla_days(a.mobility_since), 'level', realisasi.sla_level(realisasi.sla_days(a.mobility_since))) end),
+    'revision', v_rev,
+    'rejection', v_rej,
+    'log', case when v_role = 'viewer' then '[]'::jsonb else coalesce((select jsonb_agg(jsonb_build_object(
+              'id', l.id, 'kind', l.kind, 'track', l.track, 'action', l.action, 'actor_name', realisasi._profile_name(l.actor_id),
+              'note', l.note, 'diff', l.diff, 'in_frozen_period', l.in_frozen_period, 'created_at', l.created_at)
+              order by l.created_at desc, l.id desc) from realisasi.activity_log l where l.activity_id = p_id), '[]'::jsonb) end,
+    'duplicates', case when not v_io then '[]'::jsonb else coalesce((select jsonb_agg(jsonb_build_object(
+              'candidate_id', dc.id, 'other_activity_id', o.id, 'other_code', o.code, 'other_name', o.name,
+              'score', dc.score, 'status', dc.status) order by dc.score desc, dc.id)
+              from realisasi.duplicate_candidates dc
+              join realisasi.activities o on o.id = case when dc.activity_a = p_id then dc.activity_b else dc.activity_a end
+             where dc.activity_a = p_id or dc.activity_b = p_id), '[]'::jsonb) end,
+    'flags', jsonb_build_object('late', a.is_late,
+              'out_of_scope', exists (select 1 from realisasi.activity_documents where activity_id = p_id and out_of_scope_warning),
+              'duplicate_open', v_io and exists (select 1 from realisasi.duplicate_candidates dc where dc.status = 'open'
+                                                   and (dc.activity_a = p_id or dc.activity_b = p_id)),
+              'late_addition', realisasi.is_late_addition(p_id)),
+    'checklist', case when (v_perm ->> 'can_submit')::boolean then realisasi._checklist(p_id) end,
+    'permissions', v_perm);
+end $$;
+
+create function realisasi.participant_version(p_activity uuid, p_version int default null) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare v realisasi.participant_set_versions; v_drafts boolean;
+begin
+  perform realisasi._require_uid();
+  if not exists (select 1 from realisasi.activities where id = p_activity) or not realisasi.can_view_participants(p_activity) then
+    perform realisasi._forbidden();
+  end if;
+  v_drafts := realisasi._sees_draft_versions(p_activity);
+  select * into v from realisasi.participant_set_versions
+   where activity_id = p_activity and (p_version is null or version = p_version) and (status <> 'draft' or v_drafts)
+   order by version desc limit 1;
+  if not found then
+    if p_version is not null then perform realisasi._not_found(); end if;
+    return null;
+  end if;
+  return jsonb_build_object('id', v.id, 'activity_id', v.activity_id, 'version', v.version, 'status', v.status,
+    'submitted_at', v.submitted_at, 'submitted_by_name', realisasi._profile_name(v.submitted_by),
+    'reviewed_at', v.reviewed_at, 'reviewed_by_name', realisasi._profile_name(v.reviewed_by), 'review_note', v.review_note,
+    'students', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'section', s.section, 'nrp', s.nrp, 'full_name', s.full_name,
+                  'faculty_name', s.faculty_name, 'prodi_name', s.prodi_name, 'home_institution', s.home_institution,
+                  'home_student_number', s.home_student_number, 'home_country_code', s.home_country_code,
+                  'transcript_path', s.transcript_path,
+                  'transcript_href', case when s.transcript_path is not null then realisasi._file_href(s.transcript_path) end,
+                  'row_note', s.row_note, 'registry_status', coalesce(b.status, 'inactive'))
+                  order by s.section, s.id)
+                 from realisasi.participant_students s left join mock_baak.students b on b.nrp = s.nrp
+                where s.set_version_id = v.id), '[]'::jsonb),
+    'staff', coalesce((select jsonb_agg(jsonb_build_object('id', st.id, 'employee_id', st.employee_id, 'full_name', st.full_name,
+                  'unit_name', st.unit_name, 'row_note', st.row_note, 'registry_status', coalesce(e.status, 'inactive')) order by st.id)
+                 from realisasi.participant_staff st left join mock_hr.employees e on e.employee_id = st.employee_id
+                where st.set_version_id = v.id), '[]'::jsonb));
+end $$;
+
+create function realisasi.nav_counts() returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare v_uid uuid := realisasi._require_uid();
+begin
+  return jsonb_build_object(
+    'partnership_queue', case when realisasi.in_team('partnership') then
+        (select count(*) from realisasi.activities where partnership_status = 'pending' and status not in ('draft','rejected')) else 0 end,
+    'mobility_queue', case when realisasi.in_team('mobility') then
+        (select count(*) from realisasi.activities where mobility_status = 'pending' and status not in ('draft','rejected')) else 0 end,
+    'duplicates_open', case when realisasi.is_io() then (select count(*) from realisasi.duplicate_candidates where status = 'open') else 0 end,
+    'revision_inbox', case when realisasi.my_role() = 'submitter' then
+        (select count(*) from realisasi.activities where status = 'revision_requested' and submitter_unit_id = realisasi.my_unit()) else 0 end,
+    'unread_notifications', (select count(*) from realisasi.notifications where recipient_id = v_uid and read_at is null));
+end $$;
+
+-- Agreements -----------------------------------------------------------------------
+create function realisasi.agreement_realization(p_document_id int) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare d public.documents; v_chain int; ch record; ay realisasi.academic_years; v_io boolean; v_grace int;
+        v_acts uuid[]; v_in_grace boolean;
+begin
+  perform realisasi._require_uid();
+  select * into d from public.documents where id = p_document_id;
+  if not found then perform realisasi._not_found(); end if;
+  v_io := realisasi.is_io();
+  v_chain := realisasi.chain_root(d.id);
+  select * into ch from realisasi.v_chains where chain_id = v_chain;
+  select * into ay from realisasi.academic_years where id = realisasi._resolve_ay(null);
+  v_grace := coalesce(realisasi.setting_int('grace_period_months'), 6);
+  select coalesce(array_agg(distinct a.id), '{}') into v_acts
+    from realisasi.activity_documents ad join realisasi.activities a on a.id = ad.activity_id
+   where ad.chain_id = v_chain and (case when v_io then a.status <> 'draft' else a.status = 'verified' end);
+  v_in_grace := ch.chain_id is not null and not ch.auto_renewed
+                and ch.chain_start > (realisasi.today() - make_interval(months => v_grace))::date;
+
+  return jsonb_build_object(
+    'document', jsonb_build_object('id', d.id, 'doc_number', d.doc_number, 'title', d.title, 'kind', d.kind, 'status', d.status,
+                                   'start_date', d.start_date, 'end_date', d.end_date, 'auto_renewed', d.auto_renewed),
+    'chain', jsonb_build_object('chain_id', v_chain, 'chain_start', ch.chain_start, 'chain_end', ch.chain_end,
+               'auto_renewed', coalesce(ch.auto_renewed, d.auto_renewed), 'is_international', coalesce(ch.is_international, false),
+               'documents', coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'doc_number', x.doc_number, 'kind', x.kind,
+                               'status', x.status, 'start_date', x.start_date, 'end_date', x.end_date, 'predecessor_id', x.predecessor_id)
+                               order by x.start_date nulls last, x.id)
+                              from public.documents x where realisasi.chain_root(x.id) = v_chain), '[]'::jsonb)),
+    'current_ay', case when ay.id is not null then jsonb_build_object('id', ay.id, 'label', ay.label) end,
+    'summary', jsonb_build_object(
+        'total_activities', cardinality(v_acts),
+        'activities_this_ay', (select count(*) from realisasi.activities a where a.id = any(v_acts)
+                                and a.start_date between ay.start_date and ay.end_date),
+        'students_inbound', (select count(distinct (s.nrp, a.event_group_id)) from realisasi.activities a
+                               join realisasi.activity_types t on t.id = a.type_id and t.direction = 'inbound'
+                               join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
+                               join realisasi.participant_students s on s.set_version_id = v.id and s.section = 'inbound'
+                              where a.id = any(v_acts) and a.status = 'verified'),
+        'students_outbound', (select count(distinct (s.nrp, a.event_group_id)) from realisasi.activities a
+                               join realisasi.activity_types t on t.id = a.type_id and t.direction = 'outbound'
+                               join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
+                               join realisasi.participant_students s on s.set_version_id = v.id and s.section = 'internal'
+                              where a.id = any(v_acts) and a.status = 'verified'),
+        'last_activity_date', (select max(a.start_date) from realisasi.activities a where a.id = any(v_acts) and a.status = 'verified')),
+    'grace', jsonb_build_object('in_grace', v_in_grace,
+               'grace_until', case when v_in_grace then (ch.chain_start + make_interval(months => v_grace))::date end),
+    'activities', coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'type_name', t.name,
+                     'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
+                     'unit_names', coalesce((select jsonb_agg(u.name order by au.is_submitter desc, u.name) from realisasi.activity_units au
+                                              join public.units u on u.id = au.unit_id where au.activity_id = a.id), '[]'::jsonb),
+                     'original_doc_number', od.doc_number,
+                     'current_doc_number', (select doc_number from public.documents where id = realisasi.chain_current(od.id)))
+                     order by a.start_date, a.code)
+                    from realisasi.activities a join realisasi.activity_types t on t.id = a.type_id
+                    join realisasi.activity_documents ad on ad.activity_id = a.id and ad.chain_id = v_chain
+                    join public.documents od on od.id = ad.original_document_id
+                   where a.id = any(v_acts)), '[]'::jsonb));
+end $$;
+
+create function realisasi.agreement_flags(p_ay_id int default null) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare ay realisasi.academic_years; v_cut date; v_grace int := coalesce(realisasi.setting_int('grace_period_months'), 6);
+begin
+  perform realisasi._require_uid();
+  select * into ay from realisasi.academic_years where id = realisasi._resolve_ay(p_ay_id);
+  if not found then perform realisasi._not_found(); end if;
+  v_cut := least(ay.end_date, realisasi.today());
+  return coalesce((select jsonb_agg(jsonb_build_object('document_id', d.id, 'chain_id', x.chain_id,
+      'flag', case when ch.chain_id is null or d.status in ('in_process','rejected')
+                     or not (ch.chain_start <= v_cut and (ch.auto_renewed or ch.chain_end >= ay.start_date)) then 'inactive'
+                   when not ch.auto_renewed and ch.chain_start > (v_cut - make_interval(months => v_grace))::date then 'grace'
+                   when x.n_win > 0 then 'realized' else 'not_realized' end,
+      'grace_until', case when ch.chain_id is not null and not ch.auto_renewed
+                           and ch.chain_start > (v_cut - make_interval(months => v_grace))::date
+                          then (ch.chain_start + make_interval(months => v_grace))::date end,
+      'activities_this_ay', x.n_ay, 'last_activity_date', x.last_date) order by d.id)
+    from public.documents d
+    cross join lateral (select realisasi.chain_root(d.id) as chain_id) r
+    cross join lateral (
+      select r.chain_id,
+             count(distinct a.id) filter (where a.start_date between ay.start_date and v_cut) as n_win,
+             count(distinct a.id) filter (where a.start_date between ay.start_date and ay.end_date) as n_ay,
+             max(a.start_date) as last_date
+        from realisasi.activity_documents ad join realisasi.activities a on a.id = ad.activity_id and a.status = 'verified'
+       where ad.chain_id = r.chain_id) x
+    left join realisasi.v_chains ch on ch.chain_id = x.chain_id), '[]'::jsonb);
+end $$;
+
+-- Snapshot archive -----------------------------------------------------------------
+create function realisasi._snapshot_row(p_snapshot uuid, p_unit_id int) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare s realisasi.kpi_snapshots; ay realisasi.academic_years; v jsonb; e jsonb;
+begin
+  select * into s from realisasi.kpi_snapshots where id = p_snapshot;
+  select * into ay from realisasi.academic_years where id = s.academic_year_id;
+  v := s.values;
+  if p_unit_id is not null then
+    select x into e from jsonb_array_elements(v -> 'by_unit') x where (x ->> 'unit_id')::int = p_unit_id;
+    v := coalesce(e, '{}'::jsonb);
+  end if;
+  return jsonb_build_object('id', s.id, 'ay_id', ay.id, 'ay_label', ay.label, 'kind', s.kind,
+    'label', realisasi._snapshot_label(s.kind, ay.label),
+    'window_start', s.window_start, 'window_end', s.window_end, 'cutoff_date', s.cutoff_date,
+    'frozen_at', s.frozen_at, 'frozen_by_name', coalesce(realisasi._profile_name(s.frozen_by), 'Job terjadwal'),
+    'is_live', s.superseded_by is null, 'superseded_by', s.superseded_by, 'refreeze_reason', s.refreeze_reason,
+    'summary', jsonb_build_object('kpi_1_1_total', coalesce((v #>> '{kpi_1_1,total}')::int, 0),
+                                  'kpi_1_19_s1_international', coalesce((v #>> '{kpi_1_19_s1,international}')::int, 0),
+                                  'kpi_1_19_24_pct', v #> '{kpi_1_19_24,all,pct}',
+                                  'kpi_1_19_s8_pct', v #> '{kpi_1_19_s8,pct}'),
+    'late_additions', jsonb_array_length(realisasi._snapshot_late_additions(s.id)),
+    'post_freeze_changes', jsonb_array_length(realisasi._snapshot_post_freeze_changes(s.id)));
+end $$;
+
+create function realisasi.snapshot_list(p_ay_id int default null) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare v_unit int;
+begin
+  perform realisasi._require_uid();
+  v_unit := case when realisasi.my_role() = 'submitter' then realisasi.my_unit() end;
+  return coalesce((select jsonb_agg(realisasi._snapshot_row(s.id, v_unit) order by s.frozen_at desc, s.id)
+                     from realisasi.kpi_snapshots s where p_ay_id is null or s.academic_year_id = p_ay_id), '[]'::jsonb);
+end $$;
+
+create function realisasi.snapshot_detail(p_snapshot uuid) returns jsonb
+language plpgsql stable security definer set search_path = realisasi, public, extensions, pg_temp as $$
+declare s realisasi.kpi_snapshots;
+begin
+  perform realisasi._require_report_reader();
+  select * into s from realisasi.kpi_snapshots where id = p_snapshot;
+  if not found then perform realisasi._not_found(); end if;
+  return jsonb_build_object('snapshot', realisasi._snapshot_row(s.id, null), 'values', s.values, 'settings_used', s.settings_used,
+    'late_additions', realisasi._snapshot_late_additions(s.id), 'post_freeze_changes', realisasi._snapshot_post_freeze_changes(s.id));
+end $$;

@@ -28,7 +28,7 @@ if ! psql "$ADMIN_URL" -tAc "select 1 from pg_database where datname = '$DB_NAME
   psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -qc "create database \"$DB_NAME\""
 fi
 
-PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -X)
+PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -X -o /dev/null)
 
 echo "Dropping schemas realisasi, mock_baak, mock_hr"
 "${PSQL[@]}" -c "drop schema if exists realisasi, mock_baak, mock_hr cascade"
@@ -42,6 +42,7 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "migrate $(basename "$f")"
   "${PSQL[@]}" -f "$f"
 done
+shopt -s nullglob
 for f in "$ROOT"/supabase/seed/*.sql; do
   echo "seed    $(basename "$f")"
   "${PSQL[@]}" -f "$f"
