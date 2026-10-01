@@ -97,11 +97,6 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
         </Button>
       )}
       {p.can_delete_draft && <DeleteDraftButton activityId={detail.id} code={detail.code} />}
-      {inRevision && (
-        <Button asChild size="sm">
-          <Link href={`/realisasi/kegiatan/${detail.id}/revisi`}>Perbaiki sekarang</Link>
-        </Button>
-      )}
       <PartnershipActions activityId={detail.id} code={detail.code} permissions={p} />
       <MobilityActions activityId={detail.id} code={detail.code} version={review} previous={previous} permissions={p} />
       <DuplicateActions activityId={detail.id} permissions={p} duplicates={detail.duplicates} />

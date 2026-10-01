@@ -69,9 +69,6 @@ select pg_temp.throws($$select realisasi.freeze_snapshot(2, 'ganjil_ytd')$$, 'AU
 :as_fti
 select pg_temp.throws(format('select realisasi.snapshot_detail(%L)', pg_temp.sid('ganjil_ytd')), 'AUTH_FORBIDDEN', 'submitter cannot open snapshot detail');
 select pg_temp.eq((select count(*) from realisasi.kpi_snapshots), 0::bigint, 'RLS: submitter cannot select snapshots');
-select pg_temp.eq((select r #>> '{summary,kpi_1_1_total}' from jsonb_array_elements(realisasi.snapshot_list(1)) r where r ->> 'kind' = 'genap_full_year'), '0',
-                  'submitter snapshot_list summary scoped to own unit (FTI: no outbound/inbound in AY1? -> inbound S-02 counted)')
- where false;
 select pg_temp.eq((select (r #>> '{summary,kpi_1_1_total}')::int from jsonb_array_elements(realisasi.snapshot_list(1)) r where r ->> 'kind' = 'genap_full_year'), 3,
                   'submitter snapshot summary = own unit (FTI: 3 inbound of S-02)');
 

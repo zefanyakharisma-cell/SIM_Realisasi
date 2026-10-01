@@ -126,8 +126,8 @@ select pg_temp.eq(realisasi.today(), '2026-10-15'::date, 'demo_today drives toda
 select pg_temp.eq((realisasi.now_ts() at time zone 'Asia/Jakarta')::date, '2026-10-15'::date, 'demo_today drives now_ts()');
 select realisasi.update_settings('{"demo_today": null}');
 select pg_temp.throws($$select realisasi.upsert_academic_year(null, '2027/2028', '2027-07-01', '2028-06-30')$$, 'CAL_INVALID_RANGE', 'overlapping AY');
-select pg_temp.eq((select count(*) from realisasi.semesters where academic_year_id = realisasi.upsert_academic_year(null, '2027/2028', '2027-08-01', '2028-07-31')), 2::bigint,
-                  'new AY auto-creates two semesters');
+create temp table _ay as select realisasi.upsert_academic_year(null, '2027/2028', '2027-08-01', '2028-07-31') as id;
+select pg_temp.eq((select count(*) from realisasi.semesters s join _ay on s.academic_year_id = _ay.id), 2::bigint, 'new AY auto-creates two semesters');
 select pg_temp.eq((select cutoff_date from realisasi.semesters s join realisasi.academic_years ay on ay.id = s.academic_year_id where ay.label = '2027/2028' and term = 'ganjil'),
                   '2028-03-01'::date, 'Ganjil end + 30 cutoff');
 select pg_temp.throws($$select realisasi.upsert_semester(1, 1, 'ganjil', '2025-08-01', '2026-02-15', '2026-02-10')$$, 'CAL_INVALID_RANGE', 'cutoff >= end');

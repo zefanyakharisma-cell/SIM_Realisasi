@@ -132,13 +132,18 @@ function lookupName<T extends { id: number; name: string }>(rows: T[]) {
 }
 
 async function nameLookups(tx: Tx) {
-  const [types, units] = await Promise.all([
+  const [types, units, years, sems] = await Promise.all([
     tx`select id, name from realisasi.activity_types`,
     tx`select id, name from public.units`,
+    tx`select id, label as name from realisasi.academic_years`,
+    tx`select id, realisasi.semester_label(id) as name from realisasi.semesters`,
   ]);
+  const toOpts = (rows: typeof types) => rows.map((r) => ({ id: Number(r.id), name: String(r.name) }));
   return {
-    typeName: lookupName(types.map((r) => ({ id: Number(r.id), name: String(r.name) }))),
-    unitName: lookupName(units.map((r) => ({ id: Number(r.id), name: String(r.name) }))),
+    typeName: lookupName(toOpts(types)),
+    unitName: lookupName(toOpts(units)),
+    ayLabel: lookupName(toOpts(years)),
+    semesterLabel: lookupName(toOpts(sems)),
   };
 }
 

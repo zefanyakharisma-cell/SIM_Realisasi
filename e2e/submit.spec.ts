@@ -37,7 +37,7 @@ test('ua-fti: create draft, AT-10 unknown NRP blocks, upload IA/IR, submit', asy
 
   await expect(page.locator('#f-document_ids-hint')).toContainText('berlaku pada tanggal kegiatan');
   await page.locator('#f-document_ids').click();
-  await page.getByRole('option').first().click();
+  await page.locator('[cmdk-item]').first().click();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('agreement-card')).toHaveCount(1);
 

@@ -412,6 +412,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         idLabel="NRP"
         templateKind="students"
         checkTestId="check-nrp"
+        placeholder="D31240187"
         checkLabel="Cek NRP"
         onCheck={(raw) => addStudents('internal', raw)}
       >
@@ -426,6 +427,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         idLabel="ID pegawai"
         templateKind="staff"
         checkTestId="check-employee"
+        placeholder="PG204517"
         checkLabel="Cek ID Pegawai"
         onCheck={addStaff}
       >
@@ -475,6 +477,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         idLabel="NRP inbound"
         templateKind="students"
         checkTestId="check-nrp-inbound"
+        placeholder="X01260012"
         checkLabel="Cek NRP"
         onCheck={(raw) => addStudents('inbound', raw)}
       >
@@ -620,8 +623,10 @@ function Panel({
   checkTestId,
   checkLabel,
   onCheck,
+  placeholder,
   children,
 }: {
+  placeholder: string;
   id: string;
   title: string;
   count: number;
@@ -696,7 +701,7 @@ function Panel({
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="font-mono"
-            placeholder={templateKind === 'staff' ? 'PG204517' : 'D31240187'}
+            placeholder={placeholder}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
