@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
 import { submitActivity } from '@/lib/realisasi/actions/submission';
 import { useSaveStatus } from '@/components/realisasi/wizard/save-status';
+import { diffFieldLabel } from '@/components/realisasi/activity/labels';
 import type { ChecklistItem } from '@/lib/realisasi/types';
 
 const CHECK_LABEL: Record<string, string> = {
@@ -112,6 +113,11 @@ export function SubmitPanel({
                 <span className="sr-only">{c.ok ? 'Terpenuhi: ' : 'Belum terpenuhi: '}</span>
                 <span className={c.ok ? '' : 'font-medium text-red-800'}>{CHECK_LABEL[c.code] ?? c.code}</span>
                 {!c.ok && <span className="block text-red-800">{c.message}</span>}
+                {!c.ok && c.fields && c.fields.length > 0 && (
+                  <span className="block text-red-800" data-testid="checklist-fields">
+                    Belum diisi: {c.fields.map(diffFieldLabel).join(', ')}
+                  </span>
+                )}
               </span>
             </li>
           ))}

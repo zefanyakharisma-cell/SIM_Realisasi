@@ -159,3 +159,62 @@ export async function lookupEmployees(tx: Tx, ids: string[]): Promise<EmployeeLo
   const found = await tx<EmployeeRecord[]>`select * from realisasi.lookup_employees(${unique}::text[])`;
   return classifyEmployees(ids, [...found]);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Response minimisation (security review H-1): the wizard only needs a name, faculty / prodi and
+// the blocking status; inbound rows also prefill the home institution / country. Registry fields
+// such as intake year, faculty code, category or position never leave the server.
+
+export interface PublicStudent {
+  full_name: string;
+  faculty_name: string;
+  prodi_name: string;
+  home_institution: string | null;
+  home_country_code: string | null;
+}
+export interface PublicStudentLookupResult {
+  nrp: string;
+  status: StudentLookupStatus;
+  blocking: boolean;
+  student: PublicStudent | null;
+}
+export interface PublicEmployee {
+  full_name: string;
+  unit_name: string;
+}
+export interface PublicEmployeeLookupResult {
+  employee_id: string;
+  status: EmployeeLookupStatus;
+  blocking: boolean;
+  employee: PublicEmployee | null;
+}
+
+/** Strips a lookup result to what the participant editor shows. Not-found rows carry no record. */
+export function publicStudentResult(r: StudentLookupResult, section: 'internal' | 'inbound'): PublicStudentLookupResult {
+  const s = r.student;
+  // A blocking row (wrong section, duplicate, not found) only needs its status, not the person.
+  const show = s !== null && !(r.blocking && r.status !== 'duplicate');
+  return {
+    nrp: r.nrp,
+    status: r.status,
+    blocking: r.blocking,
+    student: show
+      ? {
+          full_name: s.full_name,
+          faculty_name: s.faculty_name,
+          prodi_name: s.prodi_name,
+          home_institution: section === 'inbound' ? s.home_institution : null,
+          home_country_code: section === 'inbound' ? s.home_country_code : null,
+        }
+      : null,
+  };
+}
+
+export function publicEmployeeResult(r: EmployeeLookupResult): PublicEmployeeLookupResult {
+  return {
+    employee_id: r.employee_id,
+    status: r.status,
+    blocking: r.blocking,
+    employee: r.employee ? { full_name: r.employee.full_name, unit_name: r.employee.unit_name } : null,
+  };
+}

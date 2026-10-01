@@ -239,7 +239,13 @@ function RefreezeDialog({ snapshot }: { snapshot: SnapshotListRow }) {
 
 function SemesterDialog({ semester }: { semester: Semester }) {
   const [open, setOpen] = useState(false);
-  const [v, setV] = useState({ start: semester.start_date, end: semester.end_date, cutoff: semester.cutoff_date });
+  const initial = () => ({ start: semester.start_date, end: semester.end_date, cutoff: semester.cutoff_date });
+  const [v, setV] = useState(initial);
+  // L-14: reopen with the current (possibly refreshed) values, not a cancelled edit.
+  const onOpenChange = (next: boolean) => {
+    if (next) setV(initial());
+    setOpen(next);
+  };
   const { pending, run } = useAction();
   const save = () =>
     run(
@@ -256,7 +262,7 @@ function SemesterDialog({ semester }: { semester: Semester }) {
       () => setOpen(false),
     );
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="ghost" aria-label={`Ubah semester ${TERM_LABEL[semester.term]}`}>
           <Pencil aria-hidden="true" />
@@ -296,7 +302,13 @@ function SemesterDialog({ semester }: { semester: Semester }) {
 
 function YearDialog({ year }: { year?: Year }) {
   const [open, setOpen] = useState(false);
-  const [v, setV] = useState({ label: year?.label ?? '', start: year?.start_date ?? '', end: year?.end_date ?? '' });
+  const initial = () => ({ label: year?.label ?? '', start: year?.start_date ?? '', end: year?.end_date ?? '' });
+  const [v, setV] = useState(initial);
+  // L-14: reopen with the current (possibly refreshed) values, not a cancelled edit.
+  const onOpenChange = (next: boolean) => {
+    if (next) setV(initial());
+    setOpen(next);
+  };
   const { pending, run } = useAction();
   const save = () =>
     run(
@@ -305,7 +317,7 @@ function YearDialog({ year }: { year?: Year }) {
       () => setOpen(false),
     );
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         {year ? (
           <Button size="sm" variant="outline">

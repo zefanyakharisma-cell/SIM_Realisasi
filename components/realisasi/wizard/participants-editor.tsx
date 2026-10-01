@@ -36,7 +36,11 @@ import {
   type StaffRow,
   type StudentRow,
 } from '@/components/realisasi/wizard/participants-model';
-import type { CountryOption, EmployeeLookupResult, StudentLookupResult } from '@/lib/realisasi/queries/lookups';
+import type {
+  CountryOption,
+  PublicEmployeeLookupResult as EmployeeLookupResult,
+  PublicStudentLookupResult as StudentLookupResult,
+} from '@/lib/realisasi/queries/lookups';
 import type { ParticipantVersion, StudentSection } from '@/lib/realisasi/types';
 import { cn } from '@/lib/utils';
 

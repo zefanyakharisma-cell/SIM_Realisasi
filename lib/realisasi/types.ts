@@ -180,6 +180,8 @@ export interface ChecklistItem {
   message: string;
   /** Only on the trailing `LATE_NOTICE` item. */
   late?: boolean;
+  /** `R07_REQUIRED_FIELD`: the missing Detail fields (WP-DB amendment 8). */
+  fields?: string[];
 }
 
 export interface RegisteredFile {

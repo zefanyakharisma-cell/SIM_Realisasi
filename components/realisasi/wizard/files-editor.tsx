@@ -38,6 +38,7 @@ export function FilesEditor({ activityId, files, disabled }: { activityId: strin
     setError(null);
     setBusy(target);
     save.setSaving();
+    let stored = 0;
     try {
       for (const file of list) {
         const fd = new FormData();
@@ -47,16 +48,18 @@ export function FilesEditor({ activityId, files, disabled }: { activityId: strin
         const res = await fetch('/api/upload', { method: 'POST', body: fd });
         const body = (await res.json().catch(() => ({}))) as { message?: string; version?: number };
         if (!res.ok) throw new Error(body.message ?? 'Berkas gagal diunggah.');
+        stored++;
         toast.success(`${file.name} diunggah${target !== 'evidence' && body.version ? ` (v${body.version})` : ''}.`);
       }
       save.setSaved();
-      router.refresh();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Berkas gagal diunggah.';
       setError(msg);
       save.setError(msg);
     } finally {
       setBusy(null);
+      // L-7: show the files that were stored even when a later file in the batch failed.
+      if (stored > 0) router.refresh();
     }
   }
 

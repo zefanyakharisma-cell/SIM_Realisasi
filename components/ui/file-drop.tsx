@@ -85,6 +85,7 @@ export function FileDrop({
         id={id}
         disabled={disabled}
         data-invalid={aria['aria-invalid'] ? 'true' : undefined}
+        aria-invalid={aria['aria-invalid'] || undefined}
         aria-describedby={describedBy}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {

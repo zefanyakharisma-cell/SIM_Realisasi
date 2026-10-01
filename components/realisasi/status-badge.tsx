@@ -1,8 +1,10 @@
 /**
  * Status language components (Design §2). Server-safe (no hooks). Status is never conveyed by colour
- * alone: every element carries visible text, a dot, and a `title` tooltip / sr-only description.
+ * alone: every element carries visible text, a dot, and a description that is available to mouse,
+ * keyboard and screen-reader users (focusable `Hint` tooltip or sr-only text — frontend review M-9).
  */
 import { Badge } from '@/components/ui/badge';
+import { Hint } from '@/components/realisasi/hint';
 import { cn } from '@/lib/utils';
 import {
   ACTIVITY_STATUS_DESCRIPTION,
@@ -40,16 +42,12 @@ export function ToneDot({ tone, className }: { tone: Tone; className?: string })
 
 export function StatusBadge({ status, className }: { status: ActivityStatus; className?: string }) {
   return (
-    <Badge
-      variant={ACTIVITY_STATUS_TONE[status]}
-      data-testid="status-badge"
-      data-status={status}
-      title={ACTIVITY_STATUS_DESCRIPTION[status]}
-      className={className}
-    >
-      <ToneDot tone={ACTIVITY_STATUS_TONE[status]} />
-      {ACTIVITY_STATUS_LABEL[status]}
-    </Badge>
+    <Hint content={ACTIVITY_STATUS_DESCRIPTION[status]}>
+      <Badge variant={ACTIVITY_STATUS_TONE[status]} data-testid="status-badge" data-status={status} className={className}>
+        <ToneDot tone={ACTIVITY_STATUS_TONE[status]} />
+        {ACTIVITY_STATUS_LABEL[status]}
+      </Badge>
+    </Hint>
   );
 }
 
@@ -80,27 +78,25 @@ export function TrackChips({ partnership, mobility, className }: { partnership: 
 }
 
 /** Outline pill for Terlambat / Di luar lingkup / Duplikat? / Tambahan susulan. */
-export function FlagPill({ flag, title, className }: { flag: FlagKey; title?: string; className?: string }) {
-  return (
-    <Badge variant={FLAG_TONE[flag]} appearance="outline" title={title ?? FLAG_DESCRIPTION[flag]} data-flag={flag} className={className}>
+export function FlagPill({ flag, title, className, plain }: { flag: FlagKey; title?: string; className?: string; plain?: boolean }) {
+  const badge = (
+    <Badge variant={FLAG_TONE[flag]} appearance="outline" data-flag={flag} className={className}>
       {FLAG_LABEL[flag]}
     </Badge>
   );
+  // `plain`: inside a link/button, which carries the description itself (no nested focus stop).
+  return plain ? badge : <Hint content={title ?? FLAG_DESCRIPTION[flag]}>{badge}</Hint>;
 }
 
 /** 'SLA 4 hari' — yellow fill when yellow, red fill when red, neutral otherwise. */
 export function SlaChip({ days, level, className }: { days: number; level: SlaLevel; className?: string }) {
   const tone = SLA_TONE[level];
   return (
-    <Badge
-      variant={tone}
-      className={cn(level === 'red' && 'border-red-700 bg-red-600 text-white', className)}
-      title={`${days} hari kerja sejak menunggu verifikasi (level ${SLA_LEVEL_LABEL[level]})`}
-      data-sla={level}
-    >
-      {slaText(days)}
-      {level !== 'ok' ? <span className="sr-only"> (level {SLA_LEVEL_LABEL[level]})</span> : null}
-    </Badge>
+    <Hint content={`${days} hari kerja sejak menunggu verifikasi (level ${SLA_LEVEL_LABEL[level]})`}>
+      <Badge variant={tone} className={cn(level === 'red' && 'border-red-700 bg-red-600 text-white', className)} data-sla={level}>
+        {slaText(days)}
+      </Badge>
+    </Hint>
   );
 }
 

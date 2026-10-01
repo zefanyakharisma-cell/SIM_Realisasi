@@ -62,7 +62,10 @@ function Cell({
   return (
     <td className={cn('px-3 py-2 align-top', changed && CELL_CHANGED, className)}>
       {children}
-      {changed ? (
+      {changed && field === 'transcript_path' ? (
+        // L-13: never print the raw storage path of the previous transcript.
+        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{prevValue ? 'Transkrip diganti' : 'Transkrip ditambahkan'}</span>
+      ) : changed ? (
         <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
           <span className="sr-only">Nilai sebelumnya: </span>
           <span aria-hidden="true">sebelumnya: </span>

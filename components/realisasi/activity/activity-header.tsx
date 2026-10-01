@@ -18,7 +18,7 @@ export function ActivityHeader({ detail, actions }: { detail: ActivityDetail; ac
           <h1 className="text-xl font-semibold leading-tight sm:text-2xl">{detail.name}</h1>
         </div>
         {actions ? (
-          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Tindakan kegiatan">
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Tindakan kegiatan">
             {actions}
           </div>
         ) : null}

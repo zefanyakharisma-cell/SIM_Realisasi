@@ -23,7 +23,23 @@ export function IaIrPreview({ files, code }: { files: ActivityFile[]; code: stri
             id={`tab-${code}-${c.kind}`}
             aria-selected={active === c.kind}
             aria-controls={`tabpanel-${code}`}
+            tabIndex={active === c.kind ? 0 : -1}
             onClick={() => setActive(c.kind)}
+            onKeyDown={(e) => {
+              // ARIA tabs pattern (L-2): roving tabindex with Arrow keys / Home / End.
+              const kinds = current.map((x) => x.kind);
+              const i = kinds.indexOf(c.kind);
+              let next: number | null = null;
+              if (e.key === 'ArrowRight') next = (i + 1) % kinds.length;
+              else if (e.key === 'ArrowLeft') next = (i - 1 + kinds.length) % kinds.length;
+              else if (e.key === 'Home') next = 0;
+              else if (e.key === 'End') next = kinds.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              const k = kinds[next]!;
+              setActive(k);
+              document.getElementById(`tab-${code}-${k}`)?.focus();
+            }}
             className={cn(
               'rounded-md border px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               active === c.kind ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-muted',

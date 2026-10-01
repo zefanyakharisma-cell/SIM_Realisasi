@@ -1,6 +1,7 @@
 // Server-safe preview tables for KPI read models (no hooks).
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Hint } from '@/components/realisasi/hint';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DIRECTION_LABEL, KNOWN_SOURCE_LABEL, FLAG_LABEL } from '@/lib/realisasi/status';
 import { formatDate, formatNumber, formatPct } from '@/lib/realisasi/format';
@@ -23,9 +24,11 @@ const CHAIN_STATUS: Record<ChainKpiRow['bucket'], { label: string; tone: 'green'
 function LateAdditionPill({ show }: { show: boolean }) {
   if (!show) return null;
   return (
-    <Badge variant="blue" appearance="outline" title="Diverifikasi setelah snapshot periode kegiatan dibekukan">
-      {FLAG_LABEL.late_addition}
-    </Badge>
+    <Hint content="Diverifikasi setelah snapshot periode kegiatan dibekukan">
+      <Badge variant="blue" appearance="outline">
+        {FLAG_LABEL.late_addition}
+      </Badge>
+    </Hint>
   );
 }
 

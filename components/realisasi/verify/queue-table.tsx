@@ -6,13 +6,17 @@ import { ChevronRight } from 'lucide-react';
 import { SlaChip, TrackChips } from '@/components/realisasi/status-badge';
 import { DateRange, PartnerCell, UnitCell } from '@/components/realisasi/list/activity-table';
 import { formatDateTime } from '@/lib/realisasi/format';
+import { loadQueuePanel } from '@/lib/realisasi/actions/queue';
 import { cn } from '@/lib/utils';
 import type { ActivityListRow, Team } from '@/lib/realisasi/types';
 
 export interface QueueTableProps {
   track: Team;
   rows: ActivityListRow[];
-  /** Server-rendered expanded content per activity id (Detail + preview + actions). */
+  /**
+   * Server-rendered expanded content for the first rows (Detail + preview + actions). Rows not in
+   * this map load their panel on first expand (frontend review M-8).
+   */
   expanded: Record<string, ReactNode>;
   caption: string;
 }
@@ -26,14 +30,50 @@ const COLS = 9;
  */
 export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) {
   const [open, setOpen] = useState<Set<string>>(() => new Set(rows.length === 1 && rows[0] ? [rows[0].id] : []));
+  const [loaded, setLoaded] = useState<Record<string, ReactNode | 'loading' | 'error'>>({});
+
+  async function load(id: string) {
+    setLoaded((m) => ({ ...m, [id]: 'loading' }));
+    try {
+      const node = await loadQueuePanel(track, id);
+      setLoaded((m) => ({ ...m, [id]: node ?? 'error' }));
+    } catch {
+      setLoaded((m) => ({ ...m, [id]: 'error' }));
+    }
+  }
 
   function toggle(id: string) {
+    const opening = !open.has(id);
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    if (opening && !(id in expanded) && (loaded[id] === undefined || loaded[id] === 'error')) void load(id);
+  }
+
+  function panel(r: ActivityListRow): ReactNode {
+    if (r.id in expanded && expanded[r.id]) return expanded[r.id];
+    const l = loaded[r.id];
+    if (l === undefined || l === 'loading') {
+      return (
+        <p className="text-sm text-muted-foreground" role="status">
+          Memuat detail {r.code}…
+        </p>
+      );
+    }
+    if (l === 'error' || (r.id in expanded && !expanded[r.id])) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          Detail tidak dapat dimuat.{' '}
+          <Link href={`/realisasi/kegiatan/${r.id}`} className="font-medium text-primary underline underline-offset-4">
+            Buka halaman detail {r.code}
+          </Link>
+        </p>
+      );
+    }
+    return l;
   }
 
   return (
@@ -115,7 +155,7 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
                 </tr>
                 <tr id={panelId} hidden={!isOpen} className="border-b bg-muted/20" data-testid="queue-panel">
                   <td colSpan={COLS} className="p-4">
-                    {isOpen ? (expanded[r.id] ?? <p className="text-sm text-muted-foreground">Detail tidak tersedia.</p>) : null}
+                    {isOpen ? panel(r) : null}
                   </td>
                 </tr>
               </Fragment>

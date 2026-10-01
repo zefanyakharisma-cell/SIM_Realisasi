@@ -28,10 +28,15 @@ export function NotificationBell({ unread }: { unread: number }) {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const res = await listNotifications({ limit: 8 });
-    setLoading(false);
-    if (res.ok) setItems(res.data);
-    else toast.error(res.message);
+    try {
+      const res = await listNotifications({ limit: 8 });
+      if (res.ok) setItems(res.data);
+      else toast.error(res.message);
+    } catch {
+      toast.error('Notifikasi tidak dapat dimuat. Coba lagi.');
+    } finally {
+      setLoading(false); // L-11: never spin forever
+    }
   }, []);
 
   const onOpenChange = (next: boolean) => {
@@ -55,9 +60,11 @@ export function NotificationBell({ unread }: { unread: number }) {
     setOpen(false);
     if (!n.read_at) {
       setCount((c) => Math.max(0, c - 1));
-      void markNotificationsRead([n.id]).then((res) => {
-        if (!res.ok) toast.error(res.message);
-      });
+      void markNotificationsRead([n.id])
+        .then((res) => {
+          if (!res.ok) toast.error(res.message);
+        })
+        .catch(() => toast.error('Status notifikasi tidak dapat diperbarui.'));
     }
   };
 

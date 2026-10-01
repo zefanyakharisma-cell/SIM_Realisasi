@@ -70,14 +70,14 @@ export function PeriodSelector({
         <span id="period-seg-label" className="text-xs font-medium text-muted-foreground">
           Periode
         </span>
-        <div role="radiogroup" aria-labelledby="period-seg-label" className="inline-flex h-9 rounded-md border bg-background p-0.5">
+        {/* L-10: these are navigation links, so links + aria-current (not role="radio" without arrow keys). */}
+        <nav aria-labelledby="period-seg-label" className="inline-flex h-9 rounded-md border bg-background p-0.5">
           {PERIOD_OPTIONS.map((o) => {
             const active = o.value === period;
             return (
               <Link
                 key={o.value}
-                role="radio"
-                aria-checked={active}
+                aria-current={active ? 'page' : undefined}
                 href={buildHref(basePath, preserve, { ay, period: o.value, unit })}
                 data-testid={`period-${o.value}`}
                 className={cn(
@@ -89,7 +89,7 @@ export function PeriodSelector({
               </Link>
             );
           })}
-        </div>
+        </nav>
       </div>
       {units ? (
         <div className="grid gap-1">

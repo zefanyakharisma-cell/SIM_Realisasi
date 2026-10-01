@@ -95,3 +95,14 @@ describe('exportFilename', () => {
     );
   });
 });
+
+describe('formatNumber float noise (frontend review L-17)', () => {
+  it('formats non-integers in fixed point', async () => {
+    const { formatNumber } = await import('./format');
+    expect(formatNumber(0.1 + 0.2)).toBe('0,3');
+    expect(formatNumber(1e21)).toBe('1.000.000.000.000.000.000.000');
+    expect(formatNumber(2.5)).toBe('2,5');
+    expect(formatNumber(-1234.5)).toBe('-1.234,5');
+    expect(formatNumber(1000)).toBe('1.000');
+  });
+});

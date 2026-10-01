@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
 import { formatDate } from '@/lib/realisasi/format';
+import { FLAG_DESCRIPTION } from '@/lib/realisasi/status';
 import type { ActivityListRow } from '@/lib/realisasi/types';
 
 /** Partner cell: flag + first partner name, "+n" for the rest (full list in title). */
@@ -54,14 +55,16 @@ export function FlagsCell({ row }: { row: ActivityListRow }) {
   if (row.is_late) items.push(<FlagPill key="late" flag="late" />);
   if (row.partnership_sla_level && row.partnership_sla_days !== null && row.partnership_sla_level !== 'ok') {
     items.push(
-      <span key="sla-p" title={`SLA Kemitraan: ${row.partnership_sla_days} hari kerja`}>
+      <span key="sla-p" className="inline-flex items-center gap-1">
+        <span className="sr-only">Kemitraan:</span>
         <SlaChip days={row.partnership_sla_days} level={row.partnership_sla_level} />
       </span>,
     );
   }
   if (row.mobility_sla_level && row.mobility_sla_days !== null && row.mobility_sla_level !== 'ok') {
     items.push(
-      <span key="sla-m" title={`SLA Mobilitas: ${row.mobility_sla_days} hari kerja`}>
+      <span key="sla-m" className="inline-flex items-center gap-1">
+        <span className="sr-only">Mobilitas:</span>
         <SlaChip days={row.mobility_sla_days} level={row.mobility_sla_level} />
       </span>,
     );
@@ -69,8 +72,15 @@ export function FlagsCell({ row }: { row: ActivityListRow }) {
   if (row.out_of_scope) items.push(<FlagPill key="scope" flag="out_of_scope" />);
   if (row.duplicate_open) {
     items.push(
-      <Link key="dup" href="/realisasi/verifikasi/duplikat" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <FlagPill flag="duplicate" />
+      // L-1: link to the activity, whose page lists the candidates (DuplicateActions).
+      <Link
+        key="dup"
+        href={`/realisasi/kegiatan/${row.id}`}
+        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        title={FLAG_DESCRIPTION.duplicate}
+      >
+        <FlagPill flag="duplicate" plain />
+        <span className="sr-only">: {FLAG_DESCRIPTION.duplicate}. Lihat kandidat duplikat.</span>
       </Link>,
     );
   }

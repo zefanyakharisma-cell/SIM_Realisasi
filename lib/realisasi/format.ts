@@ -85,7 +85,10 @@ function groupThousands(intPart: string): string {
 export function formatNumber(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return EMPTY;
   const negative = n < 0;
-  const [intPart = '0', frac] = String(Math.abs(n)).split('.');
+  // L-17: fixed-point (max 6 decimals) so float noise (0.1 + 0.2) and exponent notation never show.
+  const abs = Math.abs(n);
+  const text = abs >= 1e21 ? BigInt(Math.round(abs)).toString() : abs.toFixed(6).replace(/\.?0+$/, '');
+  const [intPart = '0', frac] = text.split('.');
   const body = groupThousands(intPart) + (frac ? `,${frac}` : '');
   return negative ? `-${body}` : body;
 }

@@ -206,6 +206,7 @@ export const LOG_ACTION_LABEL: Record<string, string> = {
   file_remove: 'Berkas dihapus',
   link_duplicate: 'Ditautkan sebagai duplikat',
   unlink_duplicate: 'Tautan duplikat dibatalkan',
+  dismiss_duplicate: 'Ditandai bukan duplikat',
 };
 
 export function logActionLabel(action: string): string {
