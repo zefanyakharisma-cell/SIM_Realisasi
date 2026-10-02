@@ -9,17 +9,15 @@ import { ERROR_MESSAGES, runAction } from '@/lib/realisasi/errors';
 import type { ActionResult, DailyJobsResult, SettingsValues, SnapshotKind } from '@/lib/realisasi/types';
 import {
   academicYearSchema,
-  activityTypeSchema,
+  agendaRuleSchema,
   demoTodaySchema,
   freezeSchema,
   generalSettingsSchema,
-  holidaySchema,
   refreezeSchema,
   semesterSchema,
   type AcademicYearInput,
-  type ActivityTypeInput,
+  type AgendaRuleInput,
   type GeneralSettingsInput,
-  type HolidayInput,
   type SemesterInput,
 } from '@/lib/realisasi/schemas/settings';
 
@@ -118,47 +116,16 @@ export async function upsertSemester(input: SemesterInput): Promise<ActionResult
   return res;
 }
 
-export async function upsertActivityType(id: number | null, input: ActivityTypeInput): Promise<ActionResult<{ id: number }>> {
+/** Jenis Kegiatan rule for one SIMKS agenda: mobility category (or none) and KPI 1.19.S1 flag (Revisi V.1). */
+export async function setAgendaRule(input: AgendaRuleInput): Promise<ActionResult<null>> {
   const user = await adminUser();
   if (!user) return forbidden();
-  const parsed = activityTypeSchema.safeParse(input);
+  const parsed = agendaRuleSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
-  if (id !== null && (!Number.isInteger(id) || id <= 0)) {
-    return { ok: false, code: 'BAD_REQUEST', message: 'Permintaan tidak valid.' };
-  }
+  const { agenda_id, ...rule } = parsed.data;
   const res = await runAction(() =>
     withUser(user.id, async (tx) => {
-      const [row] = await tx`select realisasi.upsert_activity_type(${id}::int, ${tx.json(parsed.data)}::jsonb) as r`;
-      return { id: Number(row!.r) };
-    }),
-  );
-  if (res.ok) revalidateAll();
-  return res;
-}
-
-export async function upsertHoliday(input: HolidayInput): Promise<ActionResult<null>> {
-  const user = await adminUser();
-  if (!user) return forbidden();
-  const parsed = holidaySchema.safeParse(input);
-  if (!parsed.success) return invalid(parsed.error);
-  const res = await runAction(() =>
-    withUser(user.id, async (tx) => {
-      await tx`select realisasi.upsert_holiday(${parsed.data.day}::date, ${parsed.data.name}::text)`;
-      return null;
-    }),
-  );
-  if (res.ok) revalidateAll();
-  return res;
-}
-
-export async function deleteHoliday(day: string): Promise<ActionResult<null>> {
-  const user = await adminUser();
-  if (!user) return forbidden();
-  const parsed = holidaySchema.shape.day.safeParse(day);
-  if (!parsed.success) return invalid(parsed.error);
-  const res = await runAction(() =>
-    withUser(user.id, async (tx) => {
-      await tx`select realisasi.delete_holiday(${parsed.data}::date)`;
+      await tx`select realisasi.set_agenda_rule(${agenda_id}::int, ${tx.json(rule)}::jsonb)`;
       return null;
     }),
   );

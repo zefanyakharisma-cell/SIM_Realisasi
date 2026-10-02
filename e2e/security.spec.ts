@@ -15,11 +15,10 @@ test('M-2: security headers are set and X-Powered-By is gone', async ({ request 
   expect(h['permissions-policy']).toContain('camera=()');
 });
 
-test('H-1: viewer and IO Partnership cannot query the registries; a submitter can', async ({ page }) => {
+test('H-1: the viewer cannot query the registries; a submitter can', async ({ page }) => {
   const body = { nrps: ['D31240187'], section: 'internal' };
   await loginAs(page, ACCOUNTS.rektorat);
   expect((await page.request.post('/api/lookup/students', { data: body })).status()).toBe(403);
-  await loginAs(page, ACCOUNTS.ioPartnership);
   expect((await page.request.post('/api/lookup/employees', { data: { ids: ['PG204517'] } })).status()).toBe(403);
 
   await loginAs(page, ACCOUNTS.uaFti);
@@ -47,7 +46,7 @@ test('L-4: /api/files rejects keys outside the storage grammar before any I/O', 
   await loginAs(page, ACCOUNTS.uaFbe);
   expect((await page.request.get('/api/files/realisasi-files/..%2F..%2Fetc/passwd')).status()).toBe(404);
   expect(
-    (await page.request.get('/api/files/realisasi-transcripts/a0000000-0000-4000-8000-000000000002/v1/X01250024-81ed5df4.pdf%00')).status(),
+    (await page.request.get('/api/files/realisasi-transcripts/a0000000-0000-4000-8000-000000000002/mobility_bundle/0b7c1f0e-1d2a-4c3b-9e8f-000000000001.pdf%00')).status(),
   ).toBe(404);
 });
 

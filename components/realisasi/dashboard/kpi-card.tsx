@@ -12,7 +12,7 @@ export interface KpiDelta {
   text: string;
 }
 
-/** Server-safe KPI stat tile: label · big value · sub-lines · delta; title/value link to the drill-down. */
+/** Server-safe RENSTRA (KPI) stat tile: label · big value · sub-lines · delta; title/value link to the drill-down. */
 export function KpiCard({
   code,
   title,
@@ -38,10 +38,10 @@ export function KpiCard({
           href={drillHref}
           className="group min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">KPI {code}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">RENSTRA {code}</p>
           <h2 className="text-sm font-medium leading-snug text-foreground group-hover:underline">{title}</h2>
         </Link>
-        <CardMenu exportHref={exportHref} label={`KPI ${code}`} />
+        <CardMenu exportHref={exportHref} label={`RENSTRA ${code}`} />
       </div>
       <Link
         href={drillHref}

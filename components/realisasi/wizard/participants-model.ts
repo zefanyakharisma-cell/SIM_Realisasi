@@ -2,7 +2,7 @@
  * Pure state model of the participant editor (frontend review H-2).
  *
  * Every mutation is an action applied to the *latest* state, so results of slow requests
- * (lookups, transcript uploads) merge into whatever the user did in the meantime instead of
+ * (lookups) merge into whatever the user did in the meantime instead of
  * restoring the array captured when the request started. Unit-tested in `participants-model.test.ts`.
  */
 import type { EmployeeLookupStatus, StudentLookupStatus } from '@/lib/realisasi/queries/lookups';
@@ -22,9 +22,6 @@ export interface StudentRow {
   home_institution: string;
   home_student_number: string;
   home_country_code: string;
-  transcript_path: string | null;
-  transcript_href: string | null;
-  row_note: string | null;
   serverError?: string;
 }
 
@@ -35,7 +32,6 @@ export interface StaffRow {
   blocking: boolean;
   full_name: string | null;
   unit_name: string | null;
-  row_note: string | null;
   serverError?: string;
 }
 
@@ -85,9 +81,6 @@ export function fromVersion(v: ParticipantVersion | null): ParticipantsState {
       home_institution: s.home_institution ?? '',
       home_student_number: s.home_student_number ?? '',
       home_country_code: s.home_country_code ?? '',
-      transcript_path: s.transcript_path,
-      transcript_href: s.transcript_href,
-      row_note: s.row_note,
     })),
     staff: v.staff.map((s) => ({
       key: newKey(),
@@ -96,7 +89,6 @@ export function fromVersion(v: ParticipantVersion | null): ParticipantsState {
       blocking: false,
       full_name: s.full_name,
       unit_name: s.unit_name,
-      row_note: s.row_note,
     })),
   };
 }
@@ -165,7 +157,6 @@ export function toParticipantsPayload(s: ParticipantsState): ParticipantsPayload
             home_institution: r.home_institution.trim() || null,
             home_student_number: r.home_student_number.trim() || null,
             home_country_code: r.home_country_code || null,
-            transcript_path: r.transcript_path,
           },
     ),
     staff: s.staff.map((r) => ({ employee_id: r.employee_id })),

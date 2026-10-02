@@ -151,7 +151,8 @@ insert into realisasi.account_roles (akun_id, app_role, unit_id) values
   (6, 'submitter', null), (7, 'submitter', null), (8, 'viewer', null)
 on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excluded.unit_id;
 
+-- Revisi V.1: one verification team (Mobility); every IO staff account is in it
 insert into realisasi.team_members (account_id, team) values
-  ('00000000-0000-4000-8000-000000000001', 'partnership'), ('00000000-0000-4000-8000-000000000001', 'mobility'),
-  ('00000000-0000-4000-8000-000000000002', 'partnership'), ('00000000-0000-4000-8000-000000000003', 'mobility')
+  ('00000000-0000-4000-8000-000000000001', 'mobility'),
+  ('00000000-0000-4000-8000-000000000002', 'mobility'), ('00000000-0000-4000-8000-000000000003', 'mobility')
 on conflict do nothing;

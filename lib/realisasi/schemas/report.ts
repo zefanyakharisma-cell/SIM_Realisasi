@@ -11,17 +11,17 @@ export interface PeriodParams {
 
 export type SearchParamsLike = URLSearchParams | Record<string, string | string[] | undefined>;
 
-export const PERIODS: readonly Period[] = ['ganjil', 'full', 'live'] as const;
-export const DRILLDOWN_KPIS: readonly DrilldownKpi[] = ['1.1', '1.19.S1', '1.19.24', '1.19.S8', 'base'] as const;
+/** Revisi V.1 cut-offs, in display order. */
+export const PERIODS: readonly Period[] = ['ganjil', 'genap', 'full', 'ytd'] as const;
+export const DRILLDOWN_KPIS: readonly DrilldownKpi[] = ['1.1', '1.19.S1', '1.19.24', 'base'] as const;
 
 export const REPORT_KEYS = [
   'ringkasan',
   'kpi',
   'kegiatan',
   'peserta',
-  'register',
+  'awards',
   'realisasi-kerjasama',
-  'sla',
   'arsip',
 ] as const;
 export type ReportKey = (typeof REPORT_KEYS)[number];
@@ -61,7 +61,7 @@ export function isUuid(v: string | undefined): v is string {
 
 export function parsePeriodParams(sp: SearchParamsLike): PeriodParams {
   const periodRaw = getParam(sp, 'period');
-  const period: Period = (PERIODS as readonly string[]).includes(periodRaw ?? '') ? (periodRaw as Period) : 'live';
+  const period: Period = (PERIODS as readonly string[]).includes(periodRaw ?? '') ? (periodRaw as Period) : 'ytd';
   const out: PeriodParams = { period };
   const ay = parsePositiveInt(getParam(sp, 'ay'));
   if (ay !== undefined) out.ay = ay;
@@ -90,7 +90,6 @@ export const DRILLDOWN_BUCKETS: Record<DrilldownKpi, readonly string[]> = {
   '1.1': ['outbound', 'inbound'],
   '1.19.S1': ['international', 'domestic'],
   '1.19.24': ['numerator', 'denominator', 'not_realized', 'grace_excluded'],
-  '1.19.S8': ['reported', 'unmatched_known'],
   base: ['verified_activity'],
 };
 
@@ -118,10 +117,9 @@ export function realizationStatusToBucket(s: RealizationStatus | undefined): str
 }
 
 export const KPI_LABEL: Record<DrilldownKpi, string> = {
-  '1.1': 'IKU 1.1 — Mahasiswa Inbound & Outbound',
-  '1.19.S1': '1.19.S1 — Kegiatan Internasional dengan Mitra',
-  '1.19.24': '1.19.24 — Persentase MoU/MoA Terlaksana',
-  '1.19.S8': '1.19.S8 — Kegiatan Internasional Dilaporkan via SIM',
+  '1.1': 'RENSTRA 1.1 — Mahasiswa Inbound & Outbound',
+  '1.19.S1': 'RENSTRA 1.19.S1 — Kegiatan Internasional dengan Mitra',
+  '1.19.24': 'RENSTRA 1.19.24 — Persentase MoU/MoA Terlaksana',
   base: 'Kegiatan Terverifikasi (basis)',
 };
 
@@ -135,8 +133,6 @@ export const BUCKET_LABEL: Record<string, string> = {
   realized: 'Terlaksana',
   not_realized: 'Belum terlaksana',
   grace_excluded: 'Masa tenggang',
-  reported: 'Dilaporkan',
-  unmatched_known: 'Belum dilaporkan',
   verified_activity: 'Terverifikasi',
 };
 

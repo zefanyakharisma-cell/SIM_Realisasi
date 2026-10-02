@@ -28,15 +28,14 @@ create trigger trg_activities_derive_deadline
   before insert or update of end_date, submitted_at on realisasi.activities
   for each row execute function realisasi._trg_derive_deadline();
 
--- Overall status (R-25), verified_at (R-28), track clocks
+-- Overall status (Revisi V.1: one verification track, Mobility), verified_at (R-28), mobility clock
 create function realisasi._trg_activity_status() returns trigger
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   new.status := case
     when new.submitted_at is null then 'draft'
-    when new.partnership_status = 'rejected' then 'rejected'
-    when new.partnership_status = 'revision_requested' or new.mobility_status = 'revision_requested' then 'revision_requested'
-    when new.partnership_status = 'approved' and new.mobility_status in ('approved','not_required') then 'verified'
+    when new.mobility_status = 'revision_requested' then 'revision_requested'
+    when new.mobility_status in ('approved','not_required') then 'verified'
     else 'in_verification' end::realisasi.activity_status;
 
   if tg_op = 'UPDATE' and old.verified_at is not null then
@@ -46,17 +45,10 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    new.partnership_since := coalesce(new.partnership_since, realisasi.now_ts());
-    new.mobility_since    := coalesce(new.mobility_since, realisasi.now_ts());
-  else
-    if new.partnership_status is distinct from old.partnership_status
-       and new.partnership_since is not distinct from old.partnership_since then
-      new.partnership_since := realisasi.now_ts();
-    end if;
-    if new.mobility_status is distinct from old.mobility_status
-       and new.mobility_since is not distinct from old.mobility_since then
-      new.mobility_since := realisasi.now_ts();
-    end if;
+    new.mobility_since := coalesce(new.mobility_since, realisasi.now_ts());
+  elsif new.mobility_status is distinct from old.mobility_status
+        and new.mobility_since is not distinct from old.mobility_since then
+    new.mobility_since := realisasi.now_ts();
   end if;
   new.updated_at := now();
   return new;

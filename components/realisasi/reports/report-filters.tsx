@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { ACTIVITY_STATUS_LABEL, KNOWN_STATUS_LABEL } from '@/lib/realisasi/status';
-import type { ActivityListFilters } from '@/lib/realisasi/schemas/filters';
-import type { KnownFilters } from '@/lib/realisasi/schemas/known';
+import { ACTIVITY_STATUS_LABEL, DIRECTION_LABEL } from '@/lib/realisasi/status';
+import { DIRECTIONS, type ActivityListFilters } from '@/lib/realisasi/schemas/filters';
 import type { ActivityStatus } from '@/lib/realisasi/types';
 
 type Opt = { id: number; name: string };
@@ -25,14 +24,14 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 export function ActivityFilterForm({
   report,
   filters,
-  types,
+  agendas,
   units,
   years,
   extra,
 }: {
   report: string;
   filters: ActivityListFilters;
-  types: Opt[];
+  agendas: Opt[];
   units: Opt[] | null;
   years: Array<{ id: number; label: string }>;
   extra?: React.ReactNode;
@@ -64,12 +63,22 @@ export function ActivityFilterForm({
           ))}
         </NativeSelect>
       </Field>
-      <Field id="f-type" label="Jenis Kegiatan">
-        <NativeSelect id="f-type" name="type_id" defaultValue={filters.type_id ? String(filters.type_id) : ''} className="w-56">
+      <Field id="f-agenda" label="Jenis Kegiatan">
+        <NativeSelect id="f-agenda" name="agenda_id" defaultValue={filters.agenda_id ? String(filters.agenda_id) : ''} className="w-56">
           <option value="">Semua jenis</option>
-          {types.map((t) => (
+          {agendas.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <Field id="f-direction" label="Inbound/Outbound">
+        <NativeSelect id="f-direction" name="direction" defaultValue={filters.direction ?? ''} className="w-40">
+          <option value="">Semua</option>
+          {DIRECTIONS.map((d) => (
+            <option key={d} value={d}>
+              {DIRECTION_LABEL[d]}
             </option>
           ))}
         </NativeSelect>
@@ -87,46 +96,6 @@ export function ActivityFilterForm({
         </Field>
       ) : null}
       {extra}
-      <Button type="submit" variant="secondary">
-        Terapkan
-      </Button>
-    </form>
-  );
-}
-
-export function KnownFilterForm({ filters, units }: { filters: KnownFilters; units: Opt[] }) {
-  return (
-    <form method="get" action="/realisasi/laporan" className="flex flex-wrap items-end gap-3" aria-label="Filter register">
-      <input type="hidden" name="report" value="register" />
-      <Field id="k-q" label="Cari judul">
-        <Input id="k-q" name="q" defaultValue={filters.q ?? ''} className="w-48" />
-      </Field>
-      <Field id="k-status" label="Status">
-        <NativeSelect id="k-status" name="status" defaultValue={filters.status ?? ''} className="w-44">
-          <option value="">Semua status</option>
-          {Object.entries(KNOWN_STATUS_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field id="k-unit" label="Unit">
-        <NativeSelect id="k-unit" name="unit_id" defaultValue={filters.unit_id ? String(filters.unit_id) : ''} className="w-56">
-          <option value="">Semua unit</option>
-          {units.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field id="k-from" label="Dari">
-        <Input id="k-from" type="date" name="from" defaultValue={filters.from ?? ''} className="w-40" />
-      </Field>
-      <Field id="k-to" label="Sampai">
-        <Input id="k-to" type="date" name="to" defaultValue={filters.to ?? ''} className="w-40" />
-      </Field>
       <Button type="submit" variant="secondary">
         Terapkan
       </Button>

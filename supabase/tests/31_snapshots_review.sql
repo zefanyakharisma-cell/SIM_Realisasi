@@ -37,13 +37,15 @@ select realisasi.refreeze_snapshot((select id from realisasi.kpi_snapshots where
 create temp table _m3 as select realisasi.freeze_snapshot(2, 'ganjil_ytd', '2027-03-02 01:00+07') as id;
 select pg_temp.eq((select jsonb_agg(jsonb_build_object('code', r ->> 'code', 'counted', r -> 'counted_in_this_snapshot', 'prev', r ->> 'previous_snapshot_label'))
                      from jsonb_array_elements(realisasi._snapshot_late_additions((select id from _m3))) r),
-                  '[{"code":"RL-2026-0008","counted":false,"prev":"Genap 2025/2026 (Setahun)"}]'::jsonb,
+                  '[{"code":"RL-2026-0008","counted":false,"prev":"Setahun 2025/2026"}]'::jsonb,
                   'M3 late Genap activity listed in next Ganjil report despite a re-freeze of an older period');
 
--- ---- M5 (R-31): linking verified activities in a frozen window is a post-freeze change --------------
-:as_part
-select realisasi.link_activities(pg_temp.aid(15), pg_temp.aid(31), 'acara yang sama');
+-- ---- M5 (R-31): a conflict decision on verified activities in a frozen window is a post-freeze change --------
+insert into realisasi.participant_conflicts (nrp, activity_a, activity_b)
+values ('D31240187', least(pg_temp.aid(3), pg_temp.aid(15)), greatest(pg_temp.aid(3), pg_temp.aid(15)));
+:as_mob
+select realisasi.resolve_conflict((select id from realisasi.participant_conflicts where nrp = 'D31240187'), pg_temp.aid(15), 'acara yang sama');
 reset role;
-select pg_temp.eq((select count(*) from realisasi.activity_log where action = 'link_duplicate' and in_frozen_period
-                     and activity_id in (pg_temp.aid(15), pg_temp.aid(31))), 2::bigint, 'M5 link logs flagged in_frozen_period');
+select pg_temp.eq((select count(*) from realisasi.activity_log where action = 'resolve_conflict' and in_frozen_period
+                     and activity_id in (pg_temp.aid(3), pg_temp.aid(15))), 2::bigint, 'M5 conflict decision logs flagged in_frozen_period');
 rollback;

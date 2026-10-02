@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import {
   ACTIVITY_STATUSES,
+  DIRECTIONS,
   TRACK_STATUSES,
   activityFiltersToSearchParams,
   type ActivityListFilters,
 } from '@/lib/realisasi/schemas/filters';
-import { ACTIVITY_STATUS_LABEL, TRACK_STATUS_LABEL } from '@/lib/realisasi/status';
+import { ACTIVITY_STATUS_LABEL, DIRECTION_LABEL, TRACK_STATUS_LABEL } from '@/lib/realisasi/status';
 import type { ActivityFilterOptions } from '@/lib/realisasi/queries/activities';
 
 /** Navigates to the list with new filters (replace, no scroll), reporting pending state. */
@@ -74,7 +75,7 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
 
   const statusValue = filters.status?.length === 1 ? filters.status[0] : filters.status?.length ? '__multi' : '';
   const periodValue = filters.semester !== undefined ? `sem:${filters.semester}` : filters.ay !== undefined ? `ay:${filters.ay}` : '';
-  const flagValue = filters.late ? 'late' : filters.sla ? `sla:${filters.sla}` : '';
+  const flagValue = filters.late ? 'late' : '';
 
   return (
     <tr className="border-b bg-muted/30" aria-busy={pending || undefined} data-testid="column-filters">
@@ -98,22 +99,40 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
         />
       </td>
       <td className={cellClass}>
-        <label htmlFor="flt-type" className="sr-only">
-          Filter Jenis Kegiatan
-        </label>
-        <NativeSelect
-          id="flt-type"
-          value={filters.type_id ?? ''}
-          onChange={(e) => apply({ type_id: numOrUndef(e.target.value) })}
-          className="[&_select]:h-8 [&_select]:text-xs"
-        >
-          <option value="">Semua jenis</option>
-          {options.types.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </NativeSelect>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="flt-agenda" className="sr-only">
+            Filter Jenis Kegiatan
+          </label>
+          <NativeSelect
+            id="flt-agenda"
+            value={filters.agenda_id ?? ''}
+            onChange={(e) => apply({ agenda_id: numOrUndef(e.target.value) })}
+            className="[&_select]:h-8 [&_select]:text-xs"
+          >
+            <option value="">Semua jenis</option>
+            {options.agendas.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </NativeSelect>
+          <label htmlFor="flt-direction" className="sr-only">
+            Filter Inbound/Outbound
+          </label>
+          <NativeSelect
+            id="flt-direction"
+            value={filters.direction ?? ''}
+            onChange={(e) => apply({ direction: (e.target.value || undefined) as ActivityListFilters['direction'] })}
+            className="[&_select]:h-8 [&_select]:text-xs"
+          >
+            <option value="">Inbound &amp; outbound</option>
+            {DIRECTIONS.map((d) => (
+              <option key={d} value={d}>
+                {DIRECTION_LABEL[d]}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
       </td>
       <td className={cellClass}>
         <label htmlFor="flt-unit" className="sr-only">
@@ -219,23 +238,6 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
         </NativeSelect>
       </td>
       <td className={cellClass}>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="flt-partnership" className="sr-only">
-            Filter status jalur Kemitraan
-          </label>
-          <NativeSelect
-            id="flt-partnership"
-            value={filters.partnership ?? ''}
-            onChange={(e) => apply({ partnership: (e.target.value || undefined) as ActivityListFilters['partnership'] })}
-            className="[&_select]:h-8 [&_select]:text-xs"
-          >
-            <option value="">Kemitraan: semua</option>
-            {TRACK_STATUSES.filter((s) => s !== 'not_required').map((s) => (
-              <option key={s} value={s}>
-                Kemitraan: {TRACK_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </NativeSelect>
           <label htmlFor="flt-mobility" className="sr-only">
             Filter status jalur Mobilitas
           </label>
@@ -246,13 +248,12 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
             className="[&_select]:h-8 [&_select]:text-xs"
           >
             <option value="">Mobilitas: semua</option>
-            {TRACK_STATUSES.filter((s) => s !== 'rejected').map((s) => (
+            {TRACK_STATUSES.map((s) => (
               <option key={s} value={s}>
                 Mobilitas: {TRACK_STATUS_LABEL[s]}
               </option>
             ))}
           </NativeSelect>
-        </div>
       </td>
       <td className={cellClass}>
         <label htmlFor="flt-flags" className="sr-only">
@@ -263,17 +264,12 @@ export function ColumnFilterRow({ filters, options }: { filters: ActivityListFil
           value={flagValue}
           onChange={(e) => {
             const v = e.target.value;
-            if (v === 'late') apply({ late: true, sla: undefined });
-            else if (v === 'sla:yellow') apply({ sla: 'yellow', late: undefined });
-            else if (v === 'sla:red') apply({ sla: 'red', late: undefined });
-            else apply({ late: undefined, sla: undefined });
+            apply({ late: v === 'late' ? true : undefined });
           }}
           className="[&_select]:h-8 [&_select]:text-xs"
         >
           <option value="">Semua</option>
           <option value="late">Terlambat</option>
-          <option value="sla:yellow">SLA kuning</option>
-          <option value="sla:red">SLA merah</option>
         </NativeSelect>
       </td>
     </tr>

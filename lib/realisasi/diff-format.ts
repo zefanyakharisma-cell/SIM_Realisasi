@@ -14,18 +14,20 @@ export const DIFF_FIELD_LABEL: Record<string, string> = {
   city: 'Kota',
   country_code: 'Negara',
   sks_recognized: 'SKS diakui',
-  funding_source: 'Sumber dana',
   description: 'Deskripsi',
   submitter_unit_id: 'Unit pengaju',
-  co_unit_ids: 'Unit lain',
+  co_unit_ids: 'Unit lain yang terlibat',
+  document_id: 'Kerja sama',
   document_ids: 'Kerja sama',
+  agenda_id: 'Jenis kegiatan',
+  direction: 'Inbound/Outbound',
   sdg_ids: 'SDG',
   external_persons: 'Pembicara / tamu',
   students: 'Mahasiswa',
   staff: 'Pegawai',
-  row_notes: 'Catatan per baris',
-  known_activity_ids: 'Kegiatan diketahui',
-  split_from: 'Dipisah dari grup',
+  nrp: 'NRP',
+  kept: 'Diakui pada',
+  not_counted: 'Tidak dihitung pada',
   kind: 'Jenis berkas',
   filename: 'Nama berkas',
   version: 'Versi',
@@ -68,8 +70,6 @@ export function formatDiffLines(diff: unknown): string[] {
       const c = change as { added?: unknown; removed?: unknown };
       const parts = [rows(c.added) && `+${rows(c.added)}`, rows(c.removed) && `−${rows(c.removed)}`].filter(Boolean);
       out.push(`${label}: ${parts.join(' ; ') || 'tidak ada perubahan baris'}`);
-    } else if (field === 'row_notes' && typeof change === 'number') {
-      out.push(`${label}: ${change} catatan`);
     } else {
       out.push(`${label}: ${show(change)}`);
     }

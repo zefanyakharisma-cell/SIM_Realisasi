@@ -21,41 +21,43 @@ test.describe('foundation: login, shell, navigation per role', () => {
 
   test('io_admin sees every nav item', async ({ page }) => {
     await loginAs(page, ACCOUNTS.kepalaIo);
-    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-kemitraan', 'nav-mobilitas', 'nav-duplikat', 'nav-kegiatan-diketahui', 'nav-laporan', 'nav-pengaturan', 'nav-dokumen']) {
+    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-mobilitas', 'nav-laporan', 'nav-pengaturan', 'nav-dokumen']) {
       await expect(page.getByTestId(id).first()).toBeVisible();
+    }
+    // Revisi V.1: no Verifikasi Kemitraan, no separate Duplikat page, no Kegiatan Diketahui.
+    for (const id of ['nav-kemitraan', 'nav-duplikat', 'nav-kegiatan-diketahui']) {
+      await expect(page.getByTestId(id)).toHaveCount(0);
     }
   });
 
   test('submitter nav (Design §1)', async ({ page }) => {
     await loginAs(page, ACCOUNTS.uaFti);
     await expect(page.getByTestId('nav-baru').first()).toBeVisible();
-    for (const id of ['nav-kemitraan', 'nav-mobilitas', 'nav-duplikat', 'nav-kegiatan-diketahui', 'nav-pengaturan']) {
+    for (const id of ['nav-mobilitas', 'nav-pengaturan']) {
       await expect(page.getByTestId(id)).toHaveCount(0);
     }
   });
 
-  test('io partnership vs mobility nav', async ({ page }) => {
-    await loginAs(page, ACCOUNTS.ioPartnership);
-    await expect(page.getByTestId('nav-kemitraan').first()).toBeVisible();
-    await expect(page.getByTestId('nav-duplikat').first()).toBeVisible();
-    await expect(page.getByTestId('nav-mobilitas')).toHaveCount(0);
-    await loginAs(page, ACCOUNTS.ioMobility);
-    await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
-    await expect(page.getByTestId('nav-kegiatan-diketahui').first()).toBeVisible(); // view-only (requirements review L-5)
-    await expect(page.getByTestId('nav-kemitraan')).toHaveCount(0);
-    await expect(page.getByTestId('nav-baru')).toHaveCount(0);
+  test('IO staff (Mobility team) nav', async ({ page }) => {
+    for (const email of [ACCOUNTS.ioStaff, ACCOUNTS.ioMobility]) {
+      await loginAs(page, email);
+      await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+      await expect(page.getByTestId('nav-kemitraan')).toHaveCount(0);
+      await expect(page.getByTestId('nav-baru')).toHaveCount(0);
+      await expect(page.getByTestId('nav-pengaturan')).toHaveCount(0);
+    }
   });
 
   test('viewer nav is read-only', async ({ page }) => {
     await loginAs(page, ACCOUNTS.rektorat);
     await expect(page.getByTestId('nav-laporan').first()).toBeVisible();
-    for (const id of ['nav-baru', 'nav-kemitraan', 'nav-mobilitas', 'nav-pengaturan']) {
+    for (const id of ['nav-baru', 'nav-mobilitas', 'nav-pengaturan']) {
       await expect(page.getByTestId(id)).toHaveCount(0);
     }
   });
 
   test('notifications page and switch account', async ({ page }) => {
-    await loginAs(page, ACCOUNTS.ioPartnership);
+    await loginAs(page, ACCOUNTS.ioStaff);
     await page.goto('/realisasi/notifikasi');
     await expect(page.getByRole('heading', { level: 1, name: 'Notifikasi' })).toBeVisible();
     await page.getByTestId('user-menu').click();

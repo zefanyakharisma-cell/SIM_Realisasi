@@ -1,9 +1,11 @@
 # SIM Realisasi
 
 Management information system for the realization (implementation) of Petra Christian University's
-MoUs/MoAs: activity submission with IA + IR, dual-track verification (Partnership / Mobility), the four
-institutional KPIs (1.1, 1.19.S1, 1.19.24, 1.19.S8) with drill-down, semester freezes, and Excel export of
-every report. Mockup build per the specs in [`docs/spec/`](docs/spec/) (Rules.md is authoritative).
+MoUs/MoAs: one-page activity submission (Jenis Kegiatan from SIM Kerjasama's Agenda Kerjasama, IA + IR, one PDF of
+transcripts/poster/documentation for mobility), Mobility verification with duplicate-student decisions, the RENSTRA
+indicators (1.1, 1.19.S1, 1.19.24) with drill-down, the International Awards leaderboards, four period cut-offs
+(Ganjil, Genap, Setahun kumulatif, YTD), semester freezes, and Excel export of every report. Mockup build per the
+specs in [`docs/spec/`](docs/spec/) (Rules.md is authoritative; it includes the Revisi V.1 changes).
 
 Stack: Next.js 15 (App Router) · TypeScript · Tailwind · Postgres/Supabase (business rules in SQL) · exceljs · Recharts.
 
@@ -19,13 +21,13 @@ npm run dev                           # http://localhost:3000 → pick a demo ac
 ```
 
 The login page is a demo role switcher (`DEMO_AUTH=1`, default). Demo "today" is 2026-10-01; IO Admin can
-time-travel in Pengaturan to demonstrate cutoffs, deadlines and SLAs.
+time-travel in Pengaturan to demonstrate cutoffs, deadlines and reminders.
 
 ## Tests
 
 | Command | What |
 |---|---|
-| `npm run test:db` | SQL acceptance tests (AT-01..AT-11, status machine, RLS, KPIs, snapshots, adapter) |
+| `npm run test:db` | SQL acceptance tests (AT-01..AT-11, status machine, RLS, RENSTRA/KPIs, conflicts, awards, snapshots, adapter) |
 | `npm test` | Vitest unit tests |
 | `npm run typecheck` · `npm run lint` | TypeScript, ESLint |
 | `npm run test:e2e` | Playwright journeys (resets the DB first) |

@@ -16,29 +16,73 @@ async function downloadWorkbook(page: Page, trigger: () => Promise<void>): Promi
   return wb;
 }
 
-test('AT-01: unit dashboards count the shared summer program once per unit (12)', async ({ page }) => {
-  for (const email of [ACCOUNTS.uaFti, ACCOUNTS.kaprodiInformatika]) {
-    await loginAs(page, email);
-    await page.goto('/realisasi?period=live');
-    const card = page.getByTestId('kpi-card-1.1');
-    await expect(card).toContainText('Outbound 12');
-  }
+test('AT-01: the summer program claimed by FTI and Prodi Informatika counts once, for the unit Mobility kept', async ({ page }) => {
+  // S-13 (FTI) kept all 12 students over S-14 (Informatika); 2 of them are also claimed by S-18 (open → counted nowhere).
+  await loginAs(page, ACCOUNTS.uaFti);
+  await page.goto('/realisasi?period=ytd');
+  await expect(page.getByTestId('kpi-card-1.1')).toContainText('Outbound 10');
+  await loginAs(page, ACCOUNTS.kaprodiInformatika);
+  await page.goto('/realisasi?period=ytd');
+  await expect(page.getByTestId('kpi-card-1.1')).toContainText('Outbound 0');
 });
 
-test('AT-05: live 1.19.24 card shows grace count and drill-down lists doc 901', async ({ page }) => {
+test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD; RENSTRA wording; no S8', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
-  await page.goto('/realisasi?period=live');
+  await page.goto('/realisasi?ay=1&period=ganjil');
+  for (const p of ['ganjil', 'genap', 'full', 'ytd']) await expect(page.getByTestId(`period-${p}`)).toBeVisible();
+  await expect(page.getByTestId('kpi-card-1.1')).toContainText('RENSTRA 1.1');
+  await expect(page.getByTestId('kpi-card-1.19.S8')).toHaveCount(0);
+  const value = () => page.getByTestId('kpi-card-1.1').getByTestId('kpi-value');
+  const ganjil = Number((await value().textContent())?.replace(/\D/g, ''));
+  // The links carry the period; navigate by URL.
+  await expect(page.getByTestId('period-genap')).toHaveAttribute('href', '/realisasi?ay=1&period=genap');
+  await page.goto('/realisasi?ay=1&period=genap');
+  await expect(page.getByTestId('period-genap')).toHaveAttribute('aria-current', 'page');
+  const genap = Number((await value().textContent())?.replace(/\D/g, ''));
+  await page.goto('/realisasi?ay=1&period=full');
+  await expect(value()).toHaveText(String(ganjil + genap));
+
+  // Every export is cut by the same four periods.
+  const res = await page.request.get('/api/export/kpi-summary?ay=1&period=full');
+  expect(res.status()).toBe(200);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(await res.body()) as unknown as ArrayBuffer);
+  const info = wb.getWorksheet('Info')!;
+  const values: string[] = [];
+  info.eachRow((row) => values.push(`${String(row.getCell(1).value)}=${String(row.getCell(2).value)}`));
+  expect(values.some((v) => v.includes('Setahun 2025/2026'))).toBeTruthy();
+});
+
+test('International Awards tab: four leaderboards per submitting unit, exportable', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi?period=ytd');
+  await expect(page.getByTestId('work-queue')).toContainText('duplikat mahasiswa');
+  await expect(page.getByTestId('dashboard-tab-awards')).toHaveAttribute('href', /tab=awards/);
+  await page.goto('/realisasi?period=ytd&tab=awards');
+  for (const id of ['inbound', 'outbound-domestic', 'outbound-international', 'initiatives']) {
+    await expect(page.getByTestId(`awards-${id}`)).toBeVisible();
+  }
+  const intl = page.getByTestId('awards-outbound-international').getByTestId('awards-row').first();
+  await expect(intl).toContainText('Fakultas Teknologi Industri');
+  await expect(page.getByTestId('period-genap')).toHaveAttribute('href', /tab=awards/);
+
+  const res = await page.request.get('/api/export/awards?period=ytd');
+  expect(res.status()).toBe(200);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(await res.body()) as unknown as ArrayBuffer);
+  expect(wb.worksheets.map((w) => w.name)).toEqual(
+    expect.arrayContaining(['Info', 'Inbound Tertinggi', 'Outbound DN Tertinggi', 'Outbound Intl Tertinggi', 'Inisiatif Intl Tertinggi']),
+  );
+});
+
+test('AT-05: YTD 1.19.24 card shows grace count and drill-down lists doc 901', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi?period=ytd');
   const card = page.getByTestId('kpi-card-1.19.24');
   await expect(card).toContainText('dalam masa tenggang');
   await card.getByTestId('kpi-grace-link').click();
   await expect(page).toHaveURL(/report=kpi/);
   await expect(page.locator('table')).toContainText('Masa tenggang');
-});
-
-test('AT-09: S8 card shows 2 unreported international activities', async ({ page }) => {
-  await loginAs(page, ACCOUNTS.kepalaIo);
-  await page.goto('/realisasi?period=live');
-  await expect(page.getByTestId('kpi-s8-unmatched')).toContainText('2 kegiatan belum dilaporkan');
 });
 
 test('AT-07: Kerjasama realisasi tab lists activities with the document at activity time', async ({ page }) => {
@@ -56,7 +100,7 @@ test('AT-08: Arsip shows S-19 as a late addition in the Genap 2025/2026 snapshot
   const genap = items.filter({ hasText: 'Setahun' });
   const wb = await downloadWorkbook(page, () => genap.getByTestId('export-excel').click());
   expect(wb.worksheets.map((w) => w.name)).toEqual(
-    expect.arrayContaining(['Info', 'Ringkasan', '1.1', '1.19.S1', '1.19.24', '1.19.S8', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
+    expect.arrayContaining(['Info', 'Ringkasan', '1.1', '1.19.S1', '1.19.24', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
   );
   expect(wb.worksheets[0]!.name).toBe('Info');
   const late = wb.getWorksheet('Tambahan Susulan')!;

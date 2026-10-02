@@ -3,7 +3,7 @@
 -- SIMKS owns schema `public` (Indonesian table names, integer ids, ISO alpha-3 country codes, akun/jabatan accounts,
 -- proposal-based partners/scope/renewal links). Realisasi never writes SIMKS tables and never creates objects in
 -- `public`. Every Realisasi object reads SIMKS only through the views in schema `kerjasama` created here:
---   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles
+--   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles, agendas
 -- (exact Schema §1.1 columns, plus a few additive columns at the end of each view).
 --
 -- Access model: the views are ordinary (security_invoker = false) views owned by the migration owner (postgres on
@@ -318,9 +318,17 @@ select u.id,
          when pu.id_jenis_unit = 1 then 'prodi'
          else 'faculty'
        end as kind,
-       coalesce(u.is_active, true) as is_active
+       coalesce(u.is_active, true) as is_active,
+       (u.id_jenis_unit = 1) is true as is_academic   -- jenis_unit 1 = Unit Akademik (Revisi V.1: only these submit)
   from public.unit u
   left join public.unit pu on pu.id = u.id_parent_unit;
+
+-- agendas: SIMKS "Agenda Kerjasama" list, used by Realisasi as Jenis Kegiatan (Revisi V.1). The amendment agenda is a
+-- document-level concept, not an activity, so it is left out. Mobility/counting rules live in realisasi.agenda_rules.
+create view kerjasama.agendas as
+select a.id, a.nama::text as name, coalesce(a.is_active, true) as is_active
+  from public.agenda a
+ where not coalesce(a.is_amendment, false);
 
 -- countries: one row per ISO alpha-2 code found in SIMKS negara. Unmappable kode values are left out.
 create view kerjasama.countries as
@@ -418,4 +426,5 @@ revoke all on all tables in schema kerjasama from public, anon, authenticated;
 revoke all on schema kerjasama from public;
 grant usage on schema kerjasama to authenticated;
 grant select on kerjasama.units, kerjasama.countries, kerjasama.partners, kerjasama.documents,
-                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles to authenticated;
+                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles,
+                kerjasama.agendas to authenticated;

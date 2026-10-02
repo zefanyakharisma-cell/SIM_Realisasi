@@ -1,7 +1,7 @@
 /**
  * Activity list / queue reads (WP-VERIFY, CONTRACTS §6.8). SERVER ONLY (takes a `withUser` tx).
- * `listActivities` is the single source for the Kegiatan list, both verification queues and the
- * `activities` / `sla` exports (AT-12: export rows === screen rows).
+ * `listActivities` is the single source for the Kegiatan list, the Mobility queue and the
+ * `activities` export (AT-12: export rows === screen rows).
  */
 import type postgres from 'postgres';
 import type { Tx } from '@/lib/db';
@@ -16,26 +16,16 @@ function and(tx: Tx, parts: postgres.Fragment[]): postgres.Fragment {
   return parts.reduce((acc, p) => tx`${acc} and ${p}`);
 }
 
-function or(tx: Tx, parts: postgres.Fragment[]): postgres.Fragment {
-  if (parts.length === 0) return tx`false`;
-  return parts.reduce((acc, p) => tx`${acc} or ${p}`);
-}
-
 /** `preset=mine`: what the current user should act on (CONTRACTS §6.8). */
 function mineCondition(tx: Tx, user: SessionUser): postgres.Fragment {
-  const partnershipPending = tx`(l.partnership_status = 'pending' and l.status not in ('draft', 'rejected'))`;
-  const mobilityPending = tx`(l.mobility_status = 'pending' and l.status <> 'rejected')`;
+  const mobilityPending = tx`(l.mobility_status = 'pending' and l.status <> 'draft')`;
   switch (user.role) {
     case 'submitter':
       return tx`(l.submitter_unit_id = ${user.unitId ?? -1}::int and l.status in ('draft', 'revision_requested'))`;
     case 'io_admin':
-      return tx`(${partnershipPending} or ${mobilityPending})`;
-    case 'io_staff': {
-      const parts: postgres.Fragment[] = [];
-      if (user.teams.includes('partnership')) parts.push(partnershipPending);
-      if (user.teams.includes('mobility')) parts.push(mobilityPending);
-      return tx`(${or(tx, parts)})`;
-    }
+      return mobilityPending;
+    case 'io_staff':
+      return user.teams.includes('mobility') ? mobilityPending : tx`false`;
     default:
       return tx`false`;
   }
@@ -51,15 +41,14 @@ function buildWhere(tx: Tx, user: SessionUser, f: ActivityListFilters): postgres
                or array_to_string(l.document_numbers, ' ') ilike ${like})`);
   }
   if (f.status?.length) c.push(tx`l.status::text = any(${tx.array(f.status)}::text[])`);
-  if (f.type_id !== undefined) c.push(tx`l.type_id = ${f.type_id}::int`);
+  if (f.agenda_id !== undefined) c.push(tx`l.agenda_id = ${f.agenda_id}::int`);
+  if (f.direction) c.push(tx`l.direction::text = ${f.direction}::text`);
   if (f.unit_id !== undefined) c.push(tx`${f.unit_id}::int = any(l.unit_ids)`);
   if (f.country) c.push(tx`${f.country}::text = any(l.country_codes)`);
   if (f.ay !== undefined) c.push(tx`l.academic_year_id = ${f.ay}::int`);
   if (f.semester !== undefined) c.push(tx`l.semester_id = ${f.semester}::int`);
-  if (f.partnership) c.push(tx`l.partnership_status::text = ${f.partnership}::text`);
   if (f.mobility) c.push(tx`l.mobility_status::text = ${f.mobility}::text`);
   if (f.late) c.push(tx`l.is_late`);
-  if (f.sla) c.push(tx`(l.partnership_sla_level = ${f.sla}::text or l.mobility_sla_level = ${f.sla}::text)`);
   if (f.from) c.push(tx`l.start_date >= ${f.from}::date`);
   if (f.to) c.push(tx`l.start_date <= ${f.to}::date`);
 
@@ -79,26 +68,21 @@ function buildWhere(tx: Tx, user: SessionUser, f: ActivityListFilters): postgres
       break;
   }
 
-  if (f.queue === 'partnership') {
-    c.push(tx`l.partnership_status = 'pending' and l.status not in ('draft', 'rejected')`);
-  } else if (f.queue === 'mobility') {
-    c.push(tx`l.mobility_status = 'pending' and l.status <> 'rejected'`);
-  }
+  if (f.queue === 'mobility') c.push(tx`l.mobility_status = 'pending' and l.status <> 'draft'`);
 
   return and(tx, c);
 }
 
 function buildOrder(tx: Tx, f: ActivityListFilters): postgres.Fragment {
-  // Queues are always SLA-sorted (red first), regardless of `sort`.
-  if (f.queue === 'partnership') return tx`l.partnership_sla_days desc nulls last, l.partnership_since asc nulls last, l.code`;
-  if (f.queue === 'mobility') return tx`l.mobility_sla_days desc nulls last, l.mobility_since asc nulls last, l.code`;
+  // The queue always lists the longest-waiting submissions first (no SLA since Revisi V.1).
+  if (f.queue === 'mobility') return tx`l.mobility_since asc nulls last, l.code`;
   switch (f.sort) {
     case 'start_asc':
       return tx`l.start_date asc, l.code asc`;
     case 'code':
       return tx`l.code asc`;
-    case 'sla':
-      return tx`greatest(coalesce(l.partnership_sla_days, -1), coalesce(l.mobility_sla_days, -1)) desc, l.code`;
+    case 'waiting':
+      return tx`(l.mobility_status = 'pending') desc, l.mobility_since asc nulls last, l.code`;
     case 'start_desc':
     default:
       return tx`l.start_date desc, l.code desc`;
@@ -125,7 +109,7 @@ export interface FilterOption {
 }
 
 export interface ActivityFilterOptions {
-  types: FilterOption[];
+  agendas: FilterOption[];
   units: FilterOption[];
   countries: Array<{ code: string; name: string }>;
   academicYears: FilterOption[];
@@ -134,9 +118,9 @@ export interface ActivityFilterOptions {
 
 /** Option lists for the per-column filters of the Kegiatan list. */
 export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOptions> {
-  const [types, units, countries, ays, semesters] = await Promise.all([
-    tx<FilterOption[]>`select id, name as label from realisasi.activity_types order by sort_order, id`,
-    tx<FilterOption[]>`select id, name as label from kerjasama.units order by name`,
+  const [agendas, units, countries, ays, semesters] = await Promise.all([
+    tx<FilterOption[]>`select id, name as label from kerjasama.agendas order by name`,
+    tx<FilterOption[]>`select id, name as label from kerjasama.units where is_academic order by name`,
     tx<Array<{ code: string; name: string }>>`select code, name from kerjasama.countries order by name`,
     tx<FilterOption[]>`select id, label from realisasi.academic_years order by start_date desc`,
     tx<Array<FilterOption & { ay_id: number; term: SemesterTerm }>>`
@@ -145,7 +129,7 @@ export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOp
        order by s.start_date desc`,
   ]);
   return {
-    types: Array.from(types),
+    agendas: Array.from(agendas),
     units: Array.from(units),
     countries: Array.from(countries),
     academicYears: Array.from(ays),
@@ -157,9 +141,9 @@ export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOp
 export async function findActivityByCode(
   tx: Tx,
   code: string,
-): Promise<Pick<ActivityListRow, 'id' | 'code' | 'name' | 'status' | 'submitter_unit_name' | 'event_group_id'> | null> {
-  const [row] = await tx<Array<Pick<ActivityListRow, 'id' | 'code' | 'name' | 'status' | 'submitter_unit_name' | 'event_group_id'>>>`
-    select id, code, name, status, submitter_unit_name, event_group_id
+): Promise<Pick<ActivityListRow, 'id' | 'code' | 'name' | 'status' | 'submitter_unit_name'> | null> {
+  const [row] = await tx<Array<Pick<ActivityListRow, 'id' | 'code' | 'name' | 'status' | 'submitter_unit_name'>>>`
+    select id, code, name, status, submitter_unit_name
       from realisasi.v_activity_list where upper(code) = upper(${code}::text) limit 1`;
   return row ?? null;
 }

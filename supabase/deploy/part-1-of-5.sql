@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 1 OF 5 (commit 56e49d9).
+-- SIM Realisasi Supabase install, PART 1 OF 5 (commit b0bf749).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -36,7 +36,7 @@ begin
   end loop;
   if to_regprocedure('auth.uid()') is null then missing := missing || 'function auth.uid()'::text; end if;
   foreach t in array array['unit','jenis_unit','negara','partner','proposal_dokumen','dokumen_kerja_sama',
-                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun'] loop
+                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun','agenda'] loop
     if to_regclass('public.' || t) is null then missing := missing || ('table public.' || t); end if;
   end loop;
   if cardinality(missing) > 0 then
@@ -49,22 +49,20 @@ end $$;
 -- 0001_enums
 create schema if not exists realisasi;
 
-create type realisasi.activity_status   as enum ('draft','in_verification','revision_requested','verified','rejected');
-create type realisasi.track_status      as enum ('not_required','pending','revision_requested','approved','rejected');
-create type realisasi.direction         as enum ('inbound','outbound','none');
+create type realisasi.activity_status   as enum ('draft','in_verification','revision_requested','verified');
+create type realisasi.track_status      as enum ('not_required','pending','revision_requested','approved');
+create type realisasi.direction         as enum ('inbound','outbound');
+create type realisasi.mobility_category as enum ('jd_dd','student_exchange','short_summer','other_mobility');
 create type realisasi.activity_mode     as enum ('offline','online','hybrid');
-create type realisasi.funding_source    as enum ('pcu','partner','government','participant','mixed','none');
-create type realisasi.file_kind         as enum ('ia','ir','evidence');
+create type realisasi.file_kind         as enum ('ia','ir','mobility_bundle','evidence');
 create type realisasi.person_role       as enum ('speaker','visiting_lecturer','researcher','staff_visitor','other');
 create type realisasi.student_section   as enum ('internal','inbound');
 create type realisasi.pset_status       as enum ('draft','pending','revision_requested','approved','superseded');
-create type realisasi.known_source      as enum ('surat_tugas','news','faculty_report','loa_visa_letter','email','other');
-create type realisasi.known_status      as enum ('unmatched','matched','dismissed');
 create type realisasi.semester_term     as enum ('ganjil','genap');
 create type realisasi.snapshot_kind     as enum ('ganjil_ytd','genap_full_year');
-create type realisasi.dup_status        as enum ('open','linked','dismissed');
+create type realisasi.conflict_status   as enum ('open','resolved');
 create type realisasi.log_kind          as enum ('verification','revision','update','system');
-create type realisasi.team              as enum ('partnership','mobility');
+create type realisasi.team              as enum ('mobility');
 
 -- >>> supabase/migrations/0001_kerjasama_adapter.sql
 -- 0001_kerjasama_adapter: read-only adapter from the live SIM Kerjasama (SIMKS) schema to the Schema §1.1 shapes.
@@ -72,7 +70,7 @@ create type realisasi.team              as enum ('partnership','mobility');
 -- SIMKS owns schema `public` (Indonesian table names, integer ids, ISO alpha-3 country codes, akun/jabatan accounts,
 -- proposal-based partners/scope/renewal links). Realisasi never writes SIMKS tables and never creates objects in
 -- `public`. Every Realisasi object reads SIMKS only through the views in schema `kerjasama` created here:
---   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles
+--   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles, agendas
 -- (exact Schema §1.1 columns, plus a few additive columns at the end of each view).
 --
 -- Access model: the views are ordinary (security_invoker = false) views owned by the migration owner (postgres on
@@ -387,9 +385,17 @@ select u.id,
          when pu.id_jenis_unit = 1 then 'prodi'
          else 'faculty'
        end as kind,
-       coalesce(u.is_active, true) as is_active
+       coalesce(u.is_active, true) as is_active,
+       (u.id_jenis_unit = 1) is true as is_academic   -- jenis_unit 1 = Unit Akademik (Revisi V.1: only these submit)
   from public.unit u
   left join public.unit pu on pu.id = u.id_parent_unit;
+
+-- agendas: SIMKS "Agenda Kerjasama" list, used by Realisasi as Jenis Kegiatan (Revisi V.1). The amendment agenda is a
+-- document-level concept, not an activity, so it is left out. Mobility/counting rules live in realisasi.agenda_rules.
+create view kerjasama.agendas as
+select a.id, a.nama::text as name, coalesce(a.is_active, true) as is_active
+  from public.agenda a
+ where not coalesce(a.is_amendment, false);
 
 -- countries: one row per ISO alpha-2 code found in SIMKS negara. Unmappable kode values are left out.
 create view kerjasama.countries as
@@ -487,7 +493,8 @@ revoke all on all tables in schema kerjasama from public, anon, authenticated;
 revoke all on schema kerjasama from public;
 grant usage on schema kerjasama to authenticated;
 grant select on kerjasama.units, kerjasama.countries, kerjasama.partners, kerjasama.documents,
-                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles to authenticated;
+                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles,
+                kerjasama.agendas to authenticated;
 
 -- >>> supabase/migrations/0002_tables.sql
 -- 0002_tables: Schema §3/§4 with CONTRACTS §2.3 deltas. Extra indexes cover FKs and RLS/helper predicates.
@@ -534,20 +541,14 @@ create table realisasi.semesters (
   check (cutoff_date >= end_date)
 );
 
-create table realisasi.holidays (
-  day  date primary key,
-  name text not null
-);
-
-create table realisasi.activity_types (
-  id                         serial primary key,
-  name                       text unique not null,
-  direction                  realisasi.direction not null default 'none',
-  counts_as_mobility         boolean not null default false,
-  counts_for_s1              boolean not null default true,
-  requires_mobility_review   boolean not null default false,
-  is_active                  boolean not null default true,
-  sort_order                 int default 0
+-- Counting rules per SIMKS agenda (Jenis Kegiatan = kerjasama.agendas, Revisi V.1). An agenda without a row, or with a
+-- null mobility_category, is not a mobility activity: no participants required, verified on submit.
+create table realisasi.agenda_rules (
+  agenda_id         int primary key,  -- kerjasama.agendas.id (no FK: adapter view)
+  mobility_category realisasi.mobility_category,
+  counts_for_s1     boolean not null default true,
+  updated_by        uuid,  -- kerjasama.profiles.id (no FK: adapter view)
+  updated_at        timestamptz default now()
 );
 
 create table realisasi.sdgs (
@@ -570,28 +571,24 @@ create table realisasi.activities (
   code                text unique not null
                       default 'RL-' || to_char(now(),'YYYY') || '-' || lpad(nextval('realisasi.activity_code_seq')::text,4,'0'),
   name                text not null,
-  type_id             int not null references realisasi.activity_types(id),
+  agenda_id           int not null,  -- kerjasama.agendas.id (no FK: adapter view); rules in realisasi.agenda_rules
+  direction           realisasi.direction not null,
   start_date          date not null,
   end_date            date not null,
   academic_year_id    int references realisasi.academic_years(id),
   semester_id         int references realisasi.semesters(id),
   mode                realisasi.activity_mode not null,
   venue               text,
-  city                text,
   country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
   sks_recognized      numeric(4,1),
-  funding_source      realisasi.funding_source,
   description         text not null,
   submitter_unit_id   int not null,  -- kerjasama.units.id (no FK: adapter view)
   created_by          uuid not null,  -- kerjasama.profiles.id (no FK: adapter view)
   submitted_at        timestamptz,
   verified_at         timestamptz,
   status              realisasi.activity_status not null default 'draft',
-  partnership_status  realisasi.track_status not null default 'pending',
   mobility_status     realisasi.track_status not null default 'not_required',
-  partnership_since   timestamptz,
-  mobility_since      timestamptz,
-  rejection_reason    text,
+  mobility_since      timestamptz,  -- when the mobility track last changed (revision reminders)
   event_group_id      uuid not null references realisasi.event_groups(id),
   reporting_deadline  date,
   is_late             boolean not null default false,
@@ -602,7 +599,7 @@ create table realisasi.activities (
 create index on realisasi.activities (status, start_date);
 create index on realisasi.activities (event_group_id);
 create index on realisasi.activities (submitter_unit_id);
-create index on realisasi.activities (type_id);
+create index on realisasi.activities (agenda_id);
 create index on realisasi.activities (semester_id);
 create index on realisasi.activities (academic_year_id);
 create index on realisasi.activities (created_by);
@@ -623,6 +620,7 @@ create table realisasi.activity_documents (
   out_of_scope_warning  boolean not null default false,
   primary key (activity_id, original_document_id)
 );
+create unique index one_agreement_per_activity on realisasi.activity_documents (activity_id);  -- Revisi V.1 item 7
 create index on realisasi.activity_documents (chain_id);
 create index on realisasi.activity_documents (original_document_id);
 
@@ -673,7 +671,7 @@ create table realisasi.activity_files (
 );
 create unique index one_current_ia_ir
   on realisasi.activity_files (activity_id, kind)
-  where is_current and kind in ('ia','ir');
+  where is_current and kind in ('ia','ir','mobility_bundle');
 create index on realisasi.activity_files (activity_id, kind);
 create index on realisasi.activity_files (storage_path);
 create index on realisasi.activity_files (uploaded_by);
@@ -711,13 +709,10 @@ create table realisasi.participant_students (
   home_institution    text,
   home_student_number text,
   home_country_code   text,
-  transcript_path     text,
-  row_note            text,
   unique (set_version_id, nrp),
   check (section = 'internal' or home_institution is not null)
 );
 create index on realisasi.participant_students (nrp);
-create index on realisasi.participant_students (transcript_path) where transcript_path is not null;
 
 create table realisasi.participant_staff (
   id             bigserial primary key,
@@ -725,24 +720,32 @@ create table realisasi.participant_staff (
   employee_id    text not null,
   full_name      text not null,
   unit_name      text,
-  row_note       text,
   unique (set_version_id, employee_id)
 );
 
 -- 3.4 Duplicates, logs, known activities, notifications ---------------------
-create table realisasi.duplicate_candidates (
-  id          bigserial primary key,
-  activity_a  uuid not null references realisasi.activities(id),
-  activity_b  uuid not null references realisasi.activities(id),
-  score       numeric(3,2) not null,
-  status      realisasi.dup_status not null default 'open',
-  resolved_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  resolved_at timestamptz,
+-- One student (NRP) claimed by activities of two different units with overlapping dates (Revisi V.1, rule 2.1).
+-- Mobility picks the activity that keeps the student (kept_activity_id); the other one does not count them. While open,
+-- the student counts for neither. The same unit claiming a student in two activities is never a conflict (rule 2.2).
+create table realisasi.participant_conflicts (
+  id               bigserial primary key,
+  nrp              text not null,
+  activity_a       uuid not null references realisasi.activities(id),
+  activity_b       uuid not null references realisasi.activities(id),
+  status           realisasi.conflict_status not null default 'open',
+  kept_activity_id uuid references realisasi.activities(id),
+  note             text,
+  resolved_by      uuid,  -- kerjasama.profiles.id (no FK: adapter view)
+  resolved_at      timestamptz,
+  created_at       timestamptz default now(),
   check (activity_a < activity_b),
-  unique (activity_a, activity_b)
+  check ((status = 'resolved') = (kept_activity_id is not null)),
+  check (kept_activity_id is null or kept_activity_id in (activity_a, activity_b)),
+  unique (nrp, activity_a, activity_b)
 );
-create index on realisasi.duplicate_candidates (activity_b);
-create index on realisasi.duplicate_candidates (status);
+create index on realisasi.participant_conflicts (activity_b);
+create index on realisasi.participant_conflicts (status);
+create index on realisasi.participant_conflicts (kept_activity_id);
 
 create table realisasi.activity_log (
   id          bigserial primary key,
@@ -760,30 +763,6 @@ create index on realisasi.activity_log (activity_id, created_at);
 create index on realisasi.activity_log (activity_id, action, created_at);
 create index on realisasi.activity_log (actor_id);
 create index activity_log_frozen_idx on realisasi.activity_log (created_at) where in_frozen_period;
-
-create table realisasi.known_activities (
-  id                  bigserial primary key,
-  title               text not null,
-  activity_date       date not null,
-  unit_id             int,  -- kerjasama.units.id (no FK: adapter view)
-  partner_name        text,
-  country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
-  is_international    boolean not null,
-  source              realisasi.known_source not null,
-  source_reference    text,
-  notes               text,
-  status              realisasi.known_status not null default 'unmatched',
-  matched_activity_id uuid references realisasi.activities(id),
-  nudged_at           timestamptz,
-  created_by          uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  created_at          timestamptz default now(),
-  check ((status = 'matched') = (matched_activity_id is not null))
-);
-create index on realisasi.known_activities (activity_date);
-create index on realisasi.known_activities (matched_activity_id);
-create index on realisasi.known_activities (unit_id);
-create index on realisasi.known_activities (created_by);
-create index known_activities_intl_status_idx on realisasi.known_activities (status, activity_date) where is_international;
 
 create table realisasi.notifications (
   id           bigserial primary key,
@@ -972,41 +951,6 @@ language sql security definer set search_path = realisasi, extensions, public, p
   select realisasi._raise('STATE_INVALID', 'Tindakan tidak dapat dilakukan pada status kegiatan saat ini.')
 $$;
 
--- Business days / SLA -----------------------------------------------------
--- closed form: weekdays in (p_from, p_to] minus weekday holidays (no per-day series; M10)
-create function realisasi.business_days_between(p_from date, p_to date) returns int
-language sql stable parallel safe security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_from is null or p_to is null or p_to <= p_from then 0 else (
-    select (5 * (n / 7)
-            + (select count(*) from generate_series(1, n % 7) k where extract(isodow from p_from + 7 * (n / 7) + k) < 6)
-            - (select count(*) from realisasi.holidays h where h.day > p_from and h.day <= p_to and extract(isodow from h.day) < 6))::int
-      from (select p_to - p_from as n) x) end
-$$;
-
-create function realisasi._business_days_ago(p_n int) returns date
-language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_today date := realisasi.today(); v_d date := realisasi.today();
-begin
-  while realisasi.business_days_between(v_d, v_today) < p_n loop
-    v_d := v_d - 1;
-  end loop;
-  return v_d;
-end $$;
-
-create function realisasi.sla_days(p_since timestamptz) returns int
-language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_since is null then null
-    else realisasi.business_days_between((p_since at time zone 'Asia/Jakarta')::date, realisasi.today()) end
-$$;
-
-create function realisasi.sla_level(p_days int) returns text
-language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_days is null then null
-              when p_days > realisasi.setting_int('sla_red_days') then 'red'
-              when p_days > realisasi.setting_int('sla_yellow_days') then 'yellow'
-              else 'ok' end
-$$;
-
 -- Renewal chains (Schema §5.1) -------------------------------------------
 create function realisasi.chain_root(p_doc int) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
@@ -1051,8 +995,8 @@ $$;
 
 create function realisasi._snapshot_label(p_kind realisasi.snapshot_kind, p_ay_label text) returns text
 language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
-  select case p_kind when 'ganjil_ytd' then 'Ganjil ' || p_ay_label || ' (YTD)'
-                     else 'Genap ' || p_ay_label || ' (Setahun)' end
+  select case p_kind when 'ganjil_ytd' then 'Ganjil ' || p_ay_label
+                     else 'Setahun ' || p_ay_label end
 $$;
 
 create function realisasi._fmt_date(p_d date) returns text
@@ -1140,7 +1084,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
   select coalesce(realisasi.my_role() in ('io_admin','submitter'), false) or realisasi.in_team('mobility')
 $$;
 
--- participant identifiers in log diffs replaced by counts (M6: Partnership/viewers see counts only)
+-- participant identifiers in log diffs replaced by counts (viewers see counts only)
 create function realisasi._mask_log_diff(p jsonb) returns jsonb
 language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
   select case when p is null or jsonb_typeof(p) <> 'object' then p else
@@ -1196,8 +1140,7 @@ $$;
 create function realisasi._can_edit_participants(p_activity uuid, p_include_io boolean default true) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select exists (select 1 from realisasi.activities a where a.id = p_activity and (
-           (realisasi._is_unit_editor(a.id) and a.status <> 'rejected'
-             and (a.status = 'draft' or a.mobility_status = 'revision_requested' or a.partnership_status = 'revision_requested'))
+           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.mobility_status = 'revision_requested'))
         or (p_include_io and a.status = 'verified' and realisasi.in_team('mobility'))))
 $$;
 
@@ -1205,15 +1148,16 @@ $$;
 create function realisasi._can_write_files(p_activity uuid) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select exists (select 1 from realisasi.activities a where a.id = p_activity and (
-           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.partnership_status = 'revision_requested'))
-        or (a.status = 'verified' and realisasi.in_team('partnership'))))
+           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.mobility_status = 'revision_requested'))
+        or (a.status = 'verified' and realisasi.my_role() = 'io_admin')))
 $$;
 
 -- View helpers (definer, counts only; granted so security_invoker views can call them)
-create function realisasi.activity_linked_count(p_activity uuid) returns int
+-- open student conflicts of an activity (count only; Revisi V.1 rule 2.1)
+create function realisasi.activity_open_conflicts(p_activity uuid) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select count(*)::int from realisasi.activities o
-    join realisasi.activities a on a.id = p_activity and o.event_group_id = a.event_group_id and o.id <> a.id
+  select count(*)::int from realisasi.participant_conflicts c
+   where c.status = 'open' and (c.activity_a = p_activity or c.activity_b = p_activity)
 $$;
 
 create function realisasi.activity_participant_total(p_activity uuid) returns int
@@ -1276,14 +1220,6 @@ $$;
 create function realisasi._notify_team(p_team realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
 language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._notify_many(realisasi._team_ids(p_team), p_kind, p_title, p_body, p_link);
-  select null::void
-$$;
-
--- team notification minus the members of another team already notified for the same event (requirements-review L-4)
-create function realisasi._notify_team_except(p_team realisasi.team, p_except realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
-language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select realisasi._notify_many(array(select unnest(realisasi._team_ids(p_team)) except select unnest(realisasi._team_ids(p_except))),
-                                p_kind, p_title, p_body, p_link);
   select null::void
 $$;
 

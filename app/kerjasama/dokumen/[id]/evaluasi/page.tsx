@@ -64,7 +64,7 @@ export default async function EvaluasiPage(props: { params: Promise<{ id: string
           <Alert variant="info">
             <Hourglass aria-hidden="true" />
             <AlertDescription>
-              Dalam masa tenggang hingga {formatDate(grace.grace_until)} — kerja sama baru belum dihitung dalam penyebut KPI 1.19.24.
+              Dalam masa tenggang hingga {formatDate(grace.grace_until)} — kerja sama baru belum dihitung dalam penyebut RENSTRA 1.19.24.
             </AlertDescription>
           </Alert>
         ) : null}

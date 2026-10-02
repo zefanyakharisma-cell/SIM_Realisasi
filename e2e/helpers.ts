@@ -4,7 +4,7 @@ import { expect, type Page } from '@playwright/test';
 /** Seed accounts (CONTRACTS §5.3). */
 export const ACCOUNTS = {
   kepalaIo: 'kepala.io@demo.petra.ac.id',
-  ioPartnership: 'io.partnership@demo.petra.ac.id',
+  ioStaff: 'io.partnership@demo.petra.ac.id',
   ioMobility: 'io.mobility@demo.petra.ac.id',
   uaFti: 'ua-fti@demo.petra.ac.id',
   uaFbe: 'ua-fbe@demo.petra.ac.id',

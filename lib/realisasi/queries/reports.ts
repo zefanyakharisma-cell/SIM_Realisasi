@@ -4,6 +4,8 @@ import type { Tx } from '@/lib/db';
 import type {
   AgreementFlag,
   AgreementRealization,
+  AwardsData,
+  ConflictRow,
   DashboardData,
   DrilldownKpi,
   DrilldownResult,
@@ -18,6 +20,20 @@ export async function getDashboard(tx: Tx, p: PeriodParams): Promise<DashboardDa
   const [row] = await tx`
     select realisasi.dashboard(${p.ay ?? null}::int, ${p.period}::text, ${p.unit ?? null}::int) as r`;
   return row!.r as DashboardData;
+}
+
+/** International Awards leaderboards (Revisi V.1 dashboard tab). */
+export async function getAwards(tx: Tx, p: PeriodParams): Promise<AwardsData> {
+  const [row] = await tx`
+    select realisasi.international_awards(${p.ay ?? null}::int, ${p.period}::text, ${p.unit ?? null}::int) as r`;
+  return row!.r as AwardsData;
+}
+
+/** Student conflicts for the Mobility team (Revisi V.1 rule 2.1). status null = open and resolved. */
+export async function getConflicts(tx: Tx, opts: { activityId?: string; status?: 'open' | 'resolved' | null } = {}): Promise<ConflictRow[]> {
+  const status = opts.status === undefined ? 'open' : opts.status;
+  const [row] = await tx`select realisasi.conflict_list(${opts.activityId ?? null}::uuid, ${status}::text) as r`;
+  return (row!.r ?? []) as ConflictRow[];
 }
 
 /** AY id to use when the URL has none: the AY containing today(), else the latest. */
@@ -101,12 +117,13 @@ export interface UnitOption {
   kind: string;
 }
 
+/** Unit filter options: Unit Akademik only (Revisi V.1). */
 export async function listUnits(tx: Tx): Promise<UnitOption[]> {
-  const rows = await tx`select id, name, kind from kerjasama.units order by name`;
+  const rows = await tx`select id, name, kind from kerjasama.units where is_academic order by name`;
   return rows.map((r) => ({ id: Number(r.id), name: String(r.name), kind: String(r.kind) }));
 }
 
-/** Integer settings used for SLA thresholds etc. */
+/** Integer settings (grace period, reporting deadline, reminders). */
 export async function getSettingsMap(tx: Tx): Promise<Record<string, unknown>> {
   const rows = await tx`select key, value from realisasi.settings`;
   return Object.fromEntries(rows.map((r) => [String(r.key), r.value as unknown]));
@@ -152,31 +169,31 @@ export async function listDocuments(tx: Tx): Promise<DocumentListRow[]> {
   }));
 }
 
-export interface ActivityTypeRow {
-  id: number;
+export interface AgendaRuleRow {
+  agenda_id: number;
   name: string;
-  direction: 'inbound' | 'outbound' | 'none';
-  counts_as_mobility: boolean;
-  counts_for_s1: boolean;
-  requires_mobility_review: boolean;
   is_active: boolean;
-  sort_order: number;
+  mobility_category: import('@/lib/realisasi/types').MobilityCategory | null;
+  counts_for_s1: boolean;
+  /** Number of kegiatan using this agenda (shown in Pengaturan). */
+  activities: number;
 }
 
-export async function listActivityTypes(tx: Tx): Promise<ActivityTypeRow[]> {
+/** SIMKS agendas (Jenis Kegiatan) with Realisasi's counting rule for each (Pengaturan). */
+export async function listAgendaRules(tx: Tx): Promise<AgendaRuleRow[]> {
   const rows = await tx`
-    select id, name, direction::text as direction, counts_as_mobility, counts_for_s1, requires_mobility_review,
-           is_active, coalesce(sort_order, 0) as sort_order
-      from realisasi.activity_types order by sort_order, id`;
+    select g.id as agenda_id, g.name, g.is_active, r.mobility_category::text as mobility_category,
+           coalesce(r.counts_for_s1, true) as counts_for_s1,
+           (select count(*) from realisasi.activities a where a.agenda_id = g.id)::int as activities
+      from kerjasama.agendas g left join realisasi.agenda_rules r on r.agenda_id = g.id
+     order by (r.mobility_category is null), g.is_active desc, g.name`;
   return rows.map((r) => ({
-    id: Number(r.id),
+    agenda_id: Number(r.agenda_id),
     name: String(r.name),
-    direction: r.direction as ActivityTypeRow['direction'],
-    counts_as_mobility: Boolean(r.counts_as_mobility),
-    counts_for_s1: Boolean(r.counts_for_s1),
-    requires_mobility_review: Boolean(r.requires_mobility_review),
     is_active: Boolean(r.is_active),
-    sort_order: Number(r.sort_order),
+    mobility_category: (r.mobility_category ?? null) as AgendaRuleRow['mobility_category'],
+    counts_for_s1: Boolean(r.counts_for_s1),
+    activities: Number(r.activities),
   }));
 }
 
@@ -201,9 +218,4 @@ export async function listSemesters(tx: Tx): Promise<SemesterRow[]> {
     end_date: String(r.end_date),
     cutoff_date: String(r.cutoff_date),
   }));
-}
-
-export async function listHolidays(tx: Tx): Promise<Array<{ day: string; name: string }>> {
-  const rows = await tx`select day, name from realisasi.holidays order by day`;
-  return rows.map((r) => ({ day: String(r.day), name: String(r.name) }));
 }

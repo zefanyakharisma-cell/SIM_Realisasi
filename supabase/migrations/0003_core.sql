@@ -84,41 +84,6 @@ language sql security definer set search_path = realisasi, extensions, public, p
   select realisasi._raise('STATE_INVALID', 'Tindakan tidak dapat dilakukan pada status kegiatan saat ini.')
 $$;
 
--- Business days / SLA -----------------------------------------------------
--- closed form: weekdays in (p_from, p_to] minus weekday holidays (no per-day series; M10)
-create function realisasi.business_days_between(p_from date, p_to date) returns int
-language sql stable parallel safe security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_from is null or p_to is null or p_to <= p_from then 0 else (
-    select (5 * (n / 7)
-            + (select count(*) from generate_series(1, n % 7) k where extract(isodow from p_from + 7 * (n / 7) + k) < 6)
-            - (select count(*) from realisasi.holidays h where h.day > p_from and h.day <= p_to and extract(isodow from h.day) < 6))::int
-      from (select p_to - p_from as n) x) end
-$$;
-
-create function realisasi._business_days_ago(p_n int) returns date
-language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_today date := realisasi.today(); v_d date := realisasi.today();
-begin
-  while realisasi.business_days_between(v_d, v_today) < p_n loop
-    v_d := v_d - 1;
-  end loop;
-  return v_d;
-end $$;
-
-create function realisasi.sla_days(p_since timestamptz) returns int
-language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_since is null then null
-    else realisasi.business_days_between((p_since at time zone 'Asia/Jakarta')::date, realisasi.today()) end
-$$;
-
-create function realisasi.sla_level(p_days int) returns text
-language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select case when p_days is null then null
-              when p_days > realisasi.setting_int('sla_red_days') then 'red'
-              when p_days > realisasi.setting_int('sla_yellow_days') then 'yellow'
-              else 'ok' end
-$$;
-
 -- Renewal chains (Schema §5.1) -------------------------------------------
 create function realisasi.chain_root(p_doc int) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
@@ -163,8 +128,8 @@ $$;
 
 create function realisasi._snapshot_label(p_kind realisasi.snapshot_kind, p_ay_label text) returns text
 language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
-  select case p_kind when 'ganjil_ytd' then 'Ganjil ' || p_ay_label || ' (YTD)'
-                     else 'Genap ' || p_ay_label || ' (Setahun)' end
+  select case p_kind when 'ganjil_ytd' then 'Ganjil ' || p_ay_label
+                     else 'Setahun ' || p_ay_label end
 $$;
 
 create function realisasi._fmt_date(p_d date) returns text
@@ -252,7 +217,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
   select coalesce(realisasi.my_role() in ('io_admin','submitter'), false) or realisasi.in_team('mobility')
 $$;
 
--- participant identifiers in log diffs replaced by counts (M6: Partnership/viewers see counts only)
+-- participant identifiers in log diffs replaced by counts (viewers see counts only)
 create function realisasi._mask_log_diff(p jsonb) returns jsonb
 language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
   select case when p is null or jsonb_typeof(p) <> 'object' then p else
@@ -308,8 +273,7 @@ $$;
 create function realisasi._can_edit_participants(p_activity uuid, p_include_io boolean default true) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select exists (select 1 from realisasi.activities a where a.id = p_activity and (
-           (realisasi._is_unit_editor(a.id) and a.status <> 'rejected'
-             and (a.status = 'draft' or a.mobility_status = 'revision_requested' or a.partnership_status = 'revision_requested'))
+           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.mobility_status = 'revision_requested'))
         or (p_include_io and a.status = 'verified' and realisasi.in_team('mobility'))))
 $$;
 
@@ -317,15 +281,16 @@ $$;
 create function realisasi._can_write_files(p_activity uuid) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select exists (select 1 from realisasi.activities a where a.id = p_activity and (
-           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.partnership_status = 'revision_requested'))
-        or (a.status = 'verified' and realisasi.in_team('partnership'))))
+           (realisasi._is_unit_editor(a.id) and (a.status = 'draft' or a.mobility_status = 'revision_requested'))
+        or (a.status = 'verified' and realisasi.my_role() = 'io_admin')))
 $$;
 
 -- View helpers (definer, counts only; granted so security_invoker views can call them)
-create function realisasi.activity_linked_count(p_activity uuid) returns int
+-- open student conflicts of an activity (count only; Revisi V.1 rule 2.1)
+create function realisasi.activity_open_conflicts(p_activity uuid) returns int
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select count(*)::int from realisasi.activities o
-    join realisasi.activities a on a.id = p_activity and o.event_group_id = a.event_group_id and o.id <> a.id
+  select count(*)::int from realisasi.participant_conflicts c
+   where c.status = 'open' and (c.activity_a = p_activity or c.activity_b = p_activity)
 $$;
 
 create function realisasi.activity_participant_total(p_activity uuid) returns int
@@ -388,14 +353,6 @@ $$;
 create function realisasi._notify_team(p_team realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
 language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select realisasi._notify_many(realisasi._team_ids(p_team), p_kind, p_title, p_body, p_link);
-  select null::void
-$$;
-
--- team notification minus the members of another team already notified for the same event (requirements-review L-4)
-create function realisasi._notify_team_except(p_team realisasi.team, p_except realisasi.team, p_kind text, p_title text, p_body text, p_link text) returns void
-language sql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select realisasi._notify_many(array(select unnest(realisasi._team_ids(p_team)) except select unnest(realisasi._team_ids(p_except))),
-                                p_kind, p_title, p_body, p_link);
   select null::void
 $$;
 

@@ -3,11 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  BookOpen,
   ClipboardList,
-  Copy,
   FileText,
-  Handshake,
   LayoutDashboard,
   PlusCircle,
   BarChart3,
@@ -22,10 +19,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   dashboard: LayoutDashboard,
   list: ClipboardList,
   plus: PlusCircle,
-  handshake: Handshake,
   users: Users,
-  copy: Copy,
-  book: BookOpen,
   report: BarChart3,
   settings: Settings,
   file: FileText,

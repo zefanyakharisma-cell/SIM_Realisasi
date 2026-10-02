@@ -9,11 +9,10 @@
  * no blocking rows it is persisted with `saveParticipants` (DB re-validates; row errors map back).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileText, Loader2, Trash2, Upload, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Download, Loader2, Trash2, Upload, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileDrop } from '@/components/ui/file-drop';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -22,7 +21,6 @@ import { useSaveActions } from '@/components/realisasi/wizard/save-status';
 import { saveParticipants } from '@/lib/realisasi/actions/submission';
 import { MAX_LOOKUP_IDS, splitIdTokens } from '@/lib/realisasi/schemas/participants';
 import { createDraftSaver, type DraftSaver, type SaveOutcome } from '@/lib/realisasi/save-queue';
-import { MAX_FILE_BYTES } from '@/lib/storage';
 import {
   dbRowErrors,
   fromVersion,
@@ -254,9 +252,6 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
       home_institution: r.student?.home_institution ?? '',
       home_student_number: '',
       home_country_code: r.student?.home_country_code ?? '',
-      transcript_path: null,
-      transcript_href: null,
-      row_note: null,
     }));
     if (added.length) commit({ type: 'addStudents', rows: added });
     return rejected.length ? `NRP duplikat ditolak (sudah ada dalam daftar): ${rejected.join(', ')}.` : null;
@@ -278,7 +273,6 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
       blocking: r.blocking,
       full_name: r.employee?.full_name ?? null,
       unit_name: r.employee?.unit_name ?? null,
-      row_note: null,
     }));
     if (added.length) commit({ type: 'addStaff', rows: added });
     return rejected.length ? `ID pegawai duplikat ditolak (sudah ada dalam daftar): ${rejected.join(', ')}.` : null;
@@ -288,25 +282,6 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
   const removeStaff = (k: string) => commit({ type: 'removeStaff', key: k });
   const patchStudent = (k: string, patch: Partial<Omit<StudentRow, 'key'>>, immediate = false) =>
     commit({ type: 'patchStudent', key: k, patch }, immediate);
-
-  async function uploadTranscript(row: StudentRow, file: File) {
-    const fd = new FormData();
-    fd.set('activity_id', activityId);
-    fd.set('target', 'transcript');
-    fd.set('nrp', row.nrp);
-    fd.set('file', file);
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const body = (await res.json().catch(() => ({}))) as { path?: string; href?: string; message?: string };
-      if (!res.ok || !body.path) throw new Error(body.message ?? 'Transkrip gagal diunggah.');
-      // Patch only this row's transcript on the latest rows (H-2).
-      if (rowsRef.current.students.some((s) => s.key === row.key)) {
-        patchStudent(row.key, { transcript_path: body.path, transcript_href: body.href ?? null }, true);
-      }
-    } catch (e) {
-      setSaveError(e instanceof Error && !(e instanceof SyntaxError) ? e.message : 'Transkrip gagal diunggah.');
-    }
-  }
 
   const internal = students.filter((s) => s.section === 'internal');
   const inbound = students.filter((s) => s.section === 'inbound');
@@ -454,9 +429,8 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                     <Trash2 aria-hidden />
                   </Button>
                 </div>
-                {r.row_note && <p className="mt-1 text-xs text-amber-800">Catatan IO: {r.row_note}</p>}
                 {!r.blocking && (
-                  <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <div className="space-y-1">
                       <Label htmlFor={`${r.key}-inst`}>Institusi asal *</Label>
                       <Input
@@ -487,30 +461,6 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                           </option>
                         ))}
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium" id={`${r.key}-tr-label`}>
-                        Transkrip (PDF) *
-                      </p>
-                      {r.transcript_href && (
-                        <a
-                          href={r.transcript_href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <FileText className="h-3.5 w-3.5" aria-hidden /> Lihat transkrip<span className="sr-only"> (tab baru)</span>
-                        </a>
-                      )}
-                      <FileDrop
-                        accept="application/pdf"
-                        maxBytes={MAX_FILE_BYTES}
-                        label={r.transcript_path ? 'Ganti transkrip' : 'Unggah transkrip'}
-                        hint="PDF, maks. 10 MB"
-                        aria-describedby={`${r.key}-tr-label`}
-                        aria-invalid={!r.transcript_path || undefined}
-                        onFiles={(files) => files[0] && void uploadTranscript(r, files[0])}
-                      />
                     </div>
                   </div>
                 )}
@@ -547,7 +497,6 @@ function StudentTable({ rows, onRemove }: { rows: StudentRow[]; onRemove: (key: 
                   <StatusIcon status={r.status} blocking={r.blocking} />
                   <span className={r.blocking ? 'font-medium text-red-800' : ''}>{STATUS_TEXT[r.status]}</span>
                 </span>
-                {r.row_note && <span className="mt-1 block text-xs text-amber-800">Catatan IO: {r.row_note}</span>}
               </td>
               <td className="px-3 py-2 font-mono">{r.nrp}</td>
               <td className="px-3 py-2">{r.full_name ?? '–'}</td>

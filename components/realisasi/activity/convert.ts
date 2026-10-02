@@ -4,19 +4,18 @@ import type { ActivityDetail, ActivityDetailPayload, DocumentOption } from '@/li
 export function detailToPayload(d: ActivityDetail): ActivityDetailPayload {
   return {
     name: d.name,
-    type_id: d.type.id,
+    agenda_id: d.agenda.id,
+    direction: d.direction,
     start_date: d.start_date,
     end_date: d.end_date,
     mode: d.mode,
     venue: d.venue,
-    city: d.city,
     country_code: d.country_code,
     sks_recognized: d.sks_recognized,
-    funding_source: d.funding_source,
     description: d.description,
     submitter_unit_id: d.submitter_unit.id,
     co_unit_ids: d.units.filter((u) => !u.is_submitter).map((u) => u.id),
-    document_ids: d.documents.map((x) => x.original_document_id),
+    document_id: d.documents[0]?.original_document_id ?? null,
     sdg_ids: d.sdg_ids,
     external_persons: d.external_persons.map((p) => ({
       full_name: p.full_name,

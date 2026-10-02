@@ -16,7 +16,7 @@ export interface ParticipantDiff {
   staff: Array<DiffEntry<ParticipantStaffRow>>;
 }
 
-/** Fields that matter to the reviewer (ids, notes, registry status and hrefs are ignored). */
+/** Fields that matter to the reviewer (ids and registry status are ignored). */
 export const STUDENT_DIFF_FIELDS = [
   'section',
   'full_name',
@@ -25,7 +25,6 @@ export const STUDENT_DIFF_FIELDS = [
   'home_institution',
   'home_student_number',
   'home_country_code',
-  'transcript_path',
 ] as const satisfies ReadonlyArray<keyof ParticipantStudentRow>;
 
 export const STAFF_DIFF_FIELDS = ['full_name', 'unit_name'] as const satisfies ReadonlyArray<keyof ParticipantStaffRow>;

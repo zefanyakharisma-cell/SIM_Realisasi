@@ -20,9 +20,6 @@ const student = (nrp: string, over: Partial<StudentRow> = {}): StudentRow => ({
   home_institution: '',
   home_student_number: '',
   home_country_code: '',
-  transcript_path: null,
-  transcript_href: null,
-  row_note: null,
   ...over,
 });
 const staff = (id: string, over: Partial<StaffRow> = {}): StaffRow => ({
@@ -32,7 +29,6 @@ const staff = (id: string, over: Partial<StaffRow> = {}): StaffRow => ({
   blocking: false,
   full_name: id,
   unit_name: null,
-  row_note: null,
   ...over,
 });
 
@@ -46,16 +42,12 @@ function store(initial: ParticipantsState) {
 }
 
 describe('participantsReducer (H-2 lost updates)', () => {
-  it('two overlapping transcript uploads both survive, whichever finishes last', () => {
+  it('two overlapping edits on different inbound rows both survive', () => {
     const st = store({ students: [student('X1'), student('X2')], staff: [] });
-    // Upload A and upload B start from the same state; B finishes first, then A.
-    st.dispatch({ type: 'patchStudent', key: 'k-X2', patch: { transcript_path: 'p/B.pdf' } });
-    st.dispatch({ type: 'patchStudent', key: 'k-X1', patch: { transcript_path: 'p/A.pdf' } });
-    expect(st.get().students.map((s) => s.transcript_path)).toEqual(['p/A.pdf', 'p/B.pdf']);
-    expect(toParticipantsPayload(st.get())?.students.map((s) => ('transcript_path' in s ? s.transcript_path : null))).toEqual([
-      'p/A.pdf',
-      'p/B.pdf',
-    ]);
+    st.dispatch({ type: 'patchStudent', key: 'k-X2', patch: { home_institution: 'B' } });
+    st.dispatch({ type: 'patchStudent', key: 'k-X1', patch: { home_institution: 'A' } });
+    expect(st.get().students.map((s) => s.home_institution)).toEqual(['A', 'B']);
+    expect(toParticipantsPayload(st.get())?.students.map((s) => s.home_institution)).toEqual(['A', 'B']);
   });
 
   it('a slow student lookup does not restore staff rows removed meanwhile', () => {
@@ -68,11 +60,11 @@ describe('participantsReducer (H-2 lost updates)', () => {
     expect(st.get().students.map((s) => s.nrp)).toEqual(['A1']);
   });
 
-  it('typing in an inbound row is kept when a transcript upload completes later', () => {
+  it('typing in an inbound row is kept when a later patch completes', () => {
     const st = store({ students: [student('X1')], staff: [] });
     st.dispatch({ type: 'patchStudent', key: 'k-X1', patch: { home_institution: 'NUS' } });
-    st.dispatch({ type: 'patchStudent', key: 'k-X1', patch: { transcript_path: 'p/X1.pdf', transcript_href: '/api/files/p/X1.pdf' } });
-    expect(st.get().students[0]).toMatchObject({ home_institution: 'NUS', transcript_path: 'p/X1.pdf' });
+    st.dispatch({ type: 'patchStudent', key: 'k-X1', patch: { home_country_code: 'SG' } });
+    expect(st.get().students[0]).toMatchObject({ home_institution: 'NUS', home_country_code: 'SG' });
   });
 
   it('concurrent lookups returning the same id add it once', () => {

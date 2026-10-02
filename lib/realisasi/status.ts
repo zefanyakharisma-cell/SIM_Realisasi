@@ -4,19 +4,15 @@
 import type {
   ActivityMode,
   ActivityStatus,
+  ConflictStatus,
   Direction,
-  DupStatus,
   FileKind,
-  FundingSource,
-  KnownSource,
-  KnownStatus,
   LogKind,
+  MobilityCategory,
   Period,
   PersonRole,
   PsetStatus,
-  RejectReason,
   Role,
-  SlaLevel,
   SnapshotKind,
   StudentSection,
   Team,
@@ -30,7 +26,6 @@ export const ACTIVITY_STATUS_LABEL: Record<ActivityStatus, string> = {
   in_verification: 'Dalam Verifikasi',
   revision_requested: 'Perlu Revisi',
   verified: 'Terverifikasi',
-  rejected: 'Ditolak',
 };
 
 export const ACTIVITY_STATUS_TONE: Record<ActivityStatus, Tone> = {
@@ -38,16 +33,14 @@ export const ACTIVITY_STATUS_TONE: Record<ActivityStatus, Tone> = {
   in_verification: 'blue',
   revision_requested: 'amber',
   verified: 'green',
-  rejected: 'red',
 };
 
 /** Tooltip text so status is never conveyed by colour alone (Design §6). */
 export const ACTIVITY_STATUS_DESCRIPTION: Record<ActivityStatus, string> = {
   draft: 'Belum diajukan ke International Office.',
-  in_verification: 'Sedang diverifikasi oleh International Office.',
-  revision_requested: 'International Office meminta perbaikan dari unit.',
-  verified: 'Disetujui pada semua jalur verifikasi.',
-  rejected: 'Ditolak oleh tim Kemitraan.',
+  in_verification: 'Menunggu Verifikasi Mobilitas oleh International Office.',
+  revision_requested: 'Tim Mobilitas meminta perbaikan dari unit.',
+  verified: 'Tercatat dan dihitung dalam capaian Renstra.',
 };
 
 export const TRACK_STATUS_LABEL: Record<TrackStatus, string> = {
@@ -55,7 +48,6 @@ export const TRACK_STATUS_LABEL: Record<TrackStatus, string> = {
   pending: 'Menunggu',
   revision_requested: 'Perlu Revisi',
   approved: 'Disetujui',
-  rejected: 'Ditolak',
 };
 
 export const TRACK_STATUS_TONE: Record<TrackStatus, Tone> = {
@@ -63,11 +55,9 @@ export const TRACK_STATUS_TONE: Record<TrackStatus, Tone> = {
   pending: 'blue',
   revision_requested: 'amber',
   approved: 'green',
-  rejected: 'red',
 };
 
 export const TRACK_LABEL: Record<Team, string> = {
-  partnership: 'Kemitraan',
   mobility: 'Mobilitas',
 };
 
@@ -87,65 +77,33 @@ export const PSET_STATUS_TONE: Record<PsetStatus, Tone> = {
   superseded: 'neutral',
 };
 
-export const KNOWN_STATUS_LABEL: Record<KnownStatus, string> = {
-  unmatched: 'Belum dilaporkan',
-  matched: 'Cocok',
-  dismissed: 'Diabaikan',
+export const CONFLICT_STATUS_LABEL: Record<ConflictStatus, string> = {
+  open: 'Menunggu keputusan',
+  resolved: 'Diputuskan',
 };
 
-export const KNOWN_STATUS_TONE: Record<KnownStatus, Tone> = {
-  unmatched: 'amber',
-  matched: 'green',
-  dismissed: 'neutral',
-};
-
-export const KNOWN_SOURCE_LABEL: Record<KnownSource, string> = {
-  surat_tugas: 'Surat Tugas',
-  news: 'Berita',
-  faculty_report: 'Laporan Fakultas',
-  loa_visa_letter: 'LoA/Surat Visa',
-  email: 'Email',
-  other: 'Lainnya',
-};
-
-export const DUP_STATUS_LABEL: Record<DupStatus, string> = {
-  open: 'Terbuka',
-  linked: 'Ditautkan',
-  dismissed: 'Bukan duplikat',
-};
-
-export const DUP_STATUS_TONE: Record<DupStatus, Tone> = {
+export const CONFLICT_STATUS_TONE: Record<ConflictStatus, Tone> = {
   open: 'purple',
-  linked: 'green',
-  dismissed: 'neutral',
+  resolved: 'green',
 };
 
-export const REJECT_REASON_LABEL: Record<RejectReason, string> = {
-  duplicate: 'Duplikat',
-  not_partnership: 'Bukan kegiatan kerja sama',
-  wrong_agreement: 'Kerja sama salah',
-  other: 'Lainnya',
+/** International Awards categories (Revisi V.1). */
+export const MOBILITY_CATEGORY_LABEL: Record<MobilityCategory, string> = {
+  jd_dd: 'Joint Degree / Double Degree',
+  student_exchange: 'Student Exchange',
+  short_summer: 'Short / Summer Program',
+  other_mobility: 'Mobilitas lainnya',
 };
 
 export const DIRECTION_LABEL: Record<Direction, string> = {
   inbound: 'Inbound',
   outbound: 'Outbound',
-  none: 'Tidak berlaku',
 };
 
 export const MODE_LABEL: Record<ActivityMode, string> = {
   offline: 'Luring',
   online: 'Daring',
   hybrid: 'Hibrida',
-};
-
-export const FUNDING_LABEL: Record<FundingSource, string> = {
-  pcu: 'Universitas (PCU)',
-  partner: 'Mitra',
-  government: 'Pemerintah',
-  participant: 'Mandiri (peserta)',
-  mixed: 'Campuran',
-  none: 'Tanpa pendanaan',
 };
 
 export const PERSON_ROLE_LABEL: Record<PersonRole, string> = {
@@ -159,6 +117,7 @@ export const PERSON_ROLE_LABEL: Record<PersonRole, string> = {
 export const FILE_KIND_LABEL: Record<FileKind, string> = {
   ia: 'Implementation Arrangement',
   ir: 'Implementation Report',
+  mobility_bundle: 'Transkrip, Poster & Dokumentasi (PDF)',
   evidence: 'Bukti',
 };
 
@@ -168,14 +127,16 @@ export const SECTION_LABEL: Record<StudentSection, string> = {
 };
 
 export const SNAPSHOT_KIND_LABEL: Record<SnapshotKind, string> = {
-  ganjil_ytd: 'Ganjil (YTD)',
+  ganjil_ytd: 'Ganjil',
   genap_full_year: 'Setahun',
 };
 
+/** Revisi V.1 cut-offs for charts and Excel downloads. */
 export const PERIOD_LABEL: Record<Period, string> = {
-  ganjil: 'Ganjil (YTD)',
-  full: 'Setahun',
-  live: 'Live',
+  ganjil: 'Ganjil',
+  genap: 'Genap',
+  full: 'Setahun (kumulatif)',
+  ytd: 'YTD',
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -199,41 +160,21 @@ export const LOG_ACTION_LABEL: Record<string, string> = {
   resubmit: 'Diajukan ulang',
   approve: 'Disetujui',
   request_revision: 'Diminta revisi',
-  reject: 'Ditolak',
   edit: 'Diubah',
   edit_detail: 'Detail diperbaiki',
   file_upload: 'Berkas diunggah',
   file_remove: 'Berkas dihapus',
-  link_duplicate: 'Ditautkan sebagai duplikat',
-  unlink_duplicate: 'Tautan duplikat dibatalkan',
-  dismiss_duplicate: 'Ditandai bukan duplikat',
+  resolve_conflict: 'Keputusan duplikat mahasiswa',
 };
 
 export function logActionLabel(action: string): string {
   return LOG_ACTION_LABEL[action] ?? action;
 }
 
-export const SLA_TONE: Record<SlaLevel, Tone> = {
-  ok: 'neutral',
-  yellow: 'yellow',
-  red: 'red',
-};
-
-export const SLA_LEVEL_LABEL: Record<SlaLevel, string> = {
-  ok: 'Normal',
-  yellow: 'Kuning',
-  red: 'Merah',
-};
-
-/** 'SLA 4 hari' (business days). */
-export function slaText(days: number): string {
-  return `SLA ${days} hari`;
-}
-
 export const FLAG_LABEL = {
   late: 'Terlambat',
   out_of_scope: 'Di luar lingkup',
-  duplicate: 'Duplikat?',
+  conflict: 'Duplikat mahasiswa',
   late_addition: 'Tambahan susulan',
 } as const;
 
@@ -243,13 +184,13 @@ export type FlagKey = keyof typeof FLAG_LABEL;
 export const FLAG_TONE: Record<FlagKey, Tone> = {
   late: 'amber',
   out_of_scope: 'neutral',
-  duplicate: 'purple',
+  conflict: 'purple',
   late_addition: 'blue',
 };
 
 export const FLAG_DESCRIPTION: Record<FlagKey, string> = {
   late: 'Diajukan setelah batas pelaporan.',
   out_of_scope: 'Unit pengaju tidak termasuk dalam Lingkup Kerja Sama dokumen.',
-  duplicate: 'Ada kandidat duplikat yang belum ditinjau.',
+  conflict: 'Ada mahasiswa yang juga diklaim unit lain; menunggu keputusan tim Mobilitas.',
   late_addition: 'Diverifikasi setelah snapshot periode kegiatan dibekukan.',
 };

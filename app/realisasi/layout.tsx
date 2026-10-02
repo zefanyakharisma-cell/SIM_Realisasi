@@ -3,7 +3,7 @@ import { withUser } from '@/lib/db';
 import { getDemoToday, requireUser } from '@/lib/session';
 import type { NavCounts } from '@/lib/realisasi/types';
 
-const ZERO_COUNTS: NavCounts = { partnership_queue: 0, mobility_queue: 0, duplicates_open: 0, revision_inbox: 0, unread_notifications: 0 };
+const ZERO_COUNTS: NavCounts = { mobility_queue: 0, conflicts_open: 0, revision_inbox: 0, unread_notifications: 0 };
 
 export const dynamic = 'force-dynamic';
 

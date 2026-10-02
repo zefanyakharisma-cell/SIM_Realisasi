@@ -10,7 +10,8 @@ describe('formatDiffLines (requirements review L-2, WP-DB amendment 26)', () => 
   });
   it('renders id lists and masked counts', () => {
     expect(formatDiffLines({ students: { added: ['B1'], removed: ['B2'] } })).toEqual(['Mahasiswa: +B1 ; −B2']);
-    expect(formatDiffLines({ students: { added: 2, removed: 0 }, row_notes: 3 })).toEqual(['Mahasiswa: +2 baris', 'Catatan per baris: 3 catatan']);
+    expect(formatDiffLines({ students: { added: 2, removed: 0 } })).toEqual(['Mahasiswa: +2 baris']);
+    expect(formatDiffLines({ nrp: 'B1', kept: 'RL-2026-0013' })).toEqual(['NRP: B1', 'Diakui pada: RL-2026-0013']);
     expect(formatDiffLines(null)).toEqual([]);
   });
 });

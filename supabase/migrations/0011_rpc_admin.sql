@@ -1,4 +1,4 @@
--- 0011_rpc_admin: settings, calendar, Jenis, holidays (io_admin) + notifications / export log.
+-- 0011_rpc_admin: settings, calendar, Jenis Kegiatan rules (io_admin) + notifications / export log.
 
 create function realisasi._require_admin() returns uuid
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
@@ -15,20 +15,14 @@ $$;
 
 create function realisasi.update_settings(p_values jsonb) returns jsonb
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_uid uuid := realisasi._require_admin(); k text; v jsonb; v_merged jsonb;
-  c_int text[] := array['grace_period_months','reporting_deadline_days','sla_yellow_days','sla_red_days',
-                        'revision_reminder_days','revision_escalate_days','dup_date_window_days',
-                        'known_match_window_days','nudge_resend_days','deadline_reminder_before_days'];
-  c_num text[] := array['dup_name_similarity','known_name_similarity'];
+declare v_uid uuid := realisasi._require_admin(); k text; v jsonb;
+  c_int text[] := array['grace_period_months','reporting_deadline_days','revision_reminder_days',
+                        'deadline_reminder_before_days'];
 begin
   if p_values is null or jsonb_typeof(p_values) <> 'object' then perform realisasi._settings_invalid('payload'); end if;
   for k, v in select * from jsonb_each(p_values) loop
     if k = any(c_int) then
       if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric < 0 or (v #>> '{}')::numeric <> trunc((v #>> '{}')::numeric) then
-        perform realisasi._settings_invalid(k);
-      end if;
-    elsif k = any(c_num) then
-      if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric <= 0 or (v #>> '{}')::numeric > 1 then
         perform realisasi._settings_invalid(k);
       end if;
     elsif k = 'demo_today' then
@@ -43,11 +37,6 @@ begin
       perform realisasi._settings_invalid(k);
     end if;
   end loop;
-  select jsonb_object_agg(key, value) || p_values into v_merged from realisasi.settings;
-  if (v_merged ->> 'sla_red_days')::int <= (v_merged ->> 'sla_yellow_days')::int then perform realisasi._settings_invalid('sla_red_days'); end if;
-  if (v_merged ->> 'revision_escalate_days')::int <= (v_merged ->> 'revision_reminder_days')::int then
-    perform realisasi._settings_invalid('revision_escalate_days');
-  end if;
   insert into realisasi.settings (key, value, updated_by)
   select key, value, v_uid from jsonb_each(p_values)
   on conflict (key) do update set value = excluded.value, updated_by = excluded.updated_by;
@@ -147,62 +136,31 @@ begin
   return v_id;
 end $$;
 
-create function realisasi.upsert_activity_type(p_id int, p_data jsonb) returns int
+-- Jenis Kegiatan rules (Revisi V.1): the agenda list itself belongs to SIM Kerjasama; Realisasi only decides whether
+-- an agenda is a mobility kegiatan (and its International Awards category) and whether it counts for KPI 1.19.S1.
+-- p_data: {mobility_category: 'jd_dd'|'student_exchange'|'short_summer'|'other_mobility'|null, counts_for_s1: bool}
+create function realisasi.set_agenda_rule(p_agenda_id int, p_data jsonb) returns jsonb
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_uid uuid := realisasi._require_admin(); t realisasi.activity_types; v_id int;
+declare v_uid uuid := realisasi._require_admin(); r realisasi.agenda_rules;
 begin
   if p_data is null or jsonb_typeof(p_data) <> 'object' then perform realisasi._invalid('payload'); end if;
-  if p_id is not null then
-    select * into t from realisasi.activity_types where id = p_id;
-    if not found then perform realisasi._not_found(); end if;
-  else
-    t.direction := 'none'; t.counts_as_mobility := false; t.counts_for_s1 := true; t.requires_mobility_review := false;
-    t.is_active := true; t.sort_order := coalesce((select max(sort_order) + 1 from realisasi.activity_types), 1);
-  end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda_id) then perform realisasi._not_found(); end if;
+  select * into r from realisasi.agenda_rules where agenda_id = p_agenda_id;
+  if not found then r.agenda_id := p_agenda_id; r.counts_for_s1 := true; end if;
   begin
-    if p_data ? 'name' then t.name := realisasi._jtext(p_data, 'name'); end if;
-    if p_data ? 'direction' then t.direction := (p_data ->> 'direction')::realisasi.direction; end if;
-    if p_data ? 'counts_as_mobility' then t.counts_as_mobility := (p_data ->> 'counts_as_mobility')::boolean; end if;
-    if p_data ? 'counts_for_s1' then t.counts_for_s1 := (p_data ->> 'counts_for_s1')::boolean; end if;
-    if p_data ? 'requires_mobility_review' then t.requires_mobility_review := (p_data ->> 'requires_mobility_review')::boolean; end if;
-    if p_data ? 'is_active' then t.is_active := (p_data ->> 'is_active')::boolean; end if;
-    if p_data ? 'sort_order' then t.sort_order := (p_data ->> 'sort_order')::int; end if;
+    if p_data ? 'mobility_category' then
+      r.mobility_category := realisasi._jtext(p_data, 'mobility_category')::realisasi.mobility_category;
+    end if;
+    if p_data ? 'counts_for_s1' then r.counts_for_s1 := (p_data ->> 'counts_for_s1')::boolean; end if;
   exception when others then
-    perform realisasi._invalid('activity_type');
+    perform realisasi._invalid('agenda_rule');
   end;
-  if t.name is null then perform realisasi._raise('VALIDATION_REQUIRED', 'Kolom wajib belum diisi: name.', '{"fields":["name"]}'); end if;
-  if t.direction is null or t.counts_as_mobility is null or t.counts_for_s1 is null or t.requires_mobility_review is null
-     or t.is_active is null then perform realisasi._invalid('activity_type'); end if;
-  if exists (select 1 from realisasi.activity_types where name = t.name and id is distinct from p_id) then perform realisasi._invalid('name'); end if;
-  if p_id is null then
-    insert into realisasi.activity_types (name, direction, counts_as_mobility, counts_for_s1, requires_mobility_review, is_active, sort_order)
-    values (t.name, t.direction, t.counts_as_mobility, t.counts_for_s1, t.requires_mobility_review, t.is_active, t.sort_order)
-    returning id into v_id;
-  else
-    update realisasi.activity_types set name = t.name, direction = t.direction, counts_as_mobility = t.counts_as_mobility,
-           counts_for_s1 = t.counts_for_s1, requires_mobility_review = t.requires_mobility_review, is_active = t.is_active,
-           sort_order = t.sort_order where id = p_id;
-    v_id := p_id;
-  end if;
-  return v_id;
-end $$;
-
-create function realisasi.upsert_holiday(p_day date, p_name text) returns void
-language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_uid uuid := realisasi._require_admin();
-begin
-  if p_day is null or nullif(btrim(p_name), '') is null then
-    perform realisasi._raise('VALIDATION_REQUIRED', 'Kolom wajib belum diisi: day, name.', '{"fields":["day","name"]}');
-  end if;
-  insert into realisasi.holidays (day, name) values (p_day, btrim(p_name)) on conflict (day) do update set name = excluded.name;
-end $$;
-
-create function realisasi.delete_holiday(p_day date) returns void
-language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_uid uuid := realisasi._require_admin();
-begin
-  delete from realisasi.holidays where day = p_day;
-  if not found then perform realisasi._not_found(); end if;
+  if r.counts_for_s1 is null then perform realisasi._invalid('counts_for_s1'); end if;
+  insert into realisasi.agenda_rules (agenda_id, mobility_category, counts_for_s1, updated_by, updated_at)
+  values (p_agenda_id, r.mobility_category, r.counts_for_s1, v_uid, realisasi.now_ts())
+  on conflict (agenda_id) do update set mobility_category = excluded.mobility_category,
+     counts_for_s1 = excluded.counts_for_s1, updated_by = excluded.updated_by, updated_at = excluded.updated_at;
+  return jsonb_build_object('agenda_id', p_agenda_id, 'mobility_category', r.mobility_category, 'counts_for_s1', r.counts_for_s1);
 end $$;
 
 create function realisasi.mark_notifications_read(p_ids bigint[] default null) returns int

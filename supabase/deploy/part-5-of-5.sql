@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 5 OF 5 (commit 56e49d9).
+-- SIM Realisasi Supabase install, PART 5 OF 5 (commit b0bf749).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -16,8 +16,8 @@ create function realisasi.run_daily_jobs() returns jsonb
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
   v_today date := realisasi.today();
-  v_sla int := 0; v_rem int := 0; v_esc int := 0; v_dl int := 0; v_frozen jsonb := '[]'::jsonb;
-  r record; v_days int; v_level text; v_since timestamptz; v_team realisasi.team; v_queue text; v_tag text; v_kind text;
+  v_rem int := 0; v_dl int := 0; v_frozen jsonb := '[]'::jsonb;
+  r record; v_days int; v_since timestamptz; v_tag text; v_kind text;
   v_n int; v_id uuid; v_epoch bigint;
 begin
   -- system caller (pg_cron/psql) or io_admin; an `authenticated` session with empty claims is refused (M4)
@@ -28,50 +28,16 @@ begin
     from realisasi._chain_map() m
    where m.doc_id = ad.original_document_id and ad.chain_id is distinct from m.root_id;
 
-  -- SLA notices (R-60)
-  for r in select a.*, x.track from realisasi.activities a
-             cross join (values ('partnership'::realisasi.team), ('mobility'::realisasi.team)) x(track)
-            where a.status not in ('draft','rejected')
-              and ((x.track = 'partnership' and a.partnership_status = 'pending')
-                or (x.track = 'mobility' and a.mobility_status = 'pending'))
-            order by a.code, x.track loop
-    v_since := case when r.track = 'partnership' then r.partnership_since else r.mobility_since end;
-    v_days := realisasi.sla_days(v_since);
-    v_level := realisasi.sla_level(v_days);
-    continue when v_level not in ('yellow','red');
-    v_epoch := extract(epoch from v_since)::bigint;
-    if realisasi._mark_once(format('sla:%s:%s:%s:%s', r.id, r.track, v_level, v_epoch)) then
-      v_queue := case when r.track = 'partnership' then '/realisasi/verifikasi/kemitraan' else '/realisasi/verifikasi/mobilitas' end;
-      perform realisasi._notify_many(
-        case when v_level = 'red' then realisasi._team_ids(r.track) || realisasi._admin_ids() else realisasi._team_ids(r.track) end,
-        'sla_' || v_level, format('SLA %s hari: %s', v_days, r.code),
-        format('Kegiatan "%s" menunggu verifikasi %s selama %s hari kerja.', r.name,
-               case when r.track = 'partnership' then 'kemitraan' else 'mobilitas' end, v_days), v_queue);
-      v_sla := v_sla + 1;
-    end if;
-  end loop;
-
-  -- Unit revision reminders / escalations (R-61)
-  for r in select a.*, x.track from realisasi.activities a
-             cross join (values ('partnership'::realisasi.team), ('mobility'::realisasi.team)) x(track)
-            where (x.track = 'partnership' and a.partnership_status = 'revision_requested')
-               or (x.track = 'mobility' and a.mobility_status = 'revision_requested')
-            order by a.code, x.track loop
-    v_since := case when r.track = 'partnership' then r.partnership_since else r.mobility_since end;
+  -- Unit revision reminder (R-61). Revisi V.1: no SLA tracking and no escalation; just a reminder to the unit.
+  for r in select a.* from realisasi.activities a where a.mobility_status = 'revision_requested' order by a.code loop
+    v_since := r.mobility_since;
     v_days := v_today - (v_since at time zone 'Asia/Jakarta')::date;
     v_epoch := extract(epoch from v_since)::bigint;
     if v_days >= realisasi.setting_int('revision_reminder_days')
-       and realisasi._mark_once(format('rev_remind:%s:%s:%s', r.id, r.track, v_epoch)) then
+       and realisasi._mark_once(format('rev_remind:%s:mobility:%s', r.id, v_epoch)) then
       perform realisasi._notify_unit(r.submitter_unit_id, 'revision_reminder', 'Pengingat revisi: ' || r.code,
         format('Revisi kegiatan "%s" belum diajukan ulang (%s hari).', r.name, v_days), '/realisasi/kegiatan/' || r.id);
       v_rem := v_rem + 1;
-    end if;
-    if v_days >= realisasi.setting_int('revision_escalate_days')
-       and realisasi._mark_once(format('rev_escalate:%s:%s:%s', r.id, r.track, v_epoch)) then
-      perform realisasi._notify_many(realisasi._admin_ids() || realisasi._team_ids(r.track), 'revision_escalation',
-        'Eskalasi revisi: ' || r.code,
-        format('Revisi kegiatan "%s" belum diajukan ulang oleh unit selama %s hari.', r.name, v_days), '/realisasi/kegiatan/' || r.id);
-      v_esc := v_esc + 1;
     end if;
   end loop;
 
@@ -108,8 +74,8 @@ begin
     v_frozen := v_frozen || jsonb_build_object('snapshot_id', v_id, 'ay_label', r.ay_label, 'kind', r.kind);
   end loop;
 
-  return jsonb_build_object('today', v_today, 'sla_notices', v_sla, 'revision_reminders', v_rem,
-                            'revision_escalations', v_esc, 'deadline_reminders', v_dl, 'frozen', v_frozen);
+  return jsonb_build_object('today', v_today, 'revision_reminders', v_rem,
+                            'deadline_reminders', v_dl, 'frozen', v_frozen);
 end $$;
 
 -- >>> supabase/migrations/0016_grants.sql
@@ -123,26 +89,25 @@ alter default privileges in schema realisasi revoke execute on functions from pu
 grant usage on schema realisasi to authenticated;
 
 grant select on
-  realisasi.team_members, realisasi.settings, realisasi.academic_years, realisasi.semesters, realisasi.holidays,
-  realisasi.activity_types, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
+  realisasi.team_members, realisasi.settings, realisasi.academic_years, realisasi.semesters,
+  realisasi.agenda_rules, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
   realisasi.activity_documents, realisasi.activity_partner_snapshot, realisasi.activity_sdgs,
   realisasi.activity_external_persons, realisasi.activity_files, realisasi.participant_set_versions,
-  realisasi.participant_students, realisasi.participant_staff, realisasi.duplicate_candidates, realisasi.activity_log,
-  realisasi.known_activities, realisasi.notifications, realisasi.email_outbox, realisasi.export_log,
+  realisasi.participant_students, realisasi.participant_staff, realisasi.participant_conflicts, realisasi.activity_log,
+  realisasi.notifications, realisasi.email_outbox, realisasi.export_log,
   realisasi.kpi_snapshots, realisasi.kpi_snapshot_items
   to authenticated;
-grant select on realisasi.v_activity_documents, realisasi.v_chains, realisasi.v_activity_list,
-                realisasi.v_known_activities, realisasi.v_duplicate_candidates to authenticated;
+grant select on realisasi.v_activity_documents, realisasi.v_chains, realisasi.v_activity_list to authenticated;
 
 -- Helpers called by RLS policies and security_invoker views
 grant execute on function
   realisasi.today(), realisasi.now_ts(), realisasi.setting_int(text), realisasi.setting_num(text), realisasi.settings_json(),
-  realisasi.business_days_between(date, date), realisasi.sla_days(timestamptz), realisasi.sla_level(int),
   realisasi.chain_root(int), realisasi.chain_current(int), realisasi.semester_label(int),
   realisasi.my_role(), realisasi.my_unit(), realisasi.in_team(realisasi.team), realisasi.is_io(),
   realisasi.can_view_activity(uuid), realisasi.can_view_participants(uuid),
   realisasi.in_frozen_period(uuid), realisasi.is_late_addition(uuid),
-  realisasi.activity_linked_count(uuid), realisasi.activity_participant_total(uuid),
+  realisasi.activity_open_conflicts(uuid), realisasi.activity_participant_total(uuid),
+  realisasi.agenda_category(int), realisasi.agenda_is_mobility(int),
   realisasi.demo_time_travel_enabled(),
   realisasi.my_activity_ids(), realisasi.visible_activity_ids(), realisasi.my_pset_ids(),
   realisasi.sees_participant_identifiers()
@@ -157,22 +122,17 @@ grant execute on function
   realisasi.can_read_file(text), realisasi.storage_put(text, text, bytea), realisasi.storage_get(text),
   realisasi.register_activity_file(uuid, realisasi.file_kind, text, text, int, text),
   realisasi.add_evidence_link(uuid, text, text), realisasi.remove_activity_file(bigint),
-  realisasi.partnership_approve(uuid, text), realisasi.partnership_request_revision(uuid, text),
-  realisasi.partnership_reject(uuid, text, text), realisasi.mobility_approve(uuid, text),
-  realisasi.mobility_request_revision(uuid, text, jsonb), realisasi.edit_verified_activity(uuid, jsonb, text),
+  realisasi.mobility_approve(uuid, text),
+  realisasi.mobility_request_revision(uuid, text), realisasi.edit_verified_activity(uuid, jsonb, text),
   realisasi.commit_participant_edit(uuid, text),
-  realisasi.link_duplicates(bigint, text), realisasi.link_activities(uuid, uuid, text), realisasi.dismiss_duplicate(bigint, text),
-  realisasi.unlink_activity(uuid, text),
-  realisasi.create_known_activity(jsonb), realisasi.update_known_activity(bigint, jsonb), realisasi.known_match_suggestions(bigint),
-  realisasi.match_known_activity(bigint, uuid), realisasi.unmatch_known_activity(bigint),
-  realisasi.dismiss_known_activity(bigint, text), realisasi.nudge_known_activity(bigint),
+  realisasi.conflict_list(uuid, text), realisasi.resolve_conflict(bigint, uuid, text),
   realisasi.update_settings(jsonb), realisasi.upsert_academic_year(int, text, date, date),
   realisasi.upsert_semester(int, int, realisasi.semester_term, date, date, date),
-  realisasi.upsert_activity_type(int, jsonb), realisasi.upsert_holiday(date, text), realisasi.delete_holiday(date),
+  realisasi.set_agenda_rule(int, jsonb),
   realisasi.freeze_snapshot(int, realisasi.snapshot_kind, timestamptz, uuid), realisasi.refreeze_snapshot(uuid, text),
   realisasi.run_daily_jobs(),
   realisasi.mark_notifications_read(bigint[]), realisasi.log_export(text, jsonb, int, boolean),
-  realisasi.period_info(int, text), realisasi.dashboard(int, text, int),
+  realisasi.period_info(int, text), realisasi.dashboard(int, text, int), realisasi.international_awards(int, text, int),
   realisasi.kpi_drilldown(int, text, text, text, int, uuid), realisasi.kpi_participant_rows(int, text, int, uuid),
   realisasi.activity_detail(uuid), realisasi.participant_version(uuid, int), realisasi.participant_counts(uuid),
   realisasi.nav_counts(), realisasi.agreement_realization(int), realisasi.agreement_flags(int),
@@ -193,10 +153,10 @@ exception when others then
 end $$;
 
 -- >>> supabase/seed-supabase/01_config.sql
--- seed-supabase/01_config (simks-partnership): same settings/calendar/holidays/Jenis/SDGs as the local demo seed
--- (deployment-agnostic; enables the demo_time_travel deployment flag), plus SIMKS's own public.holidays merged in
--- read-only. Idempotent. Applied by scripts/db-deploy-supabase.sh; never by scripts/db-reset.sh.
--- 01_config: settings, calendar, holidays, Jenis Kegiatan, SDGs. Idempotent and deployment-agnostic: also applied to
+-- seed-supabase/01_config (simks-partnership): same settings/calendar/Jenis Kegiatan rules/SDGs as the local demo seed
+-- (deployment-agnostic; enables the demo_time_travel deployment flag). Idempotent. Applied by
+-- scripts/db-deploy-supabase.sh; never by scripts/db-reset.sh. (Revisi V.1: no SLA, so SIMKS holidays are not needed.)
+-- 01_config: settings, calendar, Jenis Kegiatan rules, SDGs. Idempotent and deployment-agnostic: also applied to
 -- Supabase by supabase/seed-supabase/01_config.sql. Team membership lives with the accounts (00_kerjasama.sql locally,
 -- seed-supabase/03_accounts.sql on Supabase).
 
@@ -205,10 +165,8 @@ end $$;
 insert into realisasi.deployment_flags (key, enabled) values ('demo_time_travel', true) on conflict (key) do nothing;
 
 insert into realisasi.settings (key, value) values
-  ('grace_period_months', '6'), ('reporting_deadline_days', '30'), ('sla_yellow_days', '3'), ('sla_red_days', '5'),
-  ('revision_reminder_days', '7'), ('revision_escalate_days', '14'), ('dup_date_window_days', '3'),
-  ('dup_name_similarity', '0.5'), ('known_match_window_days', '7'), ('known_name_similarity', '0.4'),
-  ('nudge_resend_days', '14'), ('deadline_reminder_before_days', '7'), ('demo_today', 'null')
+  ('grace_period_months', '6'), ('reporting_deadline_days', '30'), ('revision_reminder_days', '7'),
+  ('deadline_reminder_before_days', '7'), ('demo_today', 'null')
 on conflict (key) do nothing;
 
 insert into realisasi.academic_years (id, label, start_date, end_date) values
@@ -224,38 +182,15 @@ insert into realisasi.semesters (id, academic_year_id, term, start_date, end_dat
 on conflict (id) do update set academic_year_id = excluded.academic_year_id, term = excluded.term,
   start_date = excluded.start_date, end_date = excluded.end_date, cutoff_date = excluded.cutoff_date;
 
-insert into realisasi.holidays (day, name) values
-  ('2025-01-01','Tahun Baru Masehi'), ('2025-01-27','Isra Mikraj Nabi Muhammad SAW'), ('2025-01-29','Tahun Baru Imlek'),
-  ('2025-03-29','Hari Suci Nyepi'), ('2025-03-31','Hari Raya Idul Fitri'), ('2025-04-01','Hari Raya Idul Fitri'),
-  ('2025-04-18','Wafat Yesus Kristus'), ('2025-04-20','Kebangkitan Yesus Kristus (Paskah)'), ('2025-05-01','Hari Buruh Internasional'),
-  ('2025-05-12','Hari Raya Waisak'), ('2025-05-29','Kenaikan Yesus Kristus'), ('2025-06-01','Hari Lahir Pancasila'),
-  ('2025-06-06','Hari Raya Idul Adha'), ('2025-06-27','Tahun Baru Islam'), ('2025-08-17','Hari Kemerdekaan RI'),
-  ('2025-09-05','Maulid Nabi Muhammad SAW'), ('2025-12-25','Hari Raya Natal'),
-  ('2026-01-01','Tahun Baru Masehi'), ('2026-01-16','Isra Mikraj Nabi Muhammad SAW'), ('2026-02-17','Tahun Baru Imlek'),
-  ('2026-03-19','Hari Suci Nyepi'), ('2026-03-20','Hari Raya Idul Fitri'), ('2026-03-21','Hari Raya Idul Fitri'),
-  ('2026-04-03','Wafat Yesus Kristus'), ('2026-04-05','Kebangkitan Yesus Kristus (Paskah)'), ('2026-05-01','Hari Buruh Internasional'),
-  ('2026-05-14','Kenaikan Yesus Kristus'), ('2026-05-27','Hari Raya Idul Adha'), ('2026-05-31','Hari Raya Waisak'),
-  ('2026-06-01','Hari Lahir Pancasila'), ('2026-06-16','Tahun Baru Islam'), ('2026-08-17','Hari Kemerdekaan RI'),
-  ('2026-08-25','Maulid Nabi Muhammad SAW'), ('2026-12-25','Hari Raya Natal'),
-  ('2027-01-01','Tahun Baru Masehi'), ('2027-01-05','Isra Mikraj Nabi Muhammad SAW'), ('2027-02-06','Tahun Baru Imlek'),
-  ('2027-03-08','Hari Suci Nyepi'), ('2027-03-10','Hari Raya Idul Fitri'), ('2027-03-11','Hari Raya Idul Fitri'),
-  ('2027-03-26','Wafat Yesus Kristus'), ('2027-03-28','Kebangkitan Yesus Kristus (Paskah)'), ('2027-05-01','Hari Buruh Internasional'),
-  ('2027-05-06','Kenaikan Yesus Kristus'), ('2027-05-17','Hari Raya Idul Adha'), ('2027-05-20','Hari Raya Waisak'),
-  ('2027-06-01','Hari Lahir Pancasila'), ('2027-06-06','Tahun Baru Islam'), ('2027-08-15','Maulid Nabi Muhammad SAW'),
-  ('2027-08-17','Hari Kemerdekaan RI'), ('2027-12-25','Hari Raya Natal')
-on conflict (day) do update set name = excluded.name;
 
-insert into realisasi.activity_types (id, name, direction, counts_as_mobility, counts_for_s1, requires_mobility_review, is_active, sort_order) values
-  (1, 'Student Outbound Mobility',          'outbound', true,  true, true,  true, 1),
-  (2, 'Student Inbound Mobility',           'inbound',  true,  true, true,  true, 2),
-  (3, 'Staff Outbound Mobility',            'none',     false, true, true,  true, 3),
-  (4, 'Visiting Lecturer / Guest Lecture',  'none',     false, true, false, true, 4),
-  (5, 'Joint Research',                     'none',     false, true, false, true, 5),
-  (6, 'Joint Seminar / Conference',         'none',     false, true, false, true, 6),
-  (7, 'Summer / Winter Program (Outbound)', 'outbound', true,  true, true,  true, 7),
-  (8, 'Community Service (Joint)',          'none',     false, true, false, true, 8),
-  (9, 'Joint Publication',                  'none',     false, true, false, true, 9)
-on conflict (id) do nothing;
+-- Jenis Kegiatan = SIMKS agenda (kerjasama.agendas). Default mobility categories (Revisi V.1); IO Admin edits them in
+-- Pengaturan. Agendas without a row are non-mobility kegiatan that count for KPI 1.19.S1.
+insert into realisasi.agenda_rules (agenda_id, mobility_category) values
+  (16, 'jd_dd'), (17, 'jd_dd'), (18, 'jd_dd'), (85, 'jd_dd'),
+  (2, 'student_exchange'), (20, 'student_exchange'), (28, 'student_exchange'), (33, 'student_exchange'),
+  (22, 'short_summer'), (23, 'short_summer'), (29, 'short_summer'),
+  (21, 'other_mobility'), (24, 'other_mobility'), (38, 'other_mobility')
+on conflict (agenda_id) do nothing;
 
 insert into realisasi.sdgs (id, name) values
   (1,'Tanpa Kemiskinan'), (2,'Tanpa Kelaparan'), (3,'Kehidupan Sehat dan Sejahtera'), (4,'Pendidikan Berkualitas'),
@@ -268,21 +203,6 @@ on conflict (id) do update set name = excluded.name;
 
 select setval('realisasi.academic_years_id_seq', greatest((select max(id) from realisasi.academic_years), 1));
 select setval('realisasi.semesters_id_seq', greatest((select max(id) from realisasi.semesters), 1));
-select setval('realisasi.activity_types_id_seq', greatest((select max(id) from realisasi.activity_types), 1));
-
--- SIMKS keeps national holidays in public.holidays(tanggal, keterangan); reuse them (read only) for SLA business days.
-do $$
-begin
-  if to_regclass('public.holidays') is not null then
-    execute $q$
-      insert into realisasi.holidays (day, name)
-      select distinct on (h.tanggal) h.tanggal, coalesce(nullif(btrim(h.keterangan), ''), 'Hari libur')
-        from public.holidays h
-       where h.tanggal between date '2025-01-01' and date '2027-12-31'
-       order by h.tanggal, h.id
-      on conflict (day) do nothing $q$;
-  end if;
-end $$;
 
 -- >>> supabase/seed-supabase/02_registries.sql
 -- seed-supabase/02_registries (simks-partnership): mock BAAK students / HR employees (mockup only). Idempotent.
@@ -386,9 +306,9 @@ on conflict (employee_id) do update set full_name = excluded.full_name, unit_nam
 -- >>> supabase/seed-supabase/03_accounts.sql
 -- seed-supabase/03_accounts (simks-partnership): which REAL SIMKS accounts (public.akun) use SIM Realisasi, and their
 -- verification teams. Written only into realisasi.*; SIMKS roles are untouched. Idempotent: re-running resets these
--- accounts to the roles below (other account_roles rows are left alone).
---   akun  1 kepala-kui@petra.ac.id          io_admin   (partnership + mobility)
---   akun 11 staff-partnership@petra.ac.id   io_staff   (partnership)
+-- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility).
+--   akun  1 kepala-kui@petra.ac.id          io_admin   (mobility)
+--   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
 --   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
 --   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Prodi Manajemen)
@@ -412,7 +332,7 @@ on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excl
 
 insert into realisasi.team_members (account_id, team)
 select p.id, t.team::realisasi.team
-  from (values (1, 'partnership'), (1, 'mobility'), (11, 'partnership'), (10, 'mobility')) t(akun_id, team)
+  from (values (1, 'mobility'), (11, 'mobility'), (10, 'mobility')) t(akun_id, team)
   join kerjasama.profiles p on p.akun_id = t.akun_id
 on conflict do nothing;
 
@@ -421,7 +341,9 @@ on conflict do nothing;
 -- into realisasi.* (partner snapshots come from kerjasama.partners via the activity_documents trigger). Dates lie inside
 -- each document's validity and inside AY 2025/2026 – 2026/2027. Idempotent: an activity that exists is skipped.
 -- Actors are resolved from realisasi.account_roles (03_accounts.sql) through kerjasama.profiles:
---   submitters akun 3 (unit 4, SBM) and akun 4 (unit 5, Prodi Manajemen); partnership akun 11; mobility akun 10.
+--   submitters akun 3 (unit 4, SBM) and akun 4 (unit 5, Prodi Manajemen); mobility team akun 10.
+-- Revisi V.1: Jenis = SIMKS agenda, Inbound/Outbound per kegiatan, one kerja sama, Mobility the only verification
+-- (non-mobility kegiatan verified on submit), one open student conflict between SBM and Prodi Manajemen (S-13).
 -- Ids: activities b5000000-0000-4000-8000-0000000000NN, event groups e5000000-…NN, codes RL-2026-00NN.
 
 create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
@@ -434,8 +356,8 @@ create or replace function pg_temp.pdf() returns bytea language sql immutable as
   select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
 create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
   select (d + t) at time zone 'Asia/Jakarta' $$;
-create or replace function pg_temp.bd(n int, t time default '08:00') returns timestamptz language sql stable as $$
-  select (realisasi._business_days_ago(n) + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
 create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
   insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
   values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
@@ -450,8 +372,8 @@ returns void language sql as $$
 do $$
 declare d int;
 begin
-  if pg_temp.akun(3) is null or pg_temp.akun(4) is null or pg_temp.akun(10) is null or pg_temp.akun(11) is null then
-    raise exception 'run seed-supabase/03_accounts.sql first (account_roles for akun 3, 4, 10, 11)';
+  if pg_temp.akun(3) is null or pg_temp.akun(4) is null or pg_temp.akun(10) is null then
+    raise exception 'run seed-supabase/03_accounts.sql first (account_roles for akun 3, 4, 10)';
   end if;
   foreach d in array array[11, 15, 17, 19, 25, 27, 28, 29, 33, 34, 36, 42, 44] loop
     if not exists (select 1 from kerjasama.documents where id = d and status not in ('in_process', 'rejected') and start_date is not null) then
@@ -461,62 +383,63 @@ begin
 end $$;
 
 create or replace function pg_temp.act(
-  p_n int, p_name text, p_unit int, p_type int, p_start date, p_end date, p_mode text, p_venue text, p_city text,
-  p_country text, p_docs int[], p_sdgs int[], p_submitted timestamptz, p_verified timestamptz,
-  p_pstatus text, p_mstatus text, p_psince timestamptz, p_msince timestamptz,
-  p_files text[] default '{ia,ir}', p_pnote text default null, p_mnote text default null, p_ext jsonb default '[]')
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]')
 returns void language plpgsql as $$
 declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text := 'RL-2026-' || lpad(p_n::text, 4, '0');
         v_creator uuid := pg_temp.akun(case p_unit when 4 then 3 when 5 then 4 end);
-        v_part uuid := pg_temp.akun(11); v_mob uuid := pg_temp.akun(10);
-        v_created timestamptz; k text; v_path text; e jsonb; v_bad int;
+        v_mobt uuid := pg_temp.akun(10); v_mob boolean := realisasi.agenda_is_mobility(p_agenda);
+        v_created timestamptz; k text; v_path text; e jsonb;
 begin
   if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
   if v_creator is null then raise exception 'no submitter account for unit %', p_unit; end if;
-  -- R-04 against the live SIMKS data: every agreement valid for the activity dates
-  select x into v_bad from unnest(p_docs) x
-   where not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = x) limit 1;
-  if v_bad is not null then raise exception 'activity %: SIMKS document % not valid for % – %', p_n, v_bad, p_start, p_end; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'activity %: SIMKS agenda % missing', p_n, p_agenda; end if;
+  -- R-04 against the live SIMKS data: the agreement is valid for the activity dates
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'activity %: SIMKS document % not valid for % – %', p_n, p_doc, p_start, p_end;
+  end if;
 
   v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
   insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
-  insert into realisasi.activities (id, code, name, type_id, start_date, end_date, mode, venue, city, country_code, sks_recognized,
-              funding_source, description, submitter_unit_id, created_by, submitted_at, verified_at, partnership_status,
-              mobility_status, partnership_since, mobility_since, event_group_id, created_at)
-  values (v_id, v_code, p_name, p_type, p_start, p_end, p_mode::realisasi.activity_mode, p_venue, p_city, p_country,
-          case when p_type in (1, 7) then 3 end, case when p_type in (1, 2, 7) then 'mixed' else 'pcu' end::realisasi.funding_source,
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then 3 end,
           'Kegiatan "' || p_name || '" dalam rangka implementasi kerja sama dengan mitra.', p_unit, v_creator, p_submitted,
-          p_verified, p_pstatus::realisasi.track_status, p_mstatus::realisasi.track_status,
-          coalesce(p_psince, v_created), coalesce(p_msince, p_psince, v_created), v_g, v_created);
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
   insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
   insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
-  select v_id, d, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = d and su.unit_id = p_unit)
-    from unnest(p_docs) d;
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
   insert into realisasi.activity_sdgs (activity_id, sdg_id) select v_id, s from unnest(p_sdgs) s;
   for e in select * from jsonb_array_elements(p_ext) loop
     insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
     values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
   end loop;
-  foreach k in array p_files loop
-    v_path := 'realisasi-files/' || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
     perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
     insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
-    values (v_id, k::realisasi.file_kind, 1, v_path, upper(k) || '_' || v_code || '.pdf', length(pg_temp.pdf()), 'application/pdf',
-            true, v_creator, v_created + interval '1 day');
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
   end loop;
 
   perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
   if p_submitted is null then return; end if;
   perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
-  if p_pstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'partnership', 'approve', v_part, p_psince); end if;
-  if p_pstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'partnership', 'request_revision', v_part, p_psince, p_pnote); end if;
-  if p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', v_mob, p_msince, null, '{"version":1}'); end if;
-  if p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', v_mob, p_msince, p_mnote); end if;
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', v_mobt, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', v_mobt, p_msince, p_mnote); end if;
 end $$;
 
 create or replace function pg_temp.pset(p_n int, p_status text, p_internal text[], p_inbound text[], p_staff text[],
   p_submitted timestamptz, p_reviewed timestamptz default null) returns void language plpgsql as $$
-declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; v_by uuid; n text; v_path text;
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; v_by uuid;
 begin
   if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
   select created_by into v_by from realisasi.activities where id = v_act;
@@ -526,80 +449,71 @@ begin
   insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
   select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
     from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
-  foreach n in array p_inbound loop
-    v_path := 'realisasi-transcripts/' || v_act || '/v1/' || n || '-' || left(md5(v_act::text || n), 8) || '.pdf';
-    perform pg_temp.blob(v_path, v_by, p_submitted - interval '1 day');
-    insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
-                home_institution, home_student_number, home_country_code, transcript_path)
-    select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
-           'HS-' || right(s.nrp, 4), s.home_country_code, v_path
-      from mock_baak.students s where s.nrp = n;
-  end loop;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution, 'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
   insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
   select v_id, e.employee_id, e.full_name, e.unit_name
     from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
 end $$;
 
 -- ---- AY 2025/2026 (verified) -------------------------------------------------------------------------------------
-select pg_temp.act(1, 'Student Exchange Semester Ganjil di Kyoto Sangyo University', 4, 1, '2025-09-01', '2025-12-19', 'offline',
-  'Kyoto Sangyo University', 'Kyoto', 'JP', '{11}', '{4,17}', pg_temp.wib('2025-12-22'), pg_temp.wib('2026-01-08', '14:00'),
-  'approved', 'approved', pg_temp.wib('2026-01-05'), pg_temp.wib('2026-01-08', '14:00'));
+-- agendas: 2 Student Exchange, 23 Short Program (mobility); 4 Joint Research, 15 Kuliah Tamu, 35 Joint Projects,
+-- 40 Pengabdian (non-mobility)
+select pg_temp.act(1, 'Student Exchange Semester Ganjil di Kyoto Sangyo University', 4, 2, 'outbound', '2025-09-01', '2025-12-19', 'offline',
+  'Kyoto Sangyo University', 'JP', 11, '{4,17}', pg_temp.wib('2025-12-22'), 'approved', pg_temp.wib('2026-01-08', '14:00'));
 select pg_temp.pset(1, 'approved', '{D31238836,D31239872,D32233592}', '{}', '{}', pg_temp.wib('2025-12-22'), pg_temp.wib('2026-01-08', '14:00'));
 
-select pg_temp.act(2, 'Pengabdian Masyarakat UMKM Digital bersama UGM', 5, 8, '2025-11-10', '2025-11-14', 'offline',
-  'Desa Wisata Nglanggeran', 'Gunungkidul', 'ID', '{28}', '{1,8}', pg_temp.wib('2025-11-20'), pg_temp.wib('2025-11-26', '10:00'),
-  'approved', 'not_required', pg_temp.wib('2025-11-26', '10:00'), pg_temp.wib('2025-11-20'));
+select pg_temp.act(2, 'Pengabdian Masyarakat UMKM Digital bersama UGM', 5, 40, 'outbound', '2025-11-10', '2025-11-14', 'offline',
+  'Desa Wisata Nglanggeran', 'ID', 28, '{1,8}', pg_temp.wib('2025-11-20'), null, null);
 
-select pg_temp.act(3, 'Joint Seminar Bisnis Berkelanjutan ASEAN bersama Chulalongkorn', 4, 6, '2026-01-20', '2026-01-21', 'hybrid',
-  'Auditorium PCU', 'Surabaya', 'ID', '{29}', '{8,17}', pg_temp.wib('2026-01-26'), pg_temp.wib('2026-02-02', '10:00'),
-  'approved', 'not_required', pg_temp.wib('2026-02-02', '10:00'), pg_temp.wib('2026-01-26'),
+select pg_temp.act(3, 'Joint Seminar Bisnis Berkelanjutan ASEAN bersama Chulalongkorn', 4, 35, 'inbound', '2026-01-20', '2026-01-21', 'hybrid',
+  'Auditorium PCU', 'ID', 29, '{8,17}', pg_temp.wib('2026-01-26'), null, null,
   p_ext => '[{"full_name":"Asst. Prof. Kanokwan Srisuk","institution":"Chulalongkorn University","country_code":"TH","role":"speaker"}]');
 
-select pg_temp.act(4, 'Kuliah Tamu Manajemen Inovasi dari National Taiwan University', 4, 4, '2026-03-09', '2026-03-13', 'offline',
-  'Gedung T PCU', 'Surabaya', 'ID', '{15}', '{4,9}', pg_temp.wib('2026-03-18'), pg_temp.wib('2026-03-24', '10:00'),
-  'approved', 'not_required', pg_temp.wib('2026-03-24', '10:00'), pg_temp.wib('2026-03-18'),
+select pg_temp.act(4, 'Kuliah Tamu Manajemen Inovasi dari National Taiwan University', 4, 15, 'inbound', '2026-03-09', '2026-03-13', 'offline',
+  'Gedung T PCU', 'ID', 15, '{4,9}', pg_temp.wib('2026-03-18'), null, null,
   p_ext => '[{"full_name":"Prof. Chen Yu-Ting","institution":"National Taiwan University","country_code":"TW","role":"visiting_lecturer"}]');
 
-select pg_temp.act(5, 'Riset Bersama Perilaku Konsumen Digital dengan University of Amsterdam', 5, 5, '2026-04-06', '2026-06-30', 'online',
-  'Zoom Meeting', null, null, '{17}', '{8,9}', pg_temp.wib('2026-07-06'), pg_temp.wib('2026-07-10', '10:00'),
-  'approved', 'not_required', pg_temp.wib('2026-07-10', '10:00'), pg_temp.wib('2026-07-06'));
+select pg_temp.act(5, 'Riset Bersama Perilaku Konsumen Digital dengan University of Amsterdam', 5, 4, 'outbound', '2026-04-06', '2026-06-30', 'online',
+  'Zoom Meeting', null, 17, '{8,9}', pg_temp.wib('2026-07-06'), null, null);
 
-select pg_temp.act(6, 'Summer Program Business in Asia di Chulalongkorn University', 4, 7, '2026-07-06', '2026-07-24', 'offline',
-  'Chulalongkorn University', 'Bangkok', 'TH', '{25}', '{4,17}', pg_temp.wib('2026-07-29'), pg_temp.wib('2026-08-05', '14:00'),
-  'approved', 'approved', pg_temp.wib('2026-08-03'), pg_temp.wib('2026-08-05', '14:00'));
+select pg_temp.act(6, 'Summer Program Business in Asia di Chulalongkorn University', 4, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
+  'Chulalongkorn University', 'TH', 25, '{4,17}', pg_temp.wib('2026-07-29'), 'approved', pg_temp.wib('2026-08-05', '14:00'));
 select pg_temp.pset(6, 'approved', '{D31242651,D31245931,D32237864,D31246584}', '{}', '{PG217839}', pg_temp.wib('2026-07-29'),
   pg_temp.wib('2026-08-05', '14:00'));
 
 -- ---- AY 2026/2027 Ganjil --------------------------------------------------------------------------------------------
-select pg_temp.act(7, 'Inbound Exchange Manajemen National University of Singapore 2026', 5, 2, '2026-08-10', '2026-09-11', 'offline',
-  'Kampus PCU Siwalankerto', 'Surabaya', 'ID', '{19}', '{4}', pg_temp.wib('2026-09-14'), pg_temp.wib('2026-09-18', '14:00'),
-  'approved', 'approved', pg_temp.wib('2026-09-16'), pg_temp.wib('2026-09-18', '14:00'));
+select pg_temp.act(7, 'Inbound Exchange Manajemen National University of Singapore 2026', 5, 2, 'inbound', '2026-08-10', '2026-09-11', 'offline',
+  'Kampus PCU Siwalankerto', 'ID', 19, '{4}', pg_temp.wib('2026-09-14'), 'approved', pg_temp.wib('2026-09-18', '14:00'));
 select pg_temp.pset(7, 'approved', '{}', '{X01260012,X01260044}', '{}', pg_temp.wib('2026-09-14'), pg_temp.wib('2026-09-18', '14:00'));
 
-select pg_temp.act(8, 'Riset Bersama Ekonomi Sirkular dengan LMU Munich', 5, 5, '2026-09-07', '2026-09-11', 'hybrid',
-  'Lab Manajemen PCU', 'Surabaya', 'ID', '{42}', '{9,12}', pg_temp.wib('2026-09-15'), pg_temp.wib('2026-09-21', '10:00'),
-  'approved', 'not_required', pg_temp.wib('2026-09-21', '10:00'), pg_temp.wib('2026-09-15'));
+select pg_temp.act(8, 'Riset Bersama Ekonomi Sirkular dengan LMU Munich', 5, 4, 'inbound', '2026-09-07', '2026-09-11', 'hybrid',
+  'Lab Manajemen PCU', 'ID', 42, '{9,12}', pg_temp.wib('2026-09-15'), null, null);
 
--- renewal chain 29 -> 34 (Chulalongkorn MoA): revision requested on the renewal
-select pg_temp.act(9, 'Joint Seminar Rantai Pasok Asia Tenggara (lanjutan)', 4, 6, '2026-09-23', '2026-09-24', 'offline',
-  'Gedung T PCU', 'Surabaya', 'ID', '{34}', '{9}', pg_temp.bd(5), null,
-  'revision_requested', 'not_required', pg_temp.bd(3, '10:00'), pg_temp.bd(5),
-  p_pnote => 'IA belum ditandatangani kedua pihak; mohon unggah IA final.');
+-- renewal chain 29 -> 34 (Chulalongkorn MoA): non-mobility seminar on the renewal, verified on submit
+select pg_temp.act(9, 'Joint Seminar Rantai Pasok Asia Tenggara (lanjutan)', 4, 35, 'inbound', '2026-09-23', '2026-09-24', 'offline',
+  'Gedung T PCU', 'ID', 34, '{9}', pg_temp.daysago(5), null, null);
 
--- renewal chain 28 -> 33 (UGM MoU): pending Partnership verification
-select pg_temp.act(10, 'Seminar Nasional Kewirausahaan bersama UGM', 5, 6, '2026-09-24', '2026-09-25', 'offline',
-  'Auditorium PCU', 'Surabaya', 'ID', '{33}', '{4,8}', pg_temp.bd(2), null,
-  'pending', 'not_required', pg_temp.bd(2), pg_temp.bd(2));
+-- renewal chain 28 -> 33 (UGM MoU)
+select pg_temp.act(10, 'Seminar Nasional Kewirausahaan bersama UGM', 5, 35, 'inbound', '2026-09-24', '2026-09-25', 'offline',
+  'Auditorium PCU', 'ID', 33, '{4,8}', pg_temp.daysago(2), null, null);
 
--- Partnership approved, Mobility pending
-select pg_temp.act(11, 'Student Exchange Singkat di National University of Singapore', 4, 1, '2026-09-01', '2026-09-19', 'offline',
-  'National University of Singapore', 'Singapura', 'SG', '{36}', '{4}', pg_temp.bd(6), null,
-  'approved', 'pending', pg_temp.bd(4, '10:00'), pg_temp.bd(6));
-select pg_temp.pset(11, 'pending', '{D31252983,D32250736,D31243593}', '{}', '{}', pg_temp.bd(6));
+-- waiting for Verifikasi Mobilitas
+select pg_temp.act(11, 'Student Exchange Singkat di National University of Singapore', 4, 2, 'outbound', '2026-09-01', '2026-09-19', 'offline',
+  'National University of Singapore', 'SG', 36, '{4}', pg_temp.daysago(6), 'pending', pg_temp.daysago(6));
+select pg_temp.pset(11, 'pending', '{D31252983,D32250736,D31243593}', '{}', '{}', pg_temp.daysago(6));
 
 -- draft (only IA uploaded)
-select pg_temp.act(12, 'Kuliah Tamu Pemasaran Global dari Ateneo de Manila University', 4, 4, '2026-09-28', '2026-09-29', 'online',
-  'Zoom Meeting', null, null, '{44}', '{4}', null, null, 'pending', 'not_required', null, null, p_files => '{ia}');
+select pg_temp.act(12, 'Kuliah Tamu Pemasaran Global dari Ateneo de Manila University', 4, 15, 'inbound', '2026-09-28', '2026-09-29', 'online',
+  'Zoom Meeting', null, 44, '{4}', null, null, null, p_files => '{ia}');
+
+-- rule 2.1 demo: Prodi Manajemen claims two of SBM's summer-program students (S-06) -> open conflict in the queue
+select pg_temp.act(13, 'Summer Program Business in Asia (Prodi Manajemen)', 5, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
+  'Chulalongkorn University', 'TH', 25, '{4}', pg_temp.daysago(4), 'pending', pg_temp.daysago(4));
+select pg_temp.pset(13, 'pending', '{D31242651,D31245931}', '{}', '{}', pg_temp.daysago(4));
+select realisasi._scan_conflicts(pg_temp.aid(13)) where not exists (select 1 from realisasi.participant_conflicts where pg_temp.aid(13) in (activity_a, activity_b));
 
 select setval('realisasi.activity_code_seq', greatest(100, (select last_value from realisasi.activity_code_seq)));
 

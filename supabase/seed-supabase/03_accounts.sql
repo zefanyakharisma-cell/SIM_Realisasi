@@ -1,8 +1,8 @@
 -- seed-supabase/03_accounts (simks-partnership): which REAL SIMKS accounts (public.akun) use SIM Realisasi, and their
 -- verification teams. Written only into realisasi.*; SIMKS roles are untouched. Idempotent: re-running resets these
--- accounts to the roles below (other account_roles rows are left alone).
---   akun  1 kepala-kui@petra.ac.id          io_admin   (partnership + mobility)
---   akun 11 staff-partnership@petra.ac.id   io_staff   (partnership)
+-- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility).
+--   akun  1 kepala-kui@petra.ac.id          io_admin   (mobility)
+--   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
 --   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
 --   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Prodi Manajemen)
@@ -26,6 +26,6 @@ on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excl
 
 insert into realisasi.team_members (account_id, team)
 select p.id, t.team::realisasi.team
-  from (values (1, 'partnership'), (1, 'mobility'), (11, 'partnership'), (10, 'mobility')) t(akun_id, team)
+  from (values (1, 'mobility'), (11, 'mobility'), (10, 'mobility')) t(akun_id, team)
   join kerjasama.profiles p on p.akun_id = t.akun_id
 on conflict do nothing;

@@ -19,7 +19,7 @@ import type { ParticipantVersion } from '@/lib/realisasi/types';
 
 export const metadata = { title: 'Revisi Kegiatan · SIM Realisasi' };
 
-/** Unit revision view (CONTRACTS §7): Detail/Berkas for a Kemitraan revision, Peserta for Mobilitas (or R-24). */
+/** Unit revision view (Revisi V.1): the Mobility team asked for changes; Detail, Berkas and Peserta are editable. */
 export default async function RevisionPage(props: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await props.params;
@@ -75,8 +75,7 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
     return <Forbidden />;
   }
 
-  const partnershipRevision = detail.partnership_status === 'revision_requested' && p.can_edit_detail;
-  const required = participantRequirements(detail.type);
+  const required = participantRequirements({ is_mobility: detail.agenda.is_mobility, direction: detail.direction });
 
   // SaveStatusProvider links the editors to "Ajukan ulang": unsaved Detail edits block it and
   // pending participant edits are flushed before submitting (frontend review M-1).
@@ -94,14 +93,15 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
         />
         <RevisionBanner detail={detail} showAction={false} />
 
-        {partnershipRevision && (
+        {p.can_edit_detail && (
           <>
             <section aria-labelledby="rev-detail" className="space-y-4">
               <h2 id="rev-detail" className="text-lg font-semibold">
                 Detail
               </h2>
               <p className="text-sm text-muted-foreground">
-                Setiap penyimpanan dicatat di Riwayat. Mengubah Jenis kegiatan dapat mengatur ulang verifikasi Mobilitas (R-24).
+                Setiap penyimpanan dicatat di Riwayat. Bila Jenis diubah menjadi kegiatan non-mobilitas, kegiatan langsung tercatat saat
+                diajukan ulang.
               </p>
               <DetailForm
                 mode="revision"
@@ -117,7 +117,7 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
               <h2 id="rev-files" className="text-lg font-semibold">
                 Berkas
               </h2>
-              <FilesEditor activityId={detail.id} files={detail.files} />
+              <FilesEditor activityId={detail.id} files={detail.files} isMobility={detail.agenda.is_mobility} />
             </section>
           </>
         )}
@@ -125,7 +125,7 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
         {reviewed && (
           <details className="rounded-lg border p-4">
             <summary className="cursor-pointer text-sm font-medium">
-              Versi v{reviewed.version} yang diminta revisi (hanya baca, dengan catatan IO per baris)
+              Versi v{reviewed.version} yang diminta revisi (hanya baca)
             </summary>
             <div className="mt-4">
               <ParticipantTable version={reviewed} />

@@ -2,8 +2,10 @@
 
 -- Item engine for one or many scopes in ONE pass (H6). p_scope:
 --   'university' -> rows with su = null; 'unit' -> rows with su = p_unit_id; 'all' -> university rows + rows for every unit.
--- Dedupe is by event group within each scope (R-38/R-39, H1): a unit on two linked activities counts the event once,
--- and two units of one linked event each count it. is_intl carries the chain's international flag for 1.19.24 rows.
+-- Revisi V.1: every activity is its own event group, so KPI 1.1 counts (NRP, activity) pairs: the same student in two
+-- activities of one unit counts twice (rule 2.2). A student claimed by two units' overlapping activities (a
+-- participant_conflicts row) counts only on the activity Mobility kept; while the conflict is open, on neither
+-- (rule 2.1). is_intl carries the chain's international flag for 1.19.24 rows.
 create function realisasi._kpi_items_scoped(p_from date, p_to date, p_cutoff date, p_as_of timestamptz,
                                             p_scope text, p_unit_id int, p_grace_months int)
 returns table(su int, kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_intl boolean)
@@ -12,10 +14,11 @@ with prm as (
   select coalesce(p_as_of, realisasi.now_ts()) as as_of
 ), qa0 as (             -- qualifying activities (verified as of as_of)
   select a.id, a.code, a.start_date, a.verified_at, a.event_group_id,
-         t.direction as t_direction, t.counts_as_mobility, t.counts_for_s1,
+         a.direction as t_direction, (r.mobility_category is not null) as counts_as_mobility,
+         coalesce(r.counts_for_s1, true) as counts_for_s1,
          exists (select 1 from realisasi.activity_partner_snapshot ps
                   where ps.activity_id = a.id and ps.country_code <> 'ID') as intl
-    from realisasi.activities a join realisasi.activity_types t on t.id = a.type_id
+    from realisasi.activities a left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
    where a.status = 'verified' and a.verified_at <= (select as_of from prm)
 ), qa as (              -- one row per (scope, activity)
   select null::int as su, q.* from qa0 q where p_scope in ('university','all')
@@ -39,6 +42,9 @@ with prm as (
     join realisasi.participant_students s on s.set_version_id = pv.vid
          and ((w.t_direction = 'outbound' and s.section = 'internal') or (w.t_direction = 'inbound' and s.section = 'inbound'))
    where w.counts_as_mobility
+     and not exists (select 1 from realisasi.participant_conflicts c          -- rule 2.1
+                      where c.nrp = s.nrp and w.id in (c.activity_a, c.activity_b)
+                        and (c.status = 'open' or c.kept_activity_id <> w.id))
 ), k11 as (
   select distinct on (su, bucket, nrp, event_group_id) su, '1.1'::text, bucket, 'participant'::text, id::text || ':' || nrp, id, null::boolean
     from stud order by su, bucket, nrp, event_group_id, verified_at, code
@@ -50,19 +56,6 @@ with prm as (
     from win w join s1grp g on g.su is not distinct from w.su and g.event_group_id = w.event_group_id
    where w.counts_for_s1 and w.intl = g.gintl
    order by w.su, w.event_group_id, w.verified_at, w.code
-), ks8 as (
-  select distinct on (su, event_group_id) su, '1.19.S8'::text, 'reported'::text, 'activity'::text, id::text, id, null::boolean
-    from win where intl order by su, event_group_id, verified_at, code
-), kknown as (          -- R-49/R-50 (H3): a known entry is a gap unless matched to a qualifying international activity
-  select ks.su, '1.19.S8'::text, 'unmatched_known'::text, 'known_activity'::text, k.id::text, null::uuid, null::boolean
-    from realisasi.known_activities k
-    cross join lateral (select null::int as su where p_scope in ('university','all')
-                        union all
-                        select k.unit_id where k.unit_id is not null and (p_scope = 'all' or (p_scope = 'unit' and k.unit_id = p_unit_id))) ks
-   where k.is_international and k.activity_date between p_from and p_to
-     and k.created_at <= (select as_of from prm)
-     and (k.status = 'unmatched'
-          or (k.status = 'matched' and not exists (select 1 from qa0 q where q.id = k.matched_activity_id and q.intl)))
 ), kbase as (
   select su, 'base'::text, 'verified_activity'::text, 'activity'::text, id::text, id, null::boolean from win
 ), ch0 as (             -- R-42/R-43 (H2): open-ended only while the current document is auto-renewed and not terminated
@@ -93,7 +86,7 @@ with prm as (
   select su, '1.19.24', 'grace_excluded', 'chain', chain_id::text, null::uuid, is_international from ch where in_grace
 )
 select * from k11 union all select * from ks1 union all select * from k24
-union all select * from ks8 union all select * from kknown union all select * from kbase
+union all select * from kbase
 $$;
 
 create function realisasi._kpi_items(p_from date, p_to date, p_cutoff date, p_ay_id int,
@@ -121,7 +114,7 @@ $$;
 -- KPI values from a set of items (internal; p_items = jsonb array of kpi_items rows)
 create function realisasi._kpi_values(p_items jsonb, p_from date, p_to date, p_ay_id int, p_unit_id int) returns jsonb
 language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_sem jsonb; v_24 jsonb; v_s8r int; v_s8u int; v_base uuid[]; v_charts jsonb; v_univ boolean := p_unit_id is null;
+declare v_sem jsonb; v_24 jsonb; v_base uuid[]; v_charts jsonb; v_univ boolean := p_unit_id is null;
 begin
   if to_regclass('pg_temp._kv_items') is null then
     create temp table _kv_items (kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_intl boolean) on commit drop;
@@ -153,8 +146,6 @@ begin
                    on s.scope = 'all' or (s.scope = 'international') = coalesce(i.is_intl, false)
            group by s.scope) sc;
 
-  select count(*) filter (where bucket = 'reported'), count(*) filter (where bucket = 'unmatched_known')
-    into v_s8r, v_s8u from _kv_items where kpi_code = '1.19.S8';
   select coalesce(array_agg(activity_id), '{}') into v_base from _kv_items where kpi_code = 'base';
 
   v_charts := jsonb_build_object(
@@ -193,7 +184,6 @@ begin
         'international', (select count(*) from _kv_items where kpi_code = '1.19.S1' and bucket = 'international'),
         'domestic', (select count(*) from _kv_items where kpi_code = '1.19.S1' and bucket = 'domestic')),
     'kpi_1_19_24', v_24,
-    'kpi_1_19_s8', jsonb_build_object('reported', v_s8r, 'unmatched_known', v_s8u, 'pct', realisasi._pct(v_s8r, v_s8r + v_s8u)),
     'charts', v_charts);
 end $$;
 
@@ -266,12 +256,4 @@ language sql stable security definer set search_path = realisasi, extensions, pu
                 where i.kpi_code = '1.19.24') i
            on s.scope = 'all' or (s.scope = 'international') = coalesce(i.is_intl, false)
    group by s.scope
-$$;
-
-create function realisasi.kpi_1_19_s8(p_from date, p_to date)
-returns table(reported bigint, unmatched_known bigint, pct numeric)
-language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select r, u, realisasi._pct(r, r + u)
-    from (select count(*) filter (where i.bucket = 'reported') r, count(*) filter (where i.bucket = 'unmatched_known') u
-            from realisasi.kpi_items(p_from, p_to, p_to, null) i where i.kpi_code = '1.19.S8') x
 $$;

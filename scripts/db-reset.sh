@@ -62,7 +62,7 @@ if [ "$RESET_PUBLIC_STUBS" != "0" ]; then
   echo "Dropping local SIMKS stub tables (and pre-adapter Realisasi stubs)"
   "${PSQL[@]}" -c "drop table if exists public.akun, public.jabatan, public.proposal_dokumen_unit, public.partner_pengusul,
                    public.dokumen_kerja_sama, public.proposal_dokumen, public.partner, public.negara, public.unit,
-                   public.jenis_unit cascade;
+                   public.jenis_unit, public.agenda cascade;
                    drop type if exists public.jenis_kerjasama;
                    drop table if exists public.document_scope_units, public.document_partners, public.profiles,
                    public.documents, public.partners, public.countries, public.units cascade"

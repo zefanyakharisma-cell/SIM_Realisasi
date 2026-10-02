@@ -1,9 +1,8 @@
 /**
- * Activity detail header: code, name, status badge, track chips, flags, SLA chips (Design §3.4).
+ * Activity detail header: code, name, status badge, Mobility chip and flags (Design §3.4; no SLA since Revisi V.1).
  * Server-safe. `actions` is the role-based action bar rendered by the page.
  */
-import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
-import { REJECT_REASON_LABEL, TRACK_LABEL } from '@/lib/realisasi/status';
+import { FlagPill, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
 import type { ActivityDetail } from '@/lib/realisasi/types';
 
 export function ActivityHeader({ detail, actions }: { detail: ActivityDetail; actions?: React.ReactNode }) {
@@ -25,31 +24,12 @@ export function ActivityHeader({ detail, actions }: { detail: ActivityDetail; ac
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={detail.status} />
-        {detail.status !== 'draft' && <TrackChips partnership={detail.partnership_status} mobility={detail.mobility_status} />}
-        {detail.sla.partnership && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            {TRACK_LABEL.partnership}: <SlaChip days={detail.sla.partnership.days} level={detail.sla.partnership.level} />
-          </span>
-        )}
-        {detail.sla.mobility && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            {TRACK_LABEL.mobility}: <SlaChip days={detail.sla.mobility.days} level={detail.sla.mobility.level} />
-          </span>
-        )}
+        {detail.status !== 'draft' && <TrackChips mobility={detail.mobility_status} />}
         {flags.late && <FlagPill flag="late" />}
         {flags.out_of_scope && <FlagPill flag="out_of_scope" />}
-        {flags.duplicate_open && <FlagPill flag="duplicate" />}
+        {flags.conflicts_open > 0 && <FlagPill flag="conflict" title={`${flags.conflicts_open} mahasiswa juga diklaim unit lain; menunggu keputusan tim Mobilitas.`} />}
         {flags.late_addition && <FlagPill flag="late_addition" />}
       </div>
-      {detail.rejection && (
-        <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900" role="status">
-          <span className="font-semibold">Ditolak — {REJECT_REASON_LABEL[detail.rejection.reason]}.</span>{' '}
-          {detail.rejection.note}
-          {detail.rejection.rejected_by_name && (
-            <span className="block text-xs text-red-800">oleh {detail.rejection.rejected_by_name}</span>
-          )}
-        </p>
-      )}
     </header>
   );
 }

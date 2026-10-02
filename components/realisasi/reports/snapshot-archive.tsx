@@ -59,7 +59,7 @@ export function SnapshotTimeline({ rows, selectedId }: { rows: SnapshotListRow[]
                       ) : null}
                       <p className="text-xs text-muted-foreground">
                         1.1 {formatNumber(s.summary?.kpi_1_1_total)} · 1.19.S1 {formatNumber(s.summary?.kpi_1_19_s1_international)} · 1.19.24{' '}
-                        {formatPct(s.summary?.kpi_1_19_24_pct)} · 1.19.S8 {formatPct(s.summary?.kpi_1_19_s8_pct)} · {formatNumber(s.late_additions)} tambahan
+                        {formatPct(s.summary?.kpi_1_19_24_pct)} · {formatNumber(s.late_additions)} tambahan
                         susulan · {formatNumber(s.post_freeze_changes)} perubahan pasca-beku
                       </p>
                     </div>
@@ -109,7 +109,7 @@ function LateAdditionsTable({ rows }: { rows: LateAdditionRow[] }) {
             </TableCell>
             <TableCell>
               {r.name}
-              <div className="text-xs text-muted-foreground">KPI: {r.kpi_codes.join(', ')}</div>
+              <div className="text-xs text-muted-foreground">RENSTRA: {r.kpi_codes.join(', ')}</div>
             </TableCell>
             <TableCell className="text-sm">{r.unit_names.join(', ')}</TableCell>
             <TableCell className="whitespace-nowrap">{formatDate(r.start_date)}</TableCell>

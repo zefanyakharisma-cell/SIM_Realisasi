@@ -3,11 +3,12 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { SlaChip, TrackChips } from '@/components/realisasi/status-badge';
+import { FlagPill } from '@/components/realisasi/status-badge';
 import { DateRange, PartnerCell, UnitCell } from '@/components/realisasi/list/activity-table';
 import { formatDateTime } from '@/lib/realisasi/format';
 import { loadQueuePanel } from '@/lib/realisasi/actions/queue';
 import { cn } from '@/lib/utils';
+import { DIRECTION_LABEL } from '@/lib/realisasi/status';
 import type { ActivityListRow, Team } from '@/lib/realisasi/types';
 
 export interface QueueTableProps {
@@ -24,7 +25,7 @@ export interface QueueTableProps {
 const COLS = 9;
 
 /**
- * Verification queue (Design §3.5): SLA-sorted rows (red first, sorted server-side). Each row
+ * Verification queue (Design §3.5): longest-waiting first (sorted server-side; no SLA since Revisi V.1). Each row
  * expands inline; the toggle is a real button (Enter / Space) with aria-expanded + aria-controls,
  * and clicking anywhere on the row (outside links/buttons) toggles too.
  */
@@ -85,7 +86,7 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
             <th scope="col" className="w-10 px-2">
               <span className="sr-only">Detail</span>
             </th>
-            {['SLA', 'Kode', 'Nama', 'Unit', 'Jenis', 'Mitra', 'Tanggal', track === 'partnership' ? 'Diajukan' : 'Menunggu sejak'].map((h) => (
+            {['Kode', 'Nama', 'Unit', 'Jenis', 'Mitra', 'Tanggal', 'Menunggu sejak', 'Duplikat'].map((h) => (
               <th key={h} scope="col" className="h-10 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {h}
               </th>
@@ -96,9 +97,6 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
           {rows.map((r) => {
             const isOpen = open.has(r.id);
             const panelId = `queue-panel-${r.id}`;
-            const days = track === 'partnership' ? r.partnership_sla_days : r.mobility_sla_days;
-            const level = track === 'partnership' ? r.partnership_sla_level : r.mobility_sla_level;
-            const since = track === 'partnership' ? r.partnership_since : r.mobility_since;
             return (
               <Fragment key={r.id}>
                 <tr
@@ -125,9 +123,6 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
                       </span>
                     </button>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 align-top">
-                    {days !== null && level ? <SlaChip days={days} level={level} /> : '–'}
-                  </td>
                   <td className="whitespace-nowrap px-3 py-2.5 align-top font-mono text-xs">
                     <Link href={`/realisasi/kegiatan/${r.id}`} className="underline-offset-4 hover:underline">
                       {r.code}
@@ -135,14 +130,14 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
                   </td>
                   <td className="max-w-[280px] px-3 py-2.5 align-top font-medium">
                     {r.name}
-                    <span className="mt-1 block">
-                      <TrackChips partnership={r.partnership_status} mobility={r.mobility_status} />
-                    </span>
                   </td>
                   <td className="max-w-[200px] px-3 py-2.5 align-top">
                     <UnitCell row={r} />
                   </td>
-                  <td className="max-w-[180px] px-3 py-2.5 align-top">{r.type_name}</td>
+                  <td className="max-w-[180px] px-3 py-2.5 align-top">
+                    {r.agenda_name ?? '–'}
+                    <span className="block text-xs text-muted-foreground">{DIRECTION_LABEL[r.direction]}</span>
+                  </td>
                   <td className="max-w-[200px] px-3 py-2.5 align-top">
                     <PartnerCell row={r} />
                   </td>
@@ -150,7 +145,10 @@ export function QueueTable({ track, rows, expanded, caption }: QueueTableProps) 
                     <DateRange start={r.start_date} end={r.end_date} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 align-top">
-                    {formatDateTime(track === 'partnership' ? r.submitted_at : since)}
+                    {formatDateTime(r.mobility_since ?? r.submitted_at)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 align-top">
+                    {r.open_conflicts > 0 ? <FlagPill flag="conflict" title={`${r.open_conflicts} mahasiswa menunggu keputusan`} /> : '–'}
                   </td>
                 </tr>
                 <tr id={panelId} hidden={!isOpen} className="border-b bg-muted/20" data-testid="queue-panel">

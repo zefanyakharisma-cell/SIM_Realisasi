@@ -2,12 +2,11 @@
 
 import { useId, useState } from 'react';
 import { Check, RotateCcw } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { ActionDialog, NoteField } from '@/components/realisasi/verify/action-dialog';
 import { mobilityApprove, mobilityRequestRevision } from '@/lib/realisasi/actions/verification';
 import { diffParticipantVersions, summarizeDiff } from '@/lib/realisasi/participant-diff';
-import { ACTIVITY_STATUS_LABEL, SECTION_LABEL } from '@/lib/realisasi/status';
-import type { ActivityPermissions, ParticipantVersion, RowNotePayload } from '@/lib/realisasi/types';
+import { ACTIVITY_STATUS_LABEL } from '@/lib/realisasi/status';
+import type { ActivityPermissions, ParticipantVersion } from '@/lib/realisasi/types';
 
 export interface MobilityActionsProps {
   activityId: string;
@@ -17,9 +16,9 @@ export interface MobilityActionsProps {
   /** Previous non-draft version, for the change summary. */
   previous: ParticipantVersion | null;
   permissions: ActivityPermissions;
+  /** Open duplicate-student conflicts (Revisi V.1 rule 2.1) block approval until resolved. */
+  conflictsOpen?: number;
 }
-
-type RowKey = `${'student' | 'staff'}:${string}`;
 
 function countsText(v: ParticipantVersion): string {
   const internal = v.students.filter((s) => s.section === 'internal').length;
@@ -32,47 +31,18 @@ function countsText(v: ParticipantVersion): string {
 }
 
 /**
- * Mobilitas-track actions (Approve / Minta Revisi with per-row notes, R-27). Renders nothing
- * unless `permissions.can_mobility_verify`.
+ * Mobilitas-track actions (Approve / Minta Revisi, R-27; Revisi V.1: one general note, no per-row notes).
+ * Renders nothing unless `permissions.can_mobility_verify`.
  */
-export function MobilityActions({ activityId, code, version, previous, permissions }: MobilityActionsProps) {
+export function MobilityActions({ activityId, code, version, previous, permissions, conflictsOpen = 0 }: MobilityActionsProps) {
   const uid = useId();
   const [approveNote, setApproveNote] = useState('');
   const [revisionNote, setRevisionNote] = useState('');
-  const [rowNotes, setRowNotes] = useState<Record<RowKey, string>>({});
 
   if (!permissions.can_mobility_verify) return null;
 
   const summary = version && previous ? summarizeDiff(diffParticipantVersions(previous, version)) : null;
   const versionText = version ? `v${version.version} (${countsText(version)})` : 'versi yang diajukan';
-
-  function setRowNote(key: RowKey, note: string) {
-    setRowNotes((prev) => ({ ...prev, [key]: note }));
-  }
-
-  function collectRowNotes(): RowNotePayload[] {
-    return (Object.entries(rowNotes) as Array<[RowKey, string]>)
-      .filter(([, note]) => note.trim() !== '')
-      .map(([key, note]) => {
-        const [kind, ...rest] = key.split(':');
-        return { kind: kind as RowNotePayload['kind'], id: rest.join(':'), note: note.trim() };
-      });
-  }
-
-  const rows: Array<{ key: RowKey; label: string; group: string }> = version
-    ? [
-        ...version.students.map((s) => ({
-          key: `student:${s.nrp}` as RowKey,
-          label: `${s.nrp} — ${s.full_name}`,
-          group: SECTION_LABEL[s.section],
-        })),
-        ...version.staff.map((s) => ({
-          key: `staff:${s.employee_id}` as RowKey,
-          label: `${s.employee_id} — ${s.full_name}`,
-          group: 'Pegawai PETRA',
-        })),
-      ]
-    : [];
 
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Verifikasi Mobilitas ${code}`}>
@@ -84,6 +54,7 @@ export function MobilityActions({ activityId, code, version, previous, permissio
           </>
         }
         triggerTestId="action-approve"
+        triggerDisabled={conflictsOpen > 0}
         title={`Setujui peserta ${code}?`}
         description={
           <>
@@ -103,7 +74,6 @@ export function MobilityActions({ activityId, code, version, previous, permissio
       </ActionDialog>
 
       <ActionDialog
-        wide
         triggerLabel={
           <>
             <RotateCcw className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -113,74 +83,32 @@ export function MobilityActions({ activityId, code, version, previous, permissio
         triggerVariant="outline"
         triggerTestId="action-request-revision"
         title={`Minta revisi peserta ${code}`}
-        description={`Unit akan membuat versi peserta baru. ${version ? `Versi v${version.version} disimpan apa adanya (hanya baca).` : ''} Catatan per baris bersifat opsional.`}
+        description={`Unit akan membuat versi peserta baru. ${version ? `Versi v${version.version} disimpan apa adanya (hanya baca).` : ''}`}
         confirmLabel="Kirim permintaan revisi"
         onOpenChange={(o) => {
-          if (o) {
-            setRevisionNote('');
-            setRowNotes({});
-          }
+          if (o) setRevisionNote('');
         }}
         validate={() => (revisionNote.trim() ? {} : { note: 'Catatan revisi wajib diisi.' })}
-        action={() => mobilityRequestRevision(activityId, revisionNote.trim(), collectRowNotes())}
+        action={() => mobilityRequestRevision(activityId, revisionNote.trim())}
         successMessage={`${code}: permintaan revisi peserta dikirim ke unit.`}
       >
         {({ errors, pending }) => (
-          <>
-            <NoteField
-              id={`${uid}-revision-note`}
-              label="Catatan revisi"
-              required
-              value={revisionNote}
-              onChange={setRevisionNote}
-              error={errors.note}
-              disabled={pending}
-            />
-            {rows.length > 0 ? (
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium">Catatan per baris (opsional)</legend>
-                <div className="max-h-72 overflow-y-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th scope="col" className="px-3 py-2">Peserta</th>
-                        <th scope="col" className="px-3 py-2">Catatan</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r) => {
-                        const inputId = `${uid}-row-${r.key}`;
-                        return (
-                          <tr key={r.key} className="border-t">
-                            <th scope="row" className="px-3 py-2 text-left align-top font-normal">
-                              <label htmlFor={inputId} className="block">
-                                <span className="font-mono text-xs">{r.label}</span>
-                                <span className="block text-xs text-muted-foreground">{r.group}</span>
-                              </label>
-                            </th>
-                            <td className="px-3 py-2">
-                              <Input
-                                id={inputId}
-                                name={inputId}
-                                type="text"
-                                value={rowNotes[r.key] ?? ''}
-                                onChange={(e) => setRowNote(r.key, e.target.value)}
-                                disabled={pending}
-                                maxLength={1000}
-                                placeholder="Mis. transkrip tidak terbaca"
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </fieldset>
-            ) : null}
-          </>
+          <NoteField
+            id={`${uid}-revision-note`}
+            label="Catatan revisi"
+            required
+            value={revisionNote}
+            onChange={setRevisionNote}
+            error={errors.note}
+            disabled={pending}
+          />
         )}
       </ActionDialog>
+      {conflictsOpen > 0 ? (
+        <p className="w-full text-xs text-amber-800 dark:text-amber-300" role="status" data-testid="approve-blocked-conflicts">
+          Selesaikan {conflictsOpen} duplikat mahasiswa terlebih dahulu sebelum menyetujui peserta.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,13 +1,14 @@
 'use client';
 /**
- * Step 3 — Berkas (Design §3.3; R-07, R-13): IA + IR drop zones (PDF, new upload = new version),
+ * Berkas section (Design §3.3; R-07, R-13): IA + IR drop zones (PDF, new upload = new version), the
+ * mobility bundle for mobility kegiatan (Revisi V.1: transkrip + poster + dokumentasi in ONE PDF),
  * optional evidence files (PDF/JPG/PNG) and links. Uploads go through POST /api/upload; the page is
  * refreshed afterwards so versions/history and the checklist come from the DB.
  */
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Eye, Link2, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Eye, Info, Link2, Trash2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileDrop } from '@/components/ui/file-drop';
@@ -22,9 +23,21 @@ import { FILE_KIND_LABEL } from '@/lib/realisasi/status';
 import { MAX_FILE_BYTES } from '@/lib/storage';
 import type { ActivityFile } from '@/lib/realisasi/types';
 
-type Target = 'ia' | 'ir' | 'evidence';
+type Target = 'ia' | 'ir' | 'mobility_bundle' | 'evidence';
+type VersionedKind = 'ia' | 'ir' | 'mobility_bundle';
 
-export function FilesEditor({ activityId, files, disabled }: { activityId: string; files: ActivityFile[]; disabled?: boolean }) {
+export function FilesEditor({
+  activityId,
+  files,
+  disabled,
+  isMobility = false,
+}: {
+  activityId: string;
+  files: ActivityFile[];
+  disabled?: boolean;
+  /** Mobility kegiatan need the bundle PDF (Revisi V.1 item 8). */
+  isMobility?: boolean;
+}) {
   const router = useRouter();
   const save = useSaveStatus();
   const [busy, setBusy] = useState<Target | null>(null);
@@ -90,7 +103,7 @@ export function FilesEditor({ activityId, files, disabled }: { activityId: strin
     });
   }
 
-  const current = (kind: 'ia' | 'ir') =>
+  const current = (kind: VersionedKind) =>
     files.filter((f) => f.kind === kind && f.is_current).sort((a, b) => b.version - a.version)[0] ?? null;
   const evidence = files.filter((f) => f.kind === 'evidence' && f.is_current);
   const hasHistory = files.some((f) => !f.is_current);
@@ -104,8 +117,20 @@ export function FilesEditor({ activityId, files, disabled }: { activityId: strin
         </Alert>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {(['ia', 'ir'] as const).map((kind) => {
+      {isMobility && (
+        <Alert variant="info" data-testid="mobility-bundle-notice">
+          <Info aria-hidden />
+          <AlertTitle>Kegiatan mobilitas: satu berkas PDF tambahan</AlertTitle>
+          <AlertDescription>
+            Gabungkan <strong>Transkrip Mahasiswa</strong>, <strong>Poster Kegiatan</strong>, dan <strong>Dokumentasi Kegiatan</strong> ke
+            dalam <strong>satu file PDF</strong>, lalu unggah pada kotak di bawah. Berkas ini diperiksa tim Mobilitas dan dapat dilihat
+            pada detail kegiatan.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className={isMobility ? 'grid gap-6 md:grid-cols-3' : 'grid gap-6 md:grid-cols-2'}>
+        {(isMobility ? (['ia', 'ir', 'mobility_bundle'] as const) : (['ia', 'ir'] as const)).map((kind) => {
           const f = current(kind);
           const headingId = `drop-${kind}-title`;
           return (

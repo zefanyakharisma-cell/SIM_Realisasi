@@ -69,9 +69,9 @@ begin
 
   select realisasi._snapshot_label(p_kind, label) into v_label from realisasi.academic_years where id = p_ay;
   perform realisasi._notify_admins('snapshot_frozen', 'Snapshot dibekukan: ' || v_label,
-    'Snapshot KPI ' || v_label || ' telah dibekukan.', '/realisasi/laporan?report=arsip&snapshot=' || v_id);
+    'Snapshot capaian Renstra ' || v_label || ' telah dibekukan.', '/realisasi/laporan?report=arsip&snapshot=' || v_id);
   perform realisasi._notify_viewers('snapshot_frozen', 'Snapshot dibekukan: ' || v_label,
-    'Snapshot KPI ' || v_label || ' telah dibekukan.', '/realisasi/laporan?report=arsip&snapshot=' || v_id);
+    'Snapshot capaian Renstra ' || v_label || ' telah dibekukan.', '/realisasi/laporan?report=arsip&snapshot=' || v_id);
   return v_id;
 end $$;
 

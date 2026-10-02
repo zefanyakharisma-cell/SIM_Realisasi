@@ -42,20 +42,14 @@ create table realisasi.semesters (
   check (cutoff_date >= end_date)
 );
 
-create table realisasi.holidays (
-  day  date primary key,
-  name text not null
-);
-
-create table realisasi.activity_types (
-  id                         serial primary key,
-  name                       text unique not null,
-  direction                  realisasi.direction not null default 'none',
-  counts_as_mobility         boolean not null default false,
-  counts_for_s1              boolean not null default true,
-  requires_mobility_review   boolean not null default false,
-  is_active                  boolean not null default true,
-  sort_order                 int default 0
+-- Counting rules per SIMKS agenda (Jenis Kegiatan = kerjasama.agendas, Revisi V.1). An agenda without a row, or with a
+-- null mobility_category, is not a mobility activity: no participants required, verified on submit.
+create table realisasi.agenda_rules (
+  agenda_id         int primary key,  -- kerjasama.agendas.id (no FK: adapter view)
+  mobility_category realisasi.mobility_category,
+  counts_for_s1     boolean not null default true,
+  updated_by        uuid,  -- kerjasama.profiles.id (no FK: adapter view)
+  updated_at        timestamptz default now()
 );
 
 create table realisasi.sdgs (
@@ -78,28 +72,24 @@ create table realisasi.activities (
   code                text unique not null
                       default 'RL-' || to_char(now(),'YYYY') || '-' || lpad(nextval('realisasi.activity_code_seq')::text,4,'0'),
   name                text not null,
-  type_id             int not null references realisasi.activity_types(id),
+  agenda_id           int not null,  -- kerjasama.agendas.id (no FK: adapter view); rules in realisasi.agenda_rules
+  direction           realisasi.direction not null,
   start_date          date not null,
   end_date            date not null,
   academic_year_id    int references realisasi.academic_years(id),
   semester_id         int references realisasi.semesters(id),
   mode                realisasi.activity_mode not null,
   venue               text,
-  city                text,
   country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
   sks_recognized      numeric(4,1),
-  funding_source      realisasi.funding_source,
   description         text not null,
   submitter_unit_id   int not null,  -- kerjasama.units.id (no FK: adapter view)
   created_by          uuid not null,  -- kerjasama.profiles.id (no FK: adapter view)
   submitted_at        timestamptz,
   verified_at         timestamptz,
   status              realisasi.activity_status not null default 'draft',
-  partnership_status  realisasi.track_status not null default 'pending',
   mobility_status     realisasi.track_status not null default 'not_required',
-  partnership_since   timestamptz,
-  mobility_since      timestamptz,
-  rejection_reason    text,
+  mobility_since      timestamptz,  -- when the mobility track last changed (revision reminders)
   event_group_id      uuid not null references realisasi.event_groups(id),
   reporting_deadline  date,
   is_late             boolean not null default false,
@@ -110,7 +100,7 @@ create table realisasi.activities (
 create index on realisasi.activities (status, start_date);
 create index on realisasi.activities (event_group_id);
 create index on realisasi.activities (submitter_unit_id);
-create index on realisasi.activities (type_id);
+create index on realisasi.activities (agenda_id);
 create index on realisasi.activities (semester_id);
 create index on realisasi.activities (academic_year_id);
 create index on realisasi.activities (created_by);
@@ -131,6 +121,7 @@ create table realisasi.activity_documents (
   out_of_scope_warning  boolean not null default false,
   primary key (activity_id, original_document_id)
 );
+create unique index one_agreement_per_activity on realisasi.activity_documents (activity_id);  -- Revisi V.1 item 7
 create index on realisasi.activity_documents (chain_id);
 create index on realisasi.activity_documents (original_document_id);
 
@@ -181,7 +172,7 @@ create table realisasi.activity_files (
 );
 create unique index one_current_ia_ir
   on realisasi.activity_files (activity_id, kind)
-  where is_current and kind in ('ia','ir');
+  where is_current and kind in ('ia','ir','mobility_bundle');
 create index on realisasi.activity_files (activity_id, kind);
 create index on realisasi.activity_files (storage_path);
 create index on realisasi.activity_files (uploaded_by);
@@ -219,13 +210,10 @@ create table realisasi.participant_students (
   home_institution    text,
   home_student_number text,
   home_country_code   text,
-  transcript_path     text,
-  row_note            text,
   unique (set_version_id, nrp),
   check (section = 'internal' or home_institution is not null)
 );
 create index on realisasi.participant_students (nrp);
-create index on realisasi.participant_students (transcript_path) where transcript_path is not null;
 
 create table realisasi.participant_staff (
   id             bigserial primary key,
@@ -233,24 +221,32 @@ create table realisasi.participant_staff (
   employee_id    text not null,
   full_name      text not null,
   unit_name      text,
-  row_note       text,
   unique (set_version_id, employee_id)
 );
 
 -- 3.4 Duplicates, logs, known activities, notifications ---------------------
-create table realisasi.duplicate_candidates (
-  id          bigserial primary key,
-  activity_a  uuid not null references realisasi.activities(id),
-  activity_b  uuid not null references realisasi.activities(id),
-  score       numeric(3,2) not null,
-  status      realisasi.dup_status not null default 'open',
-  resolved_by uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  resolved_at timestamptz,
+-- One student (NRP) claimed by activities of two different units with overlapping dates (Revisi V.1, rule 2.1).
+-- Mobility picks the activity that keeps the student (kept_activity_id); the other one does not count them. While open,
+-- the student counts for neither. The same unit claiming a student in two activities is never a conflict (rule 2.2).
+create table realisasi.participant_conflicts (
+  id               bigserial primary key,
+  nrp              text not null,
+  activity_a       uuid not null references realisasi.activities(id),
+  activity_b       uuid not null references realisasi.activities(id),
+  status           realisasi.conflict_status not null default 'open',
+  kept_activity_id uuid references realisasi.activities(id),
+  note             text,
+  resolved_by      uuid,  -- kerjasama.profiles.id (no FK: adapter view)
+  resolved_at      timestamptz,
+  created_at       timestamptz default now(),
   check (activity_a < activity_b),
-  unique (activity_a, activity_b)
+  check ((status = 'resolved') = (kept_activity_id is not null)),
+  check (kept_activity_id is null or kept_activity_id in (activity_a, activity_b)),
+  unique (nrp, activity_a, activity_b)
 );
-create index on realisasi.duplicate_candidates (activity_b);
-create index on realisasi.duplicate_candidates (status);
+create index on realisasi.participant_conflicts (activity_b);
+create index on realisasi.participant_conflicts (status);
+create index on realisasi.participant_conflicts (kept_activity_id);
 
 create table realisasi.activity_log (
   id          bigserial primary key,
@@ -268,30 +264,6 @@ create index on realisasi.activity_log (activity_id, created_at);
 create index on realisasi.activity_log (activity_id, action, created_at);
 create index on realisasi.activity_log (actor_id);
 create index activity_log_frozen_idx on realisasi.activity_log (created_at) where in_frozen_period;
-
-create table realisasi.known_activities (
-  id                  bigserial primary key,
-  title               text not null,
-  activity_date       date not null,
-  unit_id             int,  -- kerjasama.units.id (no FK: adapter view)
-  partner_name        text,
-  country_code        text check (country_code ~ '^[A-Z]{2}$'),  -- kerjasama.countries.code (no FK: adapter view)
-  is_international    boolean not null,
-  source              realisasi.known_source not null,
-  source_reference    text,
-  notes               text,
-  status              realisasi.known_status not null default 'unmatched',
-  matched_activity_id uuid references realisasi.activities(id),
-  nudged_at           timestamptz,
-  created_by          uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  created_at          timestamptz default now(),
-  check ((status = 'matched') = (matched_activity_id is not null))
-);
-create index on realisasi.known_activities (activity_date);
-create index on realisasi.known_activities (matched_activity_id);
-create index on realisasi.known_activities (unit_id);
-create index on realisasi.known_activities (created_by);
-create index known_activities_intl_status_idx on realisasi.known_activities (status, activity_date) where is_international;
 
 create table realisasi.notifications (
   id           bigserial primary key,
