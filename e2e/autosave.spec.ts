@@ -23,7 +23,7 @@ function gate() {
 
 test('H-1: an edit made during an in-flight autosave is saved, not dropped as "Tersimpan"', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFsd);
-  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}&step=1`);
+  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}`);
   const name = page.getByLabel('Nama kegiatan *');
   const description = page.getByLabel('Deskripsi *');
   await expect(name).toBeVisible();
@@ -65,7 +65,13 @@ test('H-1: an edit made during an in-flight autosave is saved, not dropped as "T
 
 test('H-2: a slow NRP lookup does not restore a staff row removed meanwhile', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFsd);
-  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}&step=2`);
+  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}`);
+  // S-23 is a guest lecture (no participants); make it a mobility kegiatan so the Peserta section unlocks.
+  await expect(page.getByTestId('participants-not-needed')).toBeVisible();
+  await page.getByLabel('Jenis kegiatan *').selectOption({ label: 'Student Exchange' });
+  await page.getByLabel('Inbound / Outbound *').selectOption('outbound');
+  await page.getByTestId('wizard-save-draft').click();
+  await expect(page.getByLabel('Tempel ID pegawai (satu per baris)')).toBeVisible();
 
   await page.getByLabel('Tempel ID pegawai (satu per baris)').fill('PG204517');
   await page.getByTestId('check-employee').click();
@@ -94,14 +100,14 @@ test('H-2: a slow NRP lookup does not restore a staff row removed meanwhile', as
   await expect(page.getByTestId('staff-row')).toHaveCount(0);
 });
 
-test('M-1: Lanjut waits for a debounced edit instead of discarding it', async ({ page }) => {
+test('M-1: a debounced edit is saved before the page is left', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFsd);
-  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}&step=1`);
+  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}`);
   // S-23 is an online activity: the venue field is the platform name.
   await page.getByLabel('Nama platform *').fill('Zoom Webinar (diubah)');
-  // Navigate via the stepper immediately (inside the 1.5 s debounce window).
-  await page.getByRole('navigation', { name: 'Langkah pengisian' }).getByRole('link', { name: /Peserta/ }).click();
-  await page.waitForURL(/step=2/);
-  await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}&step=1`);
+  // Jump to another section of the same page inside the 1.5 s debounce window.
+  await page.getByRole('navigation', { name: 'Bagian formulir' }).getByRole('link', { name: /Berkas/ }).click();
+  await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan', { timeout: 10_000 });
+  await page.reload();
   await expect(page.getByLabel('Nama platform *')).toHaveValue('Zoom Webinar (diubah)');
 });
