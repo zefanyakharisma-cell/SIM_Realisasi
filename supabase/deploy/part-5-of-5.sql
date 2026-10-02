@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 5 OF 5 (commit 3107fea).
+-- SIM Realisasi Supabase install, PART 5 OF 5 (commit 56e49d9).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -627,7 +627,7 @@ update realisasi.email_outbox o set created_at = k.frozen_at
 commit;
 
 -- Verification: the last result is the schema fingerprint (must match docs/SUPABASE_INTEGRATION.md)
-select 'functions' k, count(*)::text n, md5(string_agg(n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')='||md5(p.prosrc), ',' order by n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))) h
+select 'functions' k, count(*)::text n, md5(string_agg(n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')='||md5(replace(p.prosrc, chr(13), '')), ',' order by n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))) h
   from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('realisasi','kerjasama','mock_baak','mock_hr')
 union all
 select 'columns', count(*)::text, md5(string_agg(table_schema||'.'||table_name||'.'||column_name||':'||data_type, ',' order by table_schema, table_name, column_name))

@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 3 OF 5 (commit 3107fea).
+-- SIM Realisasi Supabase install, PART 3 OF 5 (commit 56e49d9).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 

@@ -106,6 +106,13 @@ The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Account
   `functions 179 d1b4e9b966adc41af70a6574f2d29334`, `columns 380 c9ebd5632031b508bc93abbd7aecf942`,
   `policies 26 eeffda2ce3c17574a082ef903b081191`.
 
+## Deploy status (2026-10-02)
+
+Installed on `simks-partnership` via the SQL Editor (5 parts). Verified: 179 functions (identical to the tested build
+once Windows CRLF line endings from the paste are ignored), 380 columns, 26 policies, 12 activities, 2 frozen snapshots,
+7 accounts, 39/39 SIMKS documents visible, cron job `realisasi-daily-jobs`. As io_admin: role resolves, dashboard computes.
+Remaining: Vercel `DATABASE_URL` (connector lacks permission to set env vars) and rotating the DB password.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
