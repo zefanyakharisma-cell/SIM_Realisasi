@@ -4,7 +4,7 @@
  * view (`mode="revision"`) and the IO Admin post-verification edit page (`mode="verified"`, R-29/R-30).
  *
  * - wizard: "Simpan Draf" creates the draft; from then on valid changes autosave (debounced) and the
- *   Peserta / Berkas sections below unlock on the same page.
+ *   Peserta / Berkas sections below (shown as read-only previews until then) become editable on the same page.
  * - revision: explicit "Simpan perubahan" (each save is logged as a revision diff, so no autosave).
  * - verified: explicit save with a mandatory change note → `edit_verified_activity`.
  */

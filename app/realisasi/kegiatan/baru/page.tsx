@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Lock } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/realisasi/empty-state';
 import { Forbidden } from '@/components/realisasi/forbidden';
@@ -9,6 +9,7 @@ import { detailDocumentsAsOptions, detailToPayload } from '@/components/realisas
 import { participantRequirements } from '@/components/realisasi/activity/labels';
 import { DetailForm } from '@/components/realisasi/wizard/detail-form';
 import { FilesEditor } from '@/components/realisasi/wizard/files-editor';
+import { ParticipantsEditor } from '@/components/realisasi/wizard/participants-editor';
 import { ParticipantsStep } from '@/components/realisasi/wizard/participants-step';
 import { SubmitPanel } from '@/components/realisasi/wizard/submit-panel';
 import { WizardShell } from '@/components/realisasi/wizard/wizard-shell';
@@ -25,19 +26,38 @@ function one(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-function Locked({ children }: { children: React.ReactNode }) {
+const PREVIEW_NOTE = 'Pratinjau: bagian ini dapat diisi setelah Detail disimpan sebagai draf.';
+
+/** Before the draft exists the later sections are shown in full but read-only (native `fieldset disabled`). */
+function Preview({ children }: { children: React.ReactNode }) {
   return (
-    <p className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-      <Lock className="h-4 w-4 shrink-0" aria-hidden />
-      {children}
-    </p>
+    <div className="space-y-3" data-testid="section-preview">
+      <p className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+        <Info className="h-4 w-4 shrink-0" aria-hidden />
+        {PREVIEW_NOTE}
+      </p>
+      <fieldset disabled className="min-w-0 opacity-75">
+        {children}
+      </fieldset>
+    </div>
   );
 }
 
+/** Requirements shown in the Ajukan preview (the real checklist comes from `submission_checklist()`). */
+const PREVIEW_CHECKLIST = [
+  'R07_REQUIRED_FIELD',
+  'R07_AGREEMENT_REQUIRED',
+  'R08_END_AFTER_TODAY',
+  'R07_IA_REQUIRED',
+  'R07_IR_REQUIRED',
+  'R13_MOBILITY_BUNDLE_REQUIRED',
+  'R11_PARTICIPANTS_REQUIRED',
+].map((code) => ({ code, ok: false, message: '' }));
+
 /**
- * Kegiatan Baru `/realisasi/kegiatan/baru?draft=<id>` — Revisi V.1: one page, no steps. Detail and Kerja sama
- * come first; once the draft exists (first "Simpan Draf"), Peserta (mobility kegiatan only), Berkas and
- * Ajukan unlock on the same page. Edits autosave.
+ * Kegiatan Baru `/realisasi/kegiatan/baru?draft=<id>` — Revisi V.1: one page, no steps. Every section is
+ * visible from the start; Peserta (mobility kegiatan only), Berkas and Ajukan are read-only previews until
+ * the draft exists (first "Simpan Draf"), then become editable on the same page. Edits autosave.
  */
 export default async function NewActivityPage(props: { searchParams: Promise<SP> }) {
   const user = await requireUser();
@@ -111,7 +131,18 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
             2. Peserta
           </h2>
           {!detail ? (
-            <Locked>Tersedia setelah Detail disimpan sebagai draf.</Locked>
+            <Preview>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Data peserta hanya diperlukan untuk kegiatan mobilitas (outbound: mahasiswa PETRA; inbound: mahasiswa inbound dengan
+                institusi asal).
+              </p>
+              <ParticipantsEditor
+                activityId=""
+                initialVersion={null}
+                countries={options.countries}
+                required={{ any: false, internal: false, inbound: false }}
+              />
+            </Preview>
           ) : !isMobility ? (
             <p className="text-sm text-muted-foreground" data-testid="participants-not-needed">
               Jenis <span className="font-medium text-foreground">{detail.agenda.name}</span> bukan kegiatan mobilitas: data peserta tidak
@@ -135,7 +166,9 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
           {detail ? (
             <FilesEditor activityId={detail.id} files={detail.files} isMobility={isMobility} />
           ) : (
-            <Locked>Tersedia setelah Detail disimpan sebagai draf.</Locked>
+            <Preview>
+              <FilesEditor activityId="" files={[]} isMobility disabled />
+            </Preview>
           )}
         </section>
 
@@ -148,7 +181,11 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
               <SubmitPanel activityId={detail.id} checklist={detail.checklist} />
             </div>
           ) : (
-            <Locked>Tersedia setelah Detail disimpan sebagai draf.</Locked>
+            <Preview>
+              <div className="rounded-lg border p-4">
+                <SubmitPanel activityId="" checklist={PREVIEW_CHECKLIST} blockedReason="Simpan Detail sebagai draf terlebih dahulu." />
+              </div>
+            </Preview>
           )}
         </section>
       </WizardShell>
