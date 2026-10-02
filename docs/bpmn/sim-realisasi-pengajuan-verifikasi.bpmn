@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Process_sim_realisasi_pengajuan_verifikasi" targetNamespace="https://petra.ac.id/sim-realisasi/bpmn" exporter="SIM Realisasi docs/bpmn/generate.py" exporterVersion="1.0">
+  <bpmn:collaboration id="Collab_Process_sim_realisasi_pengajuan_verifikasi">
+    <bpmn:participant id="Participant_main" name="SIM Realisasi: Pengajuan &amp; Verifikasi Kegiatan" processRef="Process_sim_realisasi_pengajuan_verifikasi" />
+    <bpmn:participant id="pool_simks" name="SIM Kerjasama" />
+    <bpmn:participant id="pool_baak" name="BAAK &amp; HR (data mahasiswa / pegawai)" />
+    <bpmn:messageFlow id="mf_docs" name="Dokumen MoU/MoA berlaku pada tanggal kegiatan" sourceRef="pool_simks" targetRef="t_detail" />
+    <bpmn:messageFlow id="mf_lookup" name="Cek NRP / NIP" sourceRef="t_lookup" targetRef="pool_baak" />
+    <bpmn:messageFlow id="mf_realisasi" name="Tab Realisasi &amp; flag tanpa realisasi" sourceRef="t_count" targetRef="pool_simks" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_sim_realisasi_pengajuan_verifikasi" name="Pengajuan &amp; Verifikasi Kegiatan" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="lane_unit" name="Unit Akademik (Pengaju)">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_detail</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_mob</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_files</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_peserta</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_files_mob</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_m1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_submit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_revise</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_mob" name="Tim Mobilitas IO">
+        <bpmn:flowNodeRef>t_review</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_dup</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_decide</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_m2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_revise_req</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_approve</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_sys" name="SIM Realisasi (Sistem)">
+        <bpmn:flowNodeRef>t_draft</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_lookup</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_valid</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_validate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_track</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_auto</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_pending</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_verified</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g_m3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_count</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Kegiatan kerja sama selesai dilaksanakan">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="t_detail" name="Isi Detail kegiatan &amp; pilih Kerja Sama">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="t_draft" name="Simpan draf; tetapkan semester/TA &amp; batas lapor">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_mob" name="Kegiatan mobilitas?">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_files" name="Unggah IA &amp; IR (PDF) + bukti opsional">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="t_peserta" name="Isi peserta (NRP mahasiswa, NIP pegawai, inbound)">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="t_lookup" name="Lookup NRP/NIP ke data BAAK &amp; HR">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_valid" name="Semua NRP/NIP ditemukan?">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_files_mob" name="Unggah IA, IR &amp; PDF mobilitas (gabungan)">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_m1" name="">
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_submit" name="Ajukan kegiatan">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="t_validate" name="Validasi pengajuan; tandai Terlambat bila lewat batas">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_track" name="Jenis = kegiatan mobilitas?">
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="t_auto" name="Status Terverifikasi (track not_required)">
+      <bpmn:incoming>Flow_16</bpmn:incoming>
+      <bpmn:outgoing>Flow_17</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="t_pending" name="Track Mobilitas = pending; deteksi duplikat mahasiswa; notifikasi">
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:incoming>Flow_27</bpmn:incoming>
+      <bpmn:outgoing>Flow_18</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:userTask id="t_review" name="Tinjau peserta &amp; PDF mobilitas">
+      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_dup" name="Ada duplikat mahasiswa antar-unit?">
+      <bpmn:incoming>Flow_19</bpmn:incoming>
+      <bpmn:outgoing>Flow_20</bpmn:outgoing>
+      <bpmn:outgoing>Flow_21</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_decide" name="Pilih kegiatan yang mempertahankan mahasiswa">
+      <bpmn:incoming>Flow_20</bpmn:incoming>
+      <bpmn:outgoing>Flow_22</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_m2" name="">
+      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:incoming>Flow_22</bpmn:incoming>
+      <bpmn:outgoing>Flow_23</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="g_ok" name="Peserta &amp; berkas sesuai?">
+      <bpmn:incoming>Flow_23</bpmn:incoming>
+      <bpmn:outgoing>Flow_24</bpmn:outgoing>
+      <bpmn:outgoing>Flow_25</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_revise_req" name="Minta revisi (catatan wajib)">
+      <bpmn:incoming>Flow_24</bpmn:incoming>
+      <bpmn:outgoing>Flow_26</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="t_revise" name="Perbaiki &amp; ajukan ulang (versi peserta n+1)">
+      <bpmn:incoming>Flow_26</bpmn:incoming>
+      <bpmn:outgoing>Flow_27</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="t_approve" name="Setujui versi peserta">
+      <bpmn:incoming>Flow_25</bpmn:incoming>
+      <bpmn:outgoing>Flow_28</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sendTask id="t_verified" name="Status Terverifikasi; catat verified_at; notifikasi unit">
+      <bpmn:incoming>Flow_28</bpmn:incoming>
+      <bpmn:outgoing>Flow_29</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:exclusiveGateway id="g_m3" name="">
+      <bpmn:incoming>Flow_17</bpmn:incoming>
+      <bpmn:incoming>Flow_29</bpmn:incoming>
+      <bpmn:outgoing>Flow_30</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="t_count" name="Hitung ke RENSTRA &amp; International Awards">
+      <bpmn:incoming>Flow_30</bpmn:incoming>
+      <bpmn:outgoing>Flow_31</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end" name="Kegiatan terverifikasi &amp; terhitung">
+      <bpmn:incoming>Flow_31</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="start" targetRef="t_detail" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="t_detail" targetRef="t_draft" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="t_draft" targetRef="g_mob" />
+    <bpmn:sequenceFlow id="Flow_4" name="Tidak" sourceRef="g_mob" targetRef="t_files" />
+    <bpmn:sequenceFlow id="Flow_5" name="Ya" sourceRef="g_mob" targetRef="t_peserta" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="t_peserta" targetRef="t_lookup" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="t_lookup" targetRef="g_valid" />
+    <bpmn:sequenceFlow id="Flow_8" name="Tidak" sourceRef="g_valid" targetRef="t_peserta" />
+    <bpmn:sequenceFlow id="Flow_9" name="Ya" sourceRef="g_valid" targetRef="t_files_mob" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="t_files" targetRef="g_m1" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="t_files_mob" targetRef="g_m1" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="g_m1" targetRef="t_submit" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="t_submit" targetRef="t_validate" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="t_validate" targetRef="g_track" />
+    <bpmn:sequenceFlow id="Flow_15" name="Ya" sourceRef="g_track" targetRef="t_pending" />
+    <bpmn:sequenceFlow id="Flow_16" name="Tidak" sourceRef="g_track" targetRef="t_auto" />
+    <bpmn:sequenceFlow id="Flow_17" sourceRef="t_auto" targetRef="g_m3" />
+    <bpmn:sequenceFlow id="Flow_18" sourceRef="t_pending" targetRef="t_review" />
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="t_review" targetRef="g_dup" />
+    <bpmn:sequenceFlow id="Flow_20" name="Ya" sourceRef="g_dup" targetRef="t_decide" />
+    <bpmn:sequenceFlow id="Flow_21" name="Tidak" sourceRef="g_dup" targetRef="g_m2" />
+    <bpmn:sequenceFlow id="Flow_22" sourceRef="t_decide" targetRef="g_m2" />
+    <bpmn:sequenceFlow id="Flow_23" sourceRef="g_m2" targetRef="g_ok" />
+    <bpmn:sequenceFlow id="Flow_24" name="Tidak" sourceRef="g_ok" targetRef="t_revise_req" />
+    <bpmn:sequenceFlow id="Flow_25" name="Ya" sourceRef="g_ok" targetRef="t_approve" />
+    <bpmn:sequenceFlow id="Flow_26" sourceRef="t_revise_req" targetRef="t_revise" />
+    <bpmn:sequenceFlow id="Flow_27" sourceRef="t_revise" targetRef="t_pending" />
+    <bpmn:sequenceFlow id="Flow_28" sourceRef="t_approve" targetRef="t_verified" />
+    <bpmn:sequenceFlow id="Flow_29" sourceRef="t_verified" targetRef="g_m3" />
+    <bpmn:sequenceFlow id="Flow_30" sourceRef="g_m3" targetRef="t_count" />
+    <bpmn:sequenceFlow id="Flow_31" sourceRef="t_count" targetRef="end" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_Process_sim_realisasi_pengajuan_verifikasi" name="Pengajuan &amp; Verifikasi Kegiatan">
+    <bpmndi:BPMNPlane id="Plane_Process_sim_realisasi_pengajuan_verifikasi" bpmnElement="Collab_Process_sim_realisasi_pengajuan_verifikasi">
+      <bpmndi:BPMNShape id="Participant_main_di" bpmnElement="Participant_main" isHorizontal="true"><dc:Bounds x="20" y="130" width="3304" height="810" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pool_simks_di" bpmnElement="pool_simks" isHorizontal="true"><dc:Bounds x="20" y="20" width="3304" height="60" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pool_baak_di" bpmnElement="pool_baak" isHorizontal="true"><dc:Bounds x="20" y="990" width="3304" height="60" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_unit_di" bpmnElement="lane_unit" isHorizontal="true"><dc:Bounds x="54" y="130" width="3270" height="270" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_mob_di" bpmnElement="lane_mob" isHorizontal="true"><dc:Bounds x="54" y="400" width="3270" height="270" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="54" y="670" width="3270" height="270" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start"><dc:Bounds x="118" y="249" width="32" height="32" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_detail_di" bpmnElement="t_detail"><dc:Bounds x="214" y="233" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_draft_di" bpmnElement="t_draft"><dc:Bounds x="354" y="773" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_mob_di" bpmnElement="g_mob" isMarkerVisible="true"><dc:Bounds x="531" y="242" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_files_di" bpmnElement="t_files"><dc:Bounds x="634" y="153" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_peserta_di" bpmnElement="t_peserta"><dc:Bounds x="634" y="313" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_lookup_di" bpmnElement="t_lookup"><dc:Bounds x="634" y="773" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_valid_di" bpmnElement="g_valid" isMarkerVisible="true"><dc:Bounds x="811" y="782" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_files_mob_di" bpmnElement="t_files_mob"><dc:Bounds x="914" y="313" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_m1_di" bpmnElement="g_m1" isMarkerVisible="true"><dc:Bounds x="1091" y="242" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_submit_di" bpmnElement="t_submit"><dc:Bounds x="1194" y="233" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_validate_di" bpmnElement="t_validate"><dc:Bounds x="1334" y="773" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_track_di" bpmnElement="g_track" isMarkerVisible="true"><dc:Bounds x="1511" y="782" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_auto_di" bpmnElement="t_auto"><dc:Bounds x="1614" y="853" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_pending_di" bpmnElement="t_pending"><dc:Bounds x="1614" y="693" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_review_di" bpmnElement="t_review"><dc:Bounds x="1754" y="503" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_dup_di" bpmnElement="g_dup" isMarkerVisible="true"><dc:Bounds x="1931" y="512" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_decide_di" bpmnElement="t_decide"><dc:Bounds x="2034" y="423" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_m2_di" bpmnElement="g_m2" isMarkerVisible="true"><dc:Bounds x="2211" y="512" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_ok_di" bpmnElement="g_ok" isMarkerVisible="true"><dc:Bounds x="2351" y="512" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_revise_req_di" bpmnElement="t_revise_req"><dc:Bounds x="2454" y="423" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_revise_di" bpmnElement="t_revise"><dc:Bounds x="2454" y="313" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_approve_di" bpmnElement="t_approve"><dc:Bounds x="2594" y="503" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_verified_di" bpmnElement="t_verified"><dc:Bounds x="2734" y="773" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="g_m3_di" bpmnElement="g_m3" isMarkerVisible="true"><dc:Bounds x="2911" y="782" width="46" height="46" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_count_di" bpmnElement="t_count"><dc:Bounds x="3014" y="773" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end"><dc:Bounds x="3198" y="789" width="32" height="32" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="150" y="265" /><di:waypoint x="214" y="265" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="334" y="265" /><di:waypoint x="414" y="265" /><di:waypoint x="414" y="773" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="474" y="805" /><di:waypoint x="502" y="805" /><di:waypoint x="502" y="265" /><di:waypoint x="531" y="265" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="554" y="242" /><di:waypoint x="554" y="185" /><di:waypoint x="634" y="185" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="554" y="288" /><di:waypoint x="554" y="345" /><di:waypoint x="634" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6"><di:waypoint x="694" y="377" /><di:waypoint x="694" y="773" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7"><di:waypoint x="754" y="805" /><di:waypoint x="811" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8"><di:waypoint x="834" y="782" /><di:waypoint x="834" y="345" /><di:waypoint x="754" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9"><di:waypoint x="857" y="805" /><di:waypoint x="974" y="805" /><di:waypoint x="974" y="377" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10"><di:waypoint x="754" y="185" /><di:waypoint x="1114" y="185" /><di:waypoint x="1114" y="242" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11"><di:waypoint x="1034" y="345" /><di:waypoint x="1114" y="345" /><di:waypoint x="1114" y="288" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12"><di:waypoint x="1137" y="265" /><di:waypoint x="1194" y="265" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13"><di:waypoint x="1314" y="265" /><di:waypoint x="1394" y="265" /><di:waypoint x="1394" y="773" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14"><di:waypoint x="1454" y="805" /><di:waypoint x="1511" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15"><di:waypoint x="1534" y="782" /><di:waypoint x="1534" y="725" /><di:waypoint x="1614" y="725" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16"><di:waypoint x="1534" y="828" /><di:waypoint x="1534" y="885" /><di:waypoint x="1614" y="885" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17_di" bpmnElement="Flow_17"><di:waypoint x="1734" y="885" /><di:waypoint x="2934" y="885" /><di:waypoint x="2934" y="828" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18_di" bpmnElement="Flow_18"><di:waypoint x="1734" y="725" /><di:waypoint x="1814" y="725" /><di:waypoint x="1814" y="567" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19"><di:waypoint x="1874" y="535" /><di:waypoint x="1931" y="535" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_20_di" bpmnElement="Flow_20"><di:waypoint x="1954" y="512" /><di:waypoint x="1954" y="455" /><di:waypoint x="2034" y="455" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21"><di:waypoint x="1977" y="535" /><di:waypoint x="2211" y="535" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_22_di" bpmnElement="Flow_22"><di:waypoint x="2154" y="455" /><di:waypoint x="2234" y="455" /><di:waypoint x="2234" y="512" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_23_di" bpmnElement="Flow_23"><di:waypoint x="2257" y="535" /><di:waypoint x="2351" y="535" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_24_di" bpmnElement="Flow_24"><di:waypoint x="2374" y="512" /><di:waypoint x="2374" y="455" /><di:waypoint x="2454" y="455" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_25_di" bpmnElement="Flow_25"><di:waypoint x="2397" y="535" /><di:waypoint x="2594" y="535" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_26_di" bpmnElement="Flow_26"><di:waypoint x="2514" y="423" /><di:waypoint x="2514" y="377" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_27_di" bpmnElement="Flow_27"><di:waypoint x="2454" y="345" /><di:waypoint x="1674" y="345" /><di:waypoint x="1674" y="693" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_28_di" bpmnElement="Flow_28"><di:waypoint x="2714" y="535" /><di:waypoint x="2794" y="535" /><di:waypoint x="2794" y="773" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_29_di" bpmnElement="Flow_29"><di:waypoint x="2854" y="805" /><di:waypoint x="2911" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_30_di" bpmnElement="Flow_30"><di:waypoint x="2957" y="805" /><di:waypoint x="3014" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_31_di" bpmnElement="Flow_31"><di:waypoint x="3134" y="805" /><di:waypoint x="3198" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="mf_docs_di" bpmnElement="mf_docs"><di:waypoint x="274" y="80" /><di:waypoint x="274" y="233" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="mf_lookup_di" bpmnElement="mf_lookup"><di:waypoint x="694" y="837" /><di:waypoint x="694" y="990" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="mf_realisasi_di" bpmnElement="mf_realisasi"><di:waypoint x="3074" y="773" /><di:waypoint x="3074" y="80" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
