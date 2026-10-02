@@ -106,6 +106,18 @@ The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Account
   `functions 179 d1b4e9b966adc41af70a6574f2d29334`, `columns 380 c9ebd5632031b508bc93abbd7aecf942`,
   `policies 26 eeffda2ce3c17574a082ef903b081191`.
 
+## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
+
+1. Open `supabase/deploy/sim-realisasi-supabase.sql` (regenerate with `scripts/build-sql-bundle.sh` after changing
+   migrations or seeds) and copy its whole content.
+2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
+   "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
+3. The result grid shows the fingerprint; it must read `functions 179 d1b4e9b966adc41af70a6574f2d29334`,
+   `columns 380 c9ebd5632031b508bc93abbd7aecf942`, `policies 26 eeffda2ce3c17574a082ef903b081191`.
+
+The file is one transaction (an error rolls everything back), is safe to run again, and equals
+`scripts/db-deploy-supabase.sh --reset-realisasi`.
+
 ## Deploy steps (lead)
 1. **Rehearse locally**:
    `DATABASE_URL=postgresql://postgres@localhost:54322/sim_realisasi_rehearsal scripts/db-deploy-supabase.sh --rehearse`
