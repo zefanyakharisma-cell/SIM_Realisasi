@@ -88,9 +88,10 @@ if (process.env.NODE_ENV !== 'production') globalForDb.__simRealisasiSql = sql;
 export async function withUser<T>(profileId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   const result = await sql.begin(async (tx) => {
     const claims = JSON.stringify({ sub: profileId, role: 'authenticated' });
+    // One round trip: claims + `set local role authenticated` (set_config('role', …, true) is SET LOCAL ROLE).
     await tx`select set_config('request.jwt.claims', ${claims}, true),
-                    set_config('request.jwt.claim.sub', ${profileId}, true)`;
-    await tx`set local role authenticated`;
+                    set_config('request.jwt.claim.sub', ${profileId}, true),
+                    set_config('role', 'authenticated', true)`;
     return fn(tx);
   });
   return result as T;
@@ -101,6 +102,6 @@ export async function withUser<T>(profileId: string, fn: (tx: Tx) => Promise<T>)
  * ONLY for: login account list, session profile load, getToday()/getDemoToday().
  */
 export async function withSystem<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
-  const result = await sql.begin(async (tx) => fn(tx));
-  return result as T;
+  // No BEGIN/COMMIT: these are single read-only statements, so a transaction only added two round trips.
+  return fn(sql as unknown as Tx);
 }

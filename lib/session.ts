@@ -198,11 +198,12 @@ export const getDemoTimeTravelEnabled: () => Promise<boolean> = cache(async () =
  * the deployment flag is disabled (then the DB ignores the setting too); memoised per request.
  */
 export const getDemoToday: () => Promise<string | null> = cache(async () => {
-  if (!(await getDemoTimeTravelEnabled())) return null;
-  const rows = await withSystem(
-    (tx) => tx<{ v: string | null }[]>`
-      select case when jsonb_typeof(value) = 'string' then value #>> '{}' else null end as v
-        from realisasi.settings where key = 'demo_today'`,
-  );
-  return rows[0]?.v ?? null;
+  // One round trip: the flag check and the setting together (realisasi._demo_today() applies both).
+  try {
+    const rows = await withSystem((tx) => tx<{ v: string | null }[]>`select realisasi._demo_today()::text as v`);
+    return rows[0]?.v ?? null;
+  } catch (e) {
+    console.error('[session] demo_today lookup failed', e);
+    return null;
+  }
 });
