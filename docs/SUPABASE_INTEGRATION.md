@@ -108,7 +108,9 @@ The demo login (`DEMO_AUTH`, cookie = profile id) works for all of them. Account
 
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
-1. Open `supabase/deploy/sim-realisasi-supabase.sql` (regenerate with `scripts/build-sql-bundle.sh` after changing
+1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
+   `supabase/deploy/part-1-of-5.sql` … `part-5-of-5.sql`: run them in order, each in a new query; after any failure
+   start again from part 1. Copy each with GitHub's **Copy raw file** button. Or open `supabase/deploy/sim-realisasi-supabase.sql` (regenerate with `scripts/build-sql-bundle.sh` after changing
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.

@@ -33,3 +33,36 @@ inline() {  # print a SQL file, replacing "\ir <path>" lines with the referenced
   grep -v '^--' "$ROOT/supabase/deploy/fingerprint.sql"
 } > "$OUT"
 echo "wrote ${OUT#"$ROOT"/} ($(wc -c < "$OUT") bytes)"
+
+# Same install split into 5 smaller files for pasting (large pastes can get mangled by browsers/editors).
+# Run them in order; each is its own transaction. Part 1 starts with the reset, so after any failure re-run from part 1.
+M="$ROOT/supabase/migrations"; S="$ROOT/supabase/seed-supabase"
+PARTS=(
+  "$ROOT/supabase/deploy/00_reset_realisasi.sql $M/0000_bootstrap.sql $M/0001_enums.sql $M/0001_kerjasama_adapter.sql $M/0002_tables.sql $M/0003_core.sql"
+  "$M/0004_views.sql $M/0005_triggers.sql $M/0006_rls.sql $M/0007_rpc_submission.sql"
+  "$M/0008_rpc_files.sql $M/0009_rpc_verification.sql $M/0010_rpc_duplicates_known.sql $M/0011_rpc_admin.sql"
+  "$M/0012_kpi.sql $M/0013_snapshots.sql $M/0014_reads.sql"
+  "$M/0015_jobs.sql $M/0016_grants.sql $M/0017_pg_cron.sql $(ls "$S"/*.sql | tr '\n' ' ')"
+)
+rm -f "$ROOT"/supabase/deploy/part-*.sql
+n=${#PARTS[@]}; covered=()
+for i in "${!PARTS[@]}"; do
+  k=$((i + 1)); P="$ROOT/supabase/deploy/part-$k-of-$n.sql"
+  {
+    echo "-- SIM Realisasi Supabase install, PART $k OF $n (commit $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown))."
+    echo "-- Run parts 1..$n in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1."
+    echo "begin;"
+    for f in ${PARTS[$i]}; do echo; echo "-- >>> ${f#"$ROOT"/}"; inline "$f"; covered+=("$f"); done
+    echo; echo "commit;"
+    if [ "$k" = "$n" ]; then
+      echo; echo "-- Verification: the last result is the schema fingerprint (must match docs/SUPABASE_INTEGRATION.md)"
+      grep -v '^--' "$ROOT/supabase/deploy/fingerprint.sql"
+    else
+      echo "select 'part $k of $n OK - now run part $((k + 1))' as status;"
+    fi
+  } > "$P"
+  echo "wrote ${P#"$ROOT"/} ($(wc -c < "$P") bytes)"
+done
+# every migration and seed must be in exactly one part
+expected=$(ls "$M"/*.sql "$S"/*.sql | sort); got=$(printf '%s\n' "${covered[@]}" | grep -v 00_reset | sort)
+[ "$expected" = "$got" ] || { echo "part split does not cover every migration/seed exactly once" >&2; exit 1; }
