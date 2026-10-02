@@ -15,28 +15,26 @@ export type DateString = string;
 export type Timestamp = string;
 export type Uuid = string;
 
-export type ActivityStatus = 'draft' | 'in_verification' | 'revision_requested' | 'verified' | 'rejected';
-export type TrackStatus = 'not_required' | 'pending' | 'revision_requested' | 'approved' | 'rejected';
-export type Direction = 'inbound' | 'outbound' | 'none';
+export type ActivityStatus = 'draft' | 'in_verification' | 'revision_requested' | 'verified';
+export type TrackStatus = 'not_required' | 'pending' | 'revision_requested' | 'approved';
+export type Direction = 'inbound' | 'outbound';
+/** International Awards category of a mobility agenda (`realisasi.agenda_rules`). */
+export type MobilityCategory = 'jd_dd' | 'student_exchange' | 'short_summer' | 'other_mobility';
 export type ActivityMode = 'offline' | 'online' | 'hybrid';
-export type FundingSource = 'pcu' | 'partner' | 'government' | 'participant' | 'mixed' | 'none';
-export type FileKind = 'ia' | 'ir' | 'evidence';
+export type FileKind = 'ia' | 'ir' | 'mobility_bundle' | 'evidence';
 export type PersonRole = 'speaker' | 'visiting_lecturer' | 'researcher' | 'staff_visitor' | 'other';
 export type StudentSection = 'internal' | 'inbound';
 export type PsetStatus = 'draft' | 'pending' | 'revision_requested' | 'approved' | 'superseded';
-export type KnownSource = 'surat_tugas' | 'news' | 'faculty_report' | 'loa_visa_letter' | 'email' | 'other';
-export type KnownStatus = 'unmatched' | 'matched' | 'dismissed';
 export type SemesterTerm = 'ganjil' | 'genap';
 export type SnapshotKind = 'ganjil_ytd' | 'genap_full_year';
-export type DupStatus = 'open' | 'linked' | 'dismissed';
+export type ConflictStatus = 'open' | 'resolved';
 export type LogKind = 'verification' | 'revision' | 'update' | 'system';
 export type Team = SessionTeam;
 export type Role = SessionRole;
-export type SlaLevel = 'ok' | 'yellow' | 'red';
-export type Period = 'ganjil' | 'full' | 'live';
-export type KpiCode = '1.1' | '1.19.S1' | '1.19.24' | '1.19.S8';
+/** Revisi V.1 cut-offs: Ganjil only, Genap only, whole academic year, academic year to date. */
+export type Period = 'ganjil' | 'genap' | 'full' | 'ytd';
+export type KpiCode = '1.1' | '1.19.S1' | '1.19.24';
 export type DrilldownKpi = KpiCode | 'base';
-export type RejectReason = 'duplicate' | 'not_partnership' | 'wrong_agreement' | 'other';
 export type RegistryStudentStatus = 'active' | 'graduated' | 'inactive';
 export type RegistryEmployeeStatus = 'active' | 'inactive';
 
@@ -49,9 +47,8 @@ export type ExportKind =
   | 'snapshot'
   | 'snapshot-archive'
   | 'realization-by-agreement'
-  | 'sla'
-  | 'known-activities'
-  | 'duplicates'
+  | 'awards'
+  | 'conflicts'
   | 'agreement-activities';
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string; detail?: unknown };
@@ -71,19 +68,22 @@ export interface ExternalPersonPayload {
 /** `save_activity_draft` / `edit_verified_activity` payload (CONTRACTS §3.2). */
 export interface ActivityDetailPayload {
   name: string;
-  type_id: number;
+  /** Jenis Kegiatan = SIM Kerjasama agenda id (`kerjasama.agendas`). */
+  agenda_id: number;
+  direction: Direction;
   start_date: DateString;
   end_date: DateString;
   mode: ActivityMode;
   venue: string | null;
-  city: string | null;
   country_code: string | null;
+  /** Only kept for mobility kegiatan. */
   sks_recognized: number | null;
-  funding_source: FundingSource | null;
   description: string;
   submitter_unit_id: number;
+  /** "Unit Lain yang Terlibat". */
   co_unit_ids: number[];
-  document_ids: number[];
+  /** Exactly one kerja sama per kegiatan (null while not chosen yet). */
+  document_id: number | null;
   sdg_ids: number[];
   external_persons: ExternalPersonPayload[];
 }
@@ -94,54 +94,23 @@ export interface StudentRowPayload {
   home_institution?: string | null;
   home_student_number?: string | null;
   home_country_code?: string | null;
-  transcript_path?: string | null;
 }
 
 export interface StaffRowPayload {
   employee_id: string;
 }
 
-export interface RowNotePayload {
-  kind: 'student' | 'staff';
-  id: string;
-  note: string;
-}
-
-export interface KnownActivityPayload {
-  title: string;
-  activity_date: DateString;
-  unit_id: number | null;
-  partner_name: string | null;
-  country_code: string | null;
-  is_international: boolean;
-  source: KnownSource;
-  source_reference: string | null;
-  notes: string | null;
-}
-
-export interface ActivityTypePayload {
-  name: string;
-  direction: Direction;
-  counts_as_mobility: boolean;
+/** `set_agenda_rule` payload. */
+export interface AgendaRulePayload {
+  mobility_category: MobilityCategory | null;
   counts_for_s1: boolean;
-  requires_mobility_review: boolean;
-  is_active: boolean;
-  sort_order: number;
 }
 
 /** All `realisasi.settings` keys (CONTRACTS §2.3). */
 export interface SettingsValues {
   grace_period_months: number;
   reporting_deadline_days: number;
-  sla_yellow_days: number;
-  sla_red_days: number;
   revision_reminder_days: number;
-  revision_escalate_days: number;
-  dup_date_window_days: number;
-  dup_name_similarity: number;
-  known_match_window_days: number;
-  known_name_similarity: number;
-  nudge_resend_days: number;
   deadline_reminder_before_days: number;
   demo_today: DateString | null;
 }
@@ -153,12 +122,11 @@ export interface SettingsValues {
 export interface ActivityStatusResult {
   id: Uuid;
   status: ActivityStatus;
-  partnership_status: TrackStatus;
   mobility_status: TrackStatus;
   verified_at: Timestamp | null;
 }
 
-export type SubmitResult = ActivityStatusResult & { is_late: boolean; duplicates_found: number };
+export type SubmitResult = ActivityStatusResult & { is_late: boolean; conflicts_found: number };
 
 export interface SaveParticipantsWarning {
   section: StudentSection | 'staff';
@@ -249,9 +217,11 @@ export interface ActivityListRow {
   id: Uuid;
   code: string;
   name: string;
-  type_id: number;
-  type_name: string;
+  agenda_id: number;
+  agenda_name: string | null;
   direction: Direction;
+  mobility_category: MobilityCategory | null;
+  is_mobility: boolean;
   start_date: DateString;
   end_date: DateString;
   academic_year_id: number | null;
@@ -260,14 +230,8 @@ export interface ActivityListRow {
   semester_label: string | null;
   mode: ActivityMode;
   status: ActivityStatus;
-  partnership_status: TrackStatus;
   mobility_status: TrackStatus;
-  partnership_since: Timestamp | null;
   mobility_since: Timestamp | null;
-  partnership_sla_days: number | null;
-  partnership_sla_level: SlaLevel | null;
-  mobility_sla_days: number | null;
-  mobility_sla_level: SlaLevel | null;
   submitter_unit_id: number;
   submitter_unit_name: string;
   unit_ids: number[];
@@ -278,6 +242,7 @@ export interface ActivityListRow {
   partner_names: string[];
   country_codes: string[];
   is_international: boolean;
+  country_code: string | null;
   is_late: boolean;
   reporting_deadline: DateString | null;
   submitted_at: Timestamp | null;
@@ -286,73 +251,40 @@ export interface ActivityListRow {
   updated_at: Timestamp;
   created_by: Uuid;
   out_of_scope: boolean;
-  duplicate_open: boolean;
-  event_group_id: Uuid;
-  linked_count: number;
+  /** Students of this activity waiting for a Mobility decision (rule 2.1). */
+  open_conflicts: number;
 }
 
-/** `realisasi.v_known_activities`. */
-export interface KnownActivityRow {
-  id: number;
-  title: string;
-  activity_date: DateString;
-  unit_id: number | null;
-  partner_name: string | null;
-  country_code: string | null;
-  is_international: boolean;
-  source: KnownSource;
-  source_reference: string | null;
-  notes: string | null;
-  status: KnownStatus;
-  matched_activity_id: Uuid | null;
-  nudged_at: Timestamp | null;
-  created_by: Uuid | null;
-  created_at: Timestamp;
-  unit_name: string | null;
-  country_name: string | null;
-  matched_activity_code: string | null;
-  matched_activity_name: string | null;
-  created_by_name: string | null;
-  can_nudge: boolean;
-}
-
-/** `known_match_suggestions()` element. */
-export interface KnownSuggestion {
-  activity_id: Uuid;
+/** One side of a student conflict (`conflict_list()`). */
+export interface ConflictSide {
+  id: Uuid;
   code: string;
   name: string;
+  status: ActivityStatus;
+  mobility_status: TrackStatus;
   start_date: DateString;
   end_date: DateString;
-  unit_names: string[];
-  status: ActivityStatus;
-  score: number;
+  direction: Direction;
+  unit_id: number;
+  unit_name: string;
+  agenda_name: string | null;
+  bundle: { filename: string | null; href: string } | null;
 }
 
-/** `realisasi.v_duplicate_candidates`. */
-export interface DuplicateCandidateRow {
+/** `conflict_list()` element: one NRP claimed by two units' overlapping activities (Revisi V.1 rule 2.1). */
+export interface ConflictRow {
   id: number;
-  score: number;
-  status: DupStatus;
+  nrp: string;
+  status: ConflictStatus;
+  student_name: string;
+  prodi_name: string | null;
+  kept_activity_id: Uuid | null;
+  note: string | null;
   resolved_by_name: string | null;
   resolved_at: Timestamp | null;
-  a_id: Uuid;
-  a_code: string;
-  a_name: string;
-  a_unit_name: string;
-  a_start_date: DateString;
-  a_end_date: DateString;
-  a_status: ActivityStatus;
-  a_documents: string[];
-  a_participants: number;
-  b_id: Uuid;
-  b_code: string;
-  b_name: string;
-  b_unit_name: string;
-  b_start_date: DateString;
-  b_end_date: DateString;
-  b_status: ActivityStatus;
-  b_documents: string[];
-  b_participants: number;
+  created_at: Timestamp;
+  a: ConflictSide;
+  b: ConflictSide;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,13 +298,9 @@ export interface ActivityPermissions {
   can_edit_files: boolean;
   can_edit_participants: boolean;
   can_submit: boolean;
-  can_partnership_verify: boolean;
-  can_reject: boolean;
   can_mobility_verify: boolean;
   can_edit_verified_detail: boolean;
   can_edit_verified_participants: boolean;
-  can_link_duplicate: boolean;
-  can_unlink_duplicate: boolean;
   can_view_participants: boolean;
   can_view_log: boolean;
 }
@@ -426,11 +354,6 @@ export interface ParticipantVersionSummary {
   staff: number;
 }
 
-export interface TrackSla {
-  days: number;
-  level: SlaLevel;
-}
-
 export interface TrackRevision {
   note: string | null;
   requested_by_name: string | null;
@@ -441,14 +364,14 @@ export interface ActivityDetail {
   id: Uuid;
   code: string;
   name: string;
-  type: {
+  agenda: {
     id: number;
-    name: string;
-    direction: Direction;
-    counts_as_mobility: boolean;
+    name: string | null;
+    mobility_category: MobilityCategory | null;
+    is_mobility: boolean;
     counts_for_s1: boolean;
-    requires_mobility_review: boolean;
   };
+  direction: Direction;
   start_date: DateString;
   end_date: DateString;
   duration_days: number;
@@ -456,26 +379,19 @@ export interface ActivityDetail {
   semester: { id: number; term: SemesterTerm; label: string } | null;
   mode: ActivityMode;
   venue: string | null;
-  city: string | null;
   country_code: string | null;
   country_name: string | null;
   sks_recognized: number | null;
-  funding_source: FundingSource | null;
   description: string;
   submitter_unit: { id: number; name: string };
   units: Array<{ id: number; name: string; is_submitter: boolean }>;
   status: ActivityStatus;
-  partnership_status: TrackStatus;
   mobility_status: TrackStatus;
-  partnership_since: Timestamp | null;
   mobility_since: Timestamp | null;
   submitted_at: Timestamp | null;
   verified_at: Timestamp | null;
-  rejection_reason: RejectReason | null;
   reporting_deadline: DateString | null;
   is_late: boolean;
-  event_group_id: Uuid;
-  linked_activities: Array<{ id: Uuid; code: string; name: string; unit_name: string; status: ActivityStatus }>;
   documents: Array<{
     original_document_id: number;
     original_doc_number: string;
@@ -507,19 +423,11 @@ export interface ActivityDetail {
     counts: ParticipantCounts | null;
     versions: ParticipantVersionSummary[];
   };
-  sla: { partnership: TrackSla | null; mobility: TrackSla | null };
-  revision: { partnership: TrackRevision | null; mobility: TrackRevision | null };
-  rejection: { reason: RejectReason; note: string | null; rejected_by_name: string | null; rejected_at: Timestamp } | null;
+  revision: { mobility: TrackRevision | null };
   log: ActivityLogEntry[];
-  duplicates: Array<{
-    candidate_id: number;
-    other_activity_id: Uuid;
-    other_code: string;
-    other_name: string;
-    score: number;
-    status: DupStatus;
-  }>;
-  flags: { late: boolean; out_of_scope: boolean; duplicate_open: boolean; late_addition: boolean };
+  /** Mobility team only (empty for others). */
+  conflicts: ConflictRow[];
+  flags: { late: boolean; out_of_scope: boolean; conflicts_open: number; late_addition: boolean };
   checklist: ChecklistItem[] | null;
   permissions: ActivityPermissions;
 }
@@ -534,9 +442,6 @@ export interface ParticipantStudentRow {
   home_institution: string | null;
   home_student_number: string | null;
   home_country_code: string | null;
-  transcript_path: string | null;
-  transcript_href: string | null;
-  row_note: string | null;
   registry_status: RegistryStudentStatus;
 }
 
@@ -545,7 +450,6 @@ export interface ParticipantStaffRow {
   employee_id: string;
   full_name: string;
   unit_name: string | null;
-  row_note: string | null;
   registry_status: RegistryEmployeeStatus;
 }
 
@@ -605,7 +509,6 @@ interface KpiBlocks {
   kpi_1_1: { inbound: number; outbound: number; total: number; by_semester: MobilityBySemester[] };
   kpi_1_19_s1: { international: number; domestic: number };
   kpi_1_19_24: { all: KpiTriple; international: KpiTriple; domestic: KpiTriple };
-  kpi_1_19_s8: { reported: number; unmatched_known: number; pct: number | null };
   charts: KpiCharts;
 }
 
@@ -652,7 +555,6 @@ export interface DashboardData {
     kpi_1_1: { total: number; inbound: number; outbound: number };
     kpi_1_19_s1: { international: number };
     kpi_1_19_24: { pct: number | null };
-    kpi_1_19_s8: { pct: number | null };
   } | null;
   late_additions: number;
   drafts_near_deadline: Array<{
@@ -663,6 +565,46 @@ export interface DashboardData {
     reporting_deadline: DateString;
     days_left: number;
   }>;
+  /** "Perlu diproses" for the mobility team (null for other roles). */
+  work_queue: WorkQueue | null;
+}
+
+export interface WorkQueue {
+  mobility_pending: number;
+  conflicts_open: number;
+  waiting_unit_revision: number;
+  items: Array<{ id: Uuid; code: string; name: string; unit_name: string | null; submitted_at: Timestamp | null; open_conflicts: number }>;
+}
+
+/** One row of an International Awards student leaderboard (per submitting unit). */
+export interface AwardsStudentRow {
+  unit_id: number;
+  unit_name: string;
+  jd_dd: number;
+  student_exchange: number;
+  short_summer: number;
+  /** "Kegiatan Internasional (<14 hari)". */
+  short_international: number;
+  total: number;
+}
+
+export interface AwardsInitiativeRow {
+  unit_id: number;
+  unit_name: string;
+  inbound: number;
+  outbound: number;
+  activities: number;
+  total: number;
+}
+
+/** `international_awards()` (Revisi V.1 dashboard tab). */
+export interface AwardsData {
+  period: PeriodInfo;
+  scope: KpiScope;
+  inbound: AwardsStudentRow[];
+  outbound_domestic: AwardsStudentRow[];
+  outbound_international: AwardsStudentRow[];
+  initiatives: AwardsInitiativeRow[];
 }
 
 export interface ActivityKpiRow {
@@ -670,16 +612,15 @@ export interface ActivityKpiRow {
   activity_id: Uuid;
   code: string;
   name: string;
-  type_name: string;
+  agenda_name: string | null;
   direction: Direction;
+  mobility_category: MobilityCategory | null;
   unit_names: string[];
   partner_names: string[];
   country_codes: string[];
   start_date: DateString;
   semester_label: string | null;
-  event_group_id: Uuid;
-  linked_count: number;
-  bucket: 'outbound' | 'inbound' | 'international' | 'domestic' | 'reported' | 'verified_activity';
+  bucket: 'outbound' | 'inbound' | 'international' | 'domestic' | 'verified_activity';
   students: number | null;
   is_late_addition: boolean;
 }
@@ -704,25 +645,12 @@ export interface ChainKpiRow {
   is_late_addition: boolean;
 }
 
-export interface KnownKpiRow {
-  row_type: 'known';
-  known_id: number;
-  /** null for non-IO callers (WP-DB amendment 27), like partner_name / source / source_reference. */
-  title: string | null;
-  activity_date: DateString;
-  unit_name: string | null;
-  partner_name: string | null;
-  country_code: string | null;
-  source: KnownSource | null;
-  source_reference: string | null;
-}
-
 export interface DrilldownResult {
   period: PeriodInfo;
   scope: KpiScope;
   kpi: DrilldownKpi;
   bucket: string | null;
-  rows: Array<ActivityKpiRow | ChainKpiRow | KnownKpiRow>;
+  rows: Array<ActivityKpiRow | ChainKpiRow>;
 }
 
 /** `kpi_participant_rows()` element (personal data). */
@@ -731,7 +659,6 @@ export interface KpiParticipantRow {
   code: string;
   name: string;
   direction: Direction;
-  event_group_id: Uuid;
   section: StudentSection;
   nrp: string;
   full_name: string;
@@ -765,7 +692,6 @@ export interface SnapshotListRow {
     kpi_1_1_total: number;
     kpi_1_19_s1_international: number;
     kpi_1_19_24_pct: number | null;
-    kpi_1_19_s8_pct: number | null;
   };
   late_additions: number;
   post_freeze_changes: number;
@@ -850,7 +776,7 @@ export interface AgreementRealization {
     id: Uuid;
     code: string;
     name: string;
-    type_name: string;
+    agenda_name: string | null;
     start_date: DateString;
     end_date: DateString;
     status: ActivityStatus;
@@ -875,9 +801,8 @@ export interface AgreementFlag {
 
 /** `nav_counts()` — zeros where the role has no access. */
 export interface NavCounts {
-  partnership_queue: number;
   mobility_queue: number;
-  duplicates_open: number;
+  conflicts_open: number;
   revision_inbox: number;
   unread_notifications: number;
 }
@@ -897,9 +822,7 @@ export interface NotificationRow {
 /** `run_daily_jobs()` (CONTRACTS §5.1). */
 export interface DailyJobsResult {
   today: DateString;
-  sla_notices: number;
   revision_reminders: number;
-  revision_escalations: number;
   deadline_reminders: number;
   frozen: Array<{ snapshot_id: Uuid; ay_label: string; kind: SnapshotKind }>;
 }

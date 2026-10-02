@@ -8,28 +8,19 @@ import type {
   ChainKpiRow,
   DrilldownKpi,
   ExportKind,
-  KnownActivityRow,
-  DuplicateCandidateRow,
   KpiCharts,
   PeriodInfo,
   Period,
 } from '@/lib/realisasi/types';
 import {
   ACTIVITY_STATUS_LABEL,
-  DUP_STATUS_LABEL,
-  KNOWN_SOURCE_LABEL,
-  KNOWN_STATUS_LABEL,
+  CONFLICT_STATUS_LABEL,
   PSET_STATUS_LABEL,
-  TRACK_LABEL,
-  TRACK_STATUS_LABEL,
   DIRECTION_LABEL,
 } from '@/lib/realisasi/status';
 import { formatDate, formatDateTime } from '@/lib/realisasi/format';
 import { parseActivityFilters, describeActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
-import { describeKnownFilters, parseKnownFilters } from '@/lib/realisasi/schemas/known';
-import { listKnownActivities } from '@/lib/realisasi/queries/known';
-import { listDuplicateCandidates } from '@/lib/realisasi/queries/duplicates';
 import {
   BUCKET_LABEL,
   CHART_LABEL,
@@ -48,17 +39,21 @@ import {
 } from '@/lib/realisasi/schemas/report';
 import {
   getAgreementRealization,
+  getAwards,
+  getConflicts,
   getDashboard,
   getDrilldown,
   getKpiParticipantRows,
-  getSettingsMap,
   getSnapshotDetail,
   getSnapshotList,
 } from '@/lib/realisasi/queries/reports';
 import { addInfoSheet, addTableSheet, createWorkbook, type Column } from '@/lib/excel/workbook';
 import {
   ACTIVITY_COLUMNS,
+  AWARDS_INITIATIVE_COLUMNS,
+  AWARDS_STUDENT_COLUMNS,
   CHAIN_STATUS_LABEL,
+  CONFLICT_COLUMNS,
   LATE_ADDITION_COLUMNS,
   POST_FREEZE_COLUMNS,
   REALIZATION_COLUMNS,
@@ -67,14 +62,11 @@ import {
   addKpiSheet,
   dataAsOf,
   isChainRow,
-  slaRows,
-  SLA_LEVEL_TEXT,
-  type SlaRow,
   joinList,
   label,
+  ranked,
   snapshotAsOf,
   summaryRows,
-  yesNo,
 } from '@/lib/excel/sheets';
 
 export interface ExportContext {
@@ -132,15 +124,15 @@ function lookupName<T extends { id: number; name: string }>(rows: T[]) {
 }
 
 async function nameLookups(tx: Tx) {
-  const [types, units, years, sems] = await Promise.all([
-    tx`select id, name from realisasi.activity_types`,
+  const [agendas, units, years, sems] = await Promise.all([
+    tx`select id, name from kerjasama.agendas`,
     tx`select id, name from kerjasama.units`,
     tx`select id, label as name from realisasi.academic_years`,
     tx`select id, realisasi.semester_label(id) as name from realisasi.semesters`,
   ]);
-  const toOpts = (rows: typeof types) => rows.map((r) => ({ id: Number(r.id), name: String(r.name) }));
+  const toOpts = (rows: typeof agendas) => rows.map((r) => ({ id: Number(r.id), name: String(r.name) }));
   return {
-    typeName: lookupName(toOpts(types)),
+    agendaName: lookupName(toOpts(agendas)),
     unitName: lookupName(toOpts(units)),
     ayLabel: lookupName(toOpts(years)),
     semesterLabel: lookupName(toOpts(sems)),
@@ -261,8 +253,8 @@ async function buildParticipants({ tx, user, params }: ExportContext): Promise<E
   const studentCols: Column<StudentExportRow>[] = [
     { header: 'Kode Kegiatan', key: 'code', value: (r) => r.activity.code },
     { header: 'Nama Kegiatan', key: 'name', value: (r) => r.activity.name },
-    { header: 'Jenis', key: 'type', value: (r) => r.activity.type_name },
-    { header: 'Arah', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.activity.direction) },
+    { header: 'Jenis', key: 'type', value: (r) => r.activity.agenda_name },
+    { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.activity.direction) },
     { header: 'Tanggal Mulai', key: 'start', value: (r) => r.activity.start_date, format: 'date' },
     { header: 'Unit Pengaju', key: 'unit', value: (r) => r.activity.submitter_unit_name },
     { header: 'Versi', key: 'v', value: (r) => r.version, format: 'int' },
@@ -309,7 +301,7 @@ async function buildParticipants({ tx, user, params }: ExportContext): Promise<E
 }
 
 // ---------------------------------------------------------------- kpi-summary
-const SUMMARY_KPIS: DrilldownKpi[] = ['1.1', '1.19.S1', '1.19.24', '1.19.S8'];
+const SUMMARY_KPIS: DrilldownKpi[] = ['1.1', '1.19.S1', '1.19.24'];
 
 async function buildKpiSummary({ tx, user, params }: ExportContext): Promise<ExportResult> {
   const p = scopedPeriod(user, params);
@@ -326,7 +318,7 @@ async function buildKpiSummary({ tx, user, params }: ExportContext): Promise<Exp
   });
   addInfoSheet(wb, {
     kind: 'kpi-summary',
-    title: 'Ringkasan KPI',
+    title: 'Ringkasan Capaian RENSTRA',
     filters: periodFilters(dash.period, dash.scope.unit_name),
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
@@ -351,7 +343,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
     title: `Rincian ${KPI_LABEL[kpi]}`,
     filters: [
       ...periodFilters(dd.period, dd.scope.unit_name),
-      ['KPI', kpi],
+      ['RENSTRA', kpi],
       ['Kelompok', bucket ? (BUCKET_LABEL[bucket] ?? bucket) : 'Semua'],
     ],
     generatedBy: generatedBy(user),
@@ -454,8 +446,7 @@ async function buildSnapshot({ tx, user, params }: ExportContext): Promise<Expor
       [
         { header: 'Kode Kegiatan', key: 'code', value: (r) => r.code },
         { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
-        { header: 'Arah', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
-        { header: 'Grup Kegiatan', key: 'group', value: (r) => r.event_group_id },
+        { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
         { header: 'Bagian (PETRA/Inbound)', key: 'section', value: (r) => (r.section === 'inbound' ? 'Inbound' : 'PETRA') },
         { header: 'NRP', key: 'nrp', value: (r) => r.nrp, format: 'text' },
         { header: 'Nama', key: 'fn', value: (r) => r.full_name },
@@ -475,7 +466,7 @@ async function buildSnapshot({ tx, user, params }: ExportContext): Promise<Expor
     .join('; ');
   addInfoSheet(wb, {
     kind: 'snapshot',
-    title: `Snapshot KPI ${s.label}`,
+    title: `Snapshot Capaian RENSTRA ${s.label}`,
     filters: [
       ['Snapshot', s.label],
       ['Tahun Akademik', s.ay_label],
@@ -513,7 +504,7 @@ async function buildSnapshotArchive({ tx, user, params }: ExportContext): Promis
   const ayLabel = ay !== undefined ? (rows[0]?.ay_label ?? `TA-${ay}`) : 'Semua';
   addInfoSheet(wb, {
     kind: 'snapshot-archive',
-    title: 'Arsip Snapshot KPI',
+    title: 'Arsip Snapshot Capaian RENSTRA',
     filters: [['Tahun Akademik', ayLabel]],
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
@@ -543,107 +534,59 @@ async function buildRealization({ tx, user, params }: ExportContext): Promise<Ex
   return { workbook: wb, periodLabel: dd.period.label, rowCount: rows.length, containsPersonal: false, filters: { ...periodRecord(p), status: status ?? null } };
 }
 
-// ---------------------------------------------------------------- sla
-async function buildSla({ tx, user, params }: ExportContext): Promise<ExportResult> {
-  const f = parseActivityFilters(params);
-  const [acts, names, settings] = await Promise.all([listActivities(tx, user, f), nameLookups(tx), getSettingsMap(tx)]);
-  const yellow = Number(settings.sla_yellow_days ?? 3);
-  const red = Number(settings.sla_red_days ?? 5);
-  const rows = slaRows(acts);
-  const cols: Column<SlaRow>[] = [
-    { header: 'Kode', key: 'code', value: (r) => r.a.code },
-    { header: 'Nama', key: 'name', value: (r) => r.a.name },
-    { header: 'Unit', key: 'unit', value: (r) => r.a.submitter_unit_name },
-    { header: 'Jalur', key: 'track', value: (r) => label(TRACK_LABEL, r.track) },
-    { header: 'Status Jalur', key: 'status', value: (r) => (TRACK_STATUS_LABEL as Record<string, string>)[r.status] ?? r.status },
-    { header: 'Sejak', key: 'since', value: (r) => r.since, format: 'datetime' },
-    { header: 'Hari Kerja', key: 'days', value: (r) => r.days, format: 'int' },
-    { header: 'Level (Normal/Kuning/Merah)', key: 'level', value: (r) => (r.level ? (SLA_LEVEL_TEXT[r.level] ?? r.level) : null) },
-    { header: 'Ambang Kuning', key: 'y', value: () => yellow, format: 'int' },
-    { header: 'Ambang Merah', key: 'r', value: () => red, format: 'int' },
-  ];
+// ---------------------------------------------------------------- awards (Revisi V.1)
+async function buildAwards({ tx, user, params }: ExportContext): Promise<ExportResult> {
+  const p = scopedPeriod(user, params);
+  delete p.snapshot;
+  const aw = await getAwards(tx, p);
   const wb = createWorkbook();
-  addTableSheet(wb, 'SLA Verifikasi', cols, rows);
+  const boards: Array<[string, typeof aw.inbound]> = [
+    ['Inbound Tertinggi', aw.inbound],
+    ['Outbound DN Tertinggi', aw.outbound_domestic],
+    ['Outbound Intl Tertinggi', aw.outbound_international],
+  ];
+  let rowCount = 0;
+  for (const [name, rows] of boards) {
+    addTableSheet(wb, name, AWARDS_STUDENT_COLUMNS, ranked(rows));
+    rowCount += rows.length;
+  }
+  addTableSheet(wb, 'Inisiatif Intl Tertinggi', AWARDS_INITIATIVE_COLUMNS, ranked(aw.initiatives));
+  rowCount += aw.initiatives.length;
   addInfoSheet(wb, {
-    kind: 'sla',
-    title: 'SLA Verifikasi',
-    filters: describeActivityFilters(f, names),
+    kind: 'awards',
+    title: 'International Awards',
+    filters: periodFilters(aw.period, aw.scope.unit_name),
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount: rows.length,
-    extra: [['Catatan', 'Hari kerja dihitung hanya selama jalur berstatus Menunggu (tidak termasuk akhir pekan dan hari libur).']],
+    dataAsOf: dataAsOf(aw.period),
+    rowCount,
+    extra: [
+      ['Pengelompokan', 'Per unit pengaju kegiatan'],
+      ['Dalam negeri / internasional', 'Menurut negara tempat kegiatan (Indonesia = dalam negeri)'],
+      ['Kegiatan Internasional (<14 hari)', 'Mahasiswa kegiatan mobilitas lain yang berlangsung kurang dari 14 hari'],
+    ],
   });
-  return { workbook: wb, periodLabel: activitiesPeriodLabel(acts, f.ay), rowCount: rows.length, containsPersonal: false, filters: { ...f } };
+  return { workbook: wb, periodLabel: aw.period.label, rowCount, containsPersonal: false, filters: periodRecord(p) };
 }
 
-// ---------------------------------------------------------------- known-activities
-async function buildKnown({ tx, user, params }: ExportContext): Promise<ExportResult> {
-  const f = parseKnownFilters(params);
-  const rows = await listKnownActivities(tx, f);
-  const cols: Column<KnownActivityRow>[] = [
-    { header: 'ID', key: 'id', value: (r) => r.id, format: 'int' },
-    { header: 'Tanggal', key: 'date', value: (r) => r.activity_date, format: 'date' },
-    { header: 'Judul', key: 'title', value: (r) => r.title },
-    { header: 'Unit', key: 'unit', value: (r) => r.unit_name },
-    { header: 'Mitra', key: 'partner', value: (r) => r.partner_name },
-    { header: 'Negara', key: 'country', value: (r) => r.country_name ?? r.country_code },
-    { header: 'Internasional', key: 'intl', value: (r) => yesNo(r.is_international) },
-    { header: 'Sumber', key: 'source', value: (r) => label(KNOWN_SOURCE_LABEL, r.source) },
-    { header: 'Referensi', key: 'ref', value: (r) => r.source_reference },
-    { header: 'Status', key: 'status', value: (r) => label(KNOWN_STATUS_LABEL, r.status) },
-    { header: 'Kegiatan SIM (Kode)', key: 'match', value: (r) => r.matched_activity_code },
-    { header: 'Diingatkan', key: 'nudged', value: (r) => r.nudged_at, format: 'datetime' },
-    { header: 'Dicatat oleh', key: 'by', value: (r) => r.created_by_name },
-    { header: 'Dicatat pada', key: 'at', value: (r) => r.created_at, format: 'datetime' },
-  ];
-  const names = await nameLookups(tx);
-  const filters = describeKnownFilters(f, { unitName: names.unitName });
-  const wb = createWorkbook();
-  addTableSheet(wb, 'Register', cols, rows);
-  addInfoSheet(wb, {
-    kind: 'known-activities',
-    title: 'Register Kegiatan Diketahui',
-    filters,
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount: rows.length,
-  });
-  return { workbook: wb, periodLabel: 'register', rowCount: rows.length, containsPersonal: false, filters: { ...f } };
-}
-
-// ---------------------------------------------------------------- duplicates
-async function buildDuplicates({ tx, user, params }: ExportContext): Promise<ExportResult> {
+// ---------------------------------------------------------------- conflicts (Verifikasi Mobilitas)
+async function buildConflicts({ tx, user, params }: ExportContext): Promise<ExportResult> {
   const raw = getParam(params, 'status');
-  const status = raw === 'open' || raw === 'linked' || raw === 'dismissed' ? raw : undefined;
-  const rows = await listDuplicateCandidates(tx, status ? { status } : {});
-  const cols: Column<DuplicateCandidateRow>[] = [
-    { header: 'Skor', key: 'score', value: (r) => r.score, format: 'decimal' },
-    { header: 'Kode A', key: 'ac', value: (r) => r.a_code },
-    { header: 'Nama A', key: 'an', value: (r) => r.a_name },
-    { header: 'Unit A', key: 'au', value: (r) => r.a_unit_name },
-    { header: 'Tanggal A', key: 'ad', value: (r) => r.a_start_date, format: 'date' },
-    { header: 'Kode B', key: 'bc', value: (r) => r.b_code },
-    { header: 'Nama B', key: 'bn', value: (r) => r.b_name },
-    { header: 'Unit B', key: 'bu', value: (r) => r.b_unit_name },
-    { header: 'Tanggal B', key: 'bd', value: (r) => r.b_start_date, format: 'date' },
-    { header: 'Status', key: 'status', value: (r) => label(DUP_STATUS_LABEL, r.status) },
-    { header: 'Diselesaikan oleh', key: 'by', value: (r) => r.resolved_by_name },
-    { header: 'Diselesaikan pada', key: 'at', value: (r) => r.resolved_at, format: 'datetime' },
-  ];
+  const status = raw === 'open' || raw === 'resolved' ? raw : raw === 'all' ? null : 'open';
+  const rows = await getConflicts(tx, { status });
   const wb = createWorkbook();
-  addTableSheet(wb, 'Kandidat Duplikat', cols, rows);
+  addTableSheet(wb, 'Duplikat Mahasiswa', CONFLICT_COLUMNS, rows);
   addInfoSheet(wb, {
-    kind: 'duplicates',
-    title: 'Kandidat Duplikat',
-    filters: [['Status', status ? (label(DUP_STATUS_LABEL, status) ?? status) : label(DUP_STATUS_LABEL, 'open') ?? 'Terbuka']],
+    kind: 'conflicts',
+    title: 'Duplikat Mahasiswa antar-Unit (data pribadi)',
+    filters: [['Status', status ? (label(CONFLICT_STATUS_LABEL, status) ?? status) : 'Semua']],
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
     dataAsOf: 'Live (data saat ekspor)',
     rowCount: rows.length,
+    extra: [['Catatan', 'Berisi NRP dan nama mahasiswa. Ekspor ini dicatat (export_log).']],
   });
-  return { workbook: wb, periodLabel: status ?? 'open', rowCount: rows.length, containsPersonal: false, filters: { status: status ?? 'open' } };
+  return { workbook: wb, periodLabel: status ?? 'semua', rowCount: rows.length, containsPersonal: true, filters: { status: status ?? 'all' } };
 }
 
 // ---------------------------------------------------------------- agreement-activities
@@ -655,7 +598,7 @@ async function buildAgreementActivities({ tx, user, params }: ExportContext): Pr
   const cols: Column<Row>[] = [
     { header: 'Kode', key: 'code', value: (r) => r.code },
     { header: 'Nama', key: 'name', value: (r) => r.name },
-    { header: 'Jenis', key: 'type', value: (r) => r.type_name },
+    { header: 'Jenis', key: 'type', value: (r) => r.agenda_name },
     { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
     { header: 'Tanggal Selesai', key: 'end', value: (r) => r.end_date, format: 'date' },
     { header: 'Status', key: 'status', value: (r) => label(ACTIVITY_STATUS_LABEL, r.status) },
@@ -690,9 +633,8 @@ export const EXPORTS: Record<ExportKind, ExportDef> = {
   snapshot: { allowed: (u) => can(u, 'export.snapshot'), build: buildSnapshot },
   'snapshot-archive': { allowed: (u) => can(u, 'export.snapshot'), build: buildSnapshotArchive },
   'realization-by-agreement': { allowed: everyone, build: buildRealization },
-  sla: { allowed: everyone, build: buildSla },
-  'known-activities': { allowed: (u) => can(u, 'export.known'), build: buildKnown },
-  duplicates: { allowed: (u) => can(u, 'export.duplicates'), build: buildDuplicates },
+  awards: { allowed: everyone, build: buildAwards },
+  conflicts: { allowed: (u) => can(u, 'export.conflicts'), build: buildConflicts },
   'agreement-activities': { allowed: everyone, build: buildAgreementActivities },
 };
 

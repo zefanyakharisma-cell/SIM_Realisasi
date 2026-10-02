@@ -1,9 +1,10 @@
 'use client';
 /**
- * Step 1 — Detail (Design §3.3). Also reused by the unit revision view (`mode="revision"`) and the
- * IO post-verification edit page (`mode="verified"`, R-29/R-30).
+ * Detail section of the single-page Kegiatan Baru form (Revisi V.1). Also reused by the unit revision
+ * view (`mode="revision"`) and the IO Admin post-verification edit page (`mode="verified"`, R-29/R-30).
  *
- * - wizard: "Simpan Draf" / "Lanjut"; once a draft exists, valid changes autosave (debounced).
+ * - wizard: "Simpan Draf" creates the draft; from then on valid changes autosave (debounced) and the
+ *   Peserta / Berkas sections below unlock on the same page.
  * - revision: explicit "Simpan perubahan" (each save is logged as a revision diff, so no autosave).
  * - verified: explicit save with a mandatory change note → `edit_verified_activity`.
  */
@@ -19,7 +20,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toaster';
-import { activityTypeHelper, stepHref } from '@/components/realisasi/activity/labels';
+import { agendaHelper } from '@/components/realisasi/activity/labels';
 import { AgreementPicker } from '@/components/realisasi/wizard/agreement-picker';
 import { ExternalPersons, type PersonRowState } from '@/components/realisasi/wizard/external-persons';
 import { SdgChips } from '@/components/realisasi/wizard/sdg-chips';
@@ -28,65 +29,62 @@ import { editVerifiedActivity, saveActivityDraft } from '@/lib/realisasi/actions
 import { formatDate } from '@/lib/realisasi/format';
 import { createDraftSaver } from '@/lib/realisasi/save-queue';
 import { activityDetailSchema, activityDetailSubmitSchema, fieldErrors } from '@/lib/realisasi/schemas/activity';
-import { FUNDING_LABEL, MODE_LABEL } from '@/lib/realisasi/status';
+import { DIRECTION_LABEL, MODE_LABEL } from '@/lib/realisasi/status';
 import type { FormOptions } from '@/lib/realisasi/queries/lookups';
-import type { ActivityDetailPayload, ActivityMode, DocumentOption, FundingSource } from '@/lib/realisasi/types';
+import type { ActivityDetailPayload, ActivityMode, Direction, DocumentOption } from '@/lib/realisasi/types';
 
 export type DetailFormMode = 'wizard' | 'revision' | 'verified';
 
 interface FormState {
   name: string;
-  type_id: string;
+  agenda_id: string;
+  direction: Direction | '';
   start_date: string;
   end_date: string;
   mode: ActivityMode;
   venue: string;
-  city: string;
   country_code: string;
   sks_recognized: string;
-  funding_source: string;
   description: string;
   submitter_unit_id: string;
   co_unit_ids: number[];
-  document_ids: number[];
+  document_id: number | null;
   sdg_ids: number[];
   external_persons: PersonRowState[];
 }
 
 const FIELD_ORDER: Array<keyof FormState> = [
   'name',
-  'type_id',
+  'agenda_id',
+  'direction',
   'start_date',
   'end_date',
   'mode',
   'venue',
-  'city',
   'country_code',
   'sks_recognized',
-  'funding_source',
   'description',
   'submitter_unit_id',
   'co_unit_ids',
-  'document_ids',
+  'document_id',
   'sdg_ids',
   'external_persons',
 ];
 
 const FIELD_LABEL: Record<string, string> = {
   name: 'Nama kegiatan',
-  type_id: 'Jenis kegiatan',
+  agenda_id: 'Jenis kegiatan',
+  direction: 'Inbound / Outbound',
   start_date: 'Tanggal mulai',
   end_date: 'Tanggal selesai',
   mode: 'Moda',
   venue: 'Tempat / platform',
-  city: 'Kota',
   country_code: 'Negara',
   sks_recognized: 'SKS diakui',
-  funding_source: 'Sumber dana',
   description: 'Deskripsi',
   submitter_unit_id: 'Unit pengaju',
-  co_unit_ids: 'Unit lain',
-  document_ids: 'Kerja sama',
+  co_unit_ids: 'Unit lain yang terlibat',
+  document_id: 'Kerja sama',
   sdg_ids: 'SDG',
   external_persons: 'Pembicara / tamu',
   note: 'Catatan perubahan',
@@ -95,19 +93,18 @@ const FIELD_LABEL: Record<string, string> = {
 function toState(p: ActivityDetailPayload | null, defaultUnit: number | null): FormState {
   return {
     name: p?.name ?? '',
-    type_id: p?.type_id ? String(p.type_id) : '',
+    agenda_id: p?.agenda_id ? String(p.agenda_id) : '',
+    direction: p?.direction ?? '',
     start_date: p?.start_date ?? '',
     end_date: p?.end_date ?? '',
     mode: p?.mode ?? 'offline',
     venue: p?.venue ?? '',
-    city: p?.city ?? '',
     country_code: p?.country_code ?? '',
     sks_recognized: p?.sks_recognized !== null && p?.sks_recognized !== undefined ? String(p.sks_recognized) : '',
-    funding_source: p?.funding_source ?? '',
     description: p?.description ?? '',
     submitter_unit_id: p?.submitter_unit_id ? String(p.submitter_unit_id) : defaultUnit ? String(defaultUnit) : '',
     co_unit_ids: p?.co_unit_ids ?? [],
-    document_ids: p?.document_ids ?? [],
+    document_id: p?.document_id ?? null,
     sdg_ids: p?.sdg_ids ?? [],
     external_persons: (p?.external_persons ?? []).map((x) => ({
       key: globalThis.crypto.randomUUID(),
@@ -129,23 +126,22 @@ function sksError(raw: string): string | null {
   return v === '' || SKS_RE.test(v) ? null : 'SKS harus berupa angka (mis. 2 atau 2,5).';
 }
 
-function toPayload(s: FormState): ActivityDetailPayload {
-  const sks = s.sks_recognized.trim() === '' ? null : Number(s.sks_recognized.replace(',', '.'));
+function toPayload(s: FormState, isMobility: boolean): ActivityDetailPayload {
+  const sks = !isMobility || s.sks_recognized.trim() === '' ? null : Number(s.sks_recognized.replace(',', '.'));
   return {
     name: s.name.trim(),
-    type_id: Number(s.type_id) || 0,
+    agenda_id: Number(s.agenda_id) || 0,
+    direction: (s.direction || undefined) as Direction,
     start_date: s.start_date,
     end_date: s.end_date,
     mode: s.mode,
     venue: blank(s.venue),
-    city: s.mode === 'online' ? null : blank(s.city),
     country_code: s.mode === 'online' ? null : blank(s.country_code),
     sks_recognized: sks === null || Number.isNaN(sks) ? null : sks,
-    funding_source: (blank(s.funding_source) as FundingSource | null) ?? null,
     description: s.description.trim(),
     submitter_unit_id: Number(s.submitter_unit_id) || 0,
     co_unit_ids: s.co_unit_ids,
-    document_ids: s.document_ids,
+    document_id: s.document_id,
     sdg_ids: s.sdg_ids,
     external_persons: s.external_persons.map((p) => ({
       full_name: p.full_name.trim(),
@@ -173,7 +169,7 @@ function serverFieldErrors(code: string, message: string, detail: unknown): Reco
       return { end_date: message };
     case 'R04_AGREEMENT_NOT_VALID':
     case 'R07_AGREEMENT_REQUIRED':
-      return { document_ids: message };
+      return { document_id: message };
     case 'R14_UNIT_NOT_ALLOWED':
       return { submitter_unit_id: message };
     default:
@@ -232,13 +228,21 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   const autosave = mode === 'wizard' && activityId !== null;
 
   const unitEditable = mode === 'wizard' && activityId === null && lockedUnitId === null;
-  const type = options.activityTypes.find((t) => String(t.id) === state.type_id) ?? null;
+  const agenda = options.agendas.find((a) => String(a.id) === state.agenda_id) ?? null;
+  const isMobility = agenda?.is_mobility ?? false;
+  const isMobilityRef = useRef(isMobility);
+  useEffect(() => {
+    isMobilityRef.current = isMobility;
+  });
+  // Peserta / Berkas below depend on the saved Jenis and direction: refresh the page once they are saved.
+  const savedShapeRef = useRef(`${initial?.agenda_id ?? ''}|${initial?.direction ?? ''}`);
   const period = useMemo(() => derivePeriod(state.start_date, options.academicYears), [state.start_date, options.academicYears]);
   const sdgNames = useMemo(() => Object.fromEntries(options.sdgs.map((s) => [s.id, s.name])), [options.sdgs]);
   const unitOptions = useMemo(
     () =>
+      // Revisi V.1: SIM Realisasi is used by Unit Akademik only
       options.units
-        .filter((u) => String(u.id) !== state.submitter_unit_id)
+        .filter((u) => u.is_academic && String(u.id) !== state.submitter_unit_id)
         .map((u) => ({ value: String(u.id), label: u.name })),
     [options.units, state.submitter_unit_id],
   );
@@ -260,8 +264,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   /** Valid draft payload of the latest state, or null (autosave never sends invalid data). */
   const latestDraftPayload = useCallback((): ActivityDetailPayload | null => {
     const s = stateRef.current;
-    if (sksError(s.sks_recognized)) return null;
-    const parsed = activityDetailSchema.safeParse(toPayload(s));
+    if (isMobilityRef.current && sksError(s.sks_recognized)) return null;
+    const parsed = activityDetailSchema.safeParse(toPayload(s, isMobilityRef.current));
     return parsed.success ? parsed.data : null;
   }, []);
 
@@ -293,6 +297,11 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         return null;
       }
       draftIdRef.current = res.data.id;
+      const shape = `${stateRef.current.agenda_id}|${stateRef.current.direction}`;
+      if (mode === 'wizard' && activityId && out.upToDate && shape !== savedShapeRef.current) {
+        savedShapeRef.current = shape;
+        router.refresh();
+      }
       if (!saver.busy) {
         if (out.upToDate) save.setSaved();
         else save.setDirty();
@@ -300,7 +309,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
       if (out.upToDate && mode !== 'wizard') save.setBlocker('detail-form', null);
       return res.data.id;
     },
-    [save, saver, showErrors, mode],
+    [save, saver, showErrors, mode, activityId, router],
   );
 
   // Autosave (wizard + existing draft only): debounce valid edits; the timer reads the latest state.
@@ -339,8 +348,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
 
   function validate(strict: boolean): ActivityDetailPayload | null {
     const schema = strict ? activityDetailSubmitSchema : activityDetailSchema;
-    const parsed = schema.safeParse(toPayload(state));
-    const sks = sksError(state.sks_recognized);
+    const parsed = schema.safeParse(toPayload(state, isMobility));
+    const sks = isMobility ? sksError(state.sks_recognized) : null;
     if (!parsed.success || sks) {
       const errs = parsed.success ? {} : fieldErrors(parsed.error);
       showErrors(sks ? { ...errs, sks_recognized: sks } : errs, 'Periksa kembali isian yang ditandai.');
@@ -351,15 +360,20 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
     return parsed.data;
   }
 
-  function onSaveDraft(next: boolean) {
-    const payload = validate(next);
+  function onSaveDraft() {
+    const payload = validate(false);
     if (!payload) return;
     startTransition(async () => {
       const id = await persistDraft(() => payload, { silent: false });
       if (!id) return;
-      if (next) router.push(stepHref(id, 2));
-      else if (!activityId) router.replace(stepHref(id, 1));
-      else toast.success('Draf tersimpan.');
+      if (!activityId) {
+        // Same page: the draft id unlocks the Peserta / Berkas / Ajukan sections below.
+        router.replace(`/realisasi/kegiatan/baru?draft=${encodeURIComponent(id)}`, { scroll: false });
+        toast.success('Draf tersimpan. Lanjutkan mengisi peserta dan berkas di bawah.');
+      } else {
+        toast.success('Draf tersimpan.');
+        router.refresh();
+      }
     });
   }
 
@@ -436,7 +450,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        if (mode === 'wizard') onSaveDraft(true);
+        if (mode === 'wizard') onSaveDraft();
         else if (mode === 'revision') onSaveRevision();
         else onSaveVerified();
       }}
@@ -478,27 +492,62 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="f-type_id">Jenis kegiatan *</Label>
+          <Label htmlFor="f-agenda_id">Jenis kegiatan *</Label>
           <NativeSelect
-            id="f-type_id"
-            value={state.type_id}
+            id="f-agenda_id"
+            value={state.agenda_id}
             placeholder="Pilih jenis kegiatan"
-            onChange={(e) => set('type_id', e.target.value)}
+            onChange={(e) => set('agenda_id', e.target.value)}
             required
-            {...aria('type_id', 'f-type-helper')}
+            {...aria('agenda_id', 'f-type-helper')}
           >
-            {options.activityTypes
-              .filter((t) => t.is_active || String(t.id) === state.type_id)
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+            <optgroup label="Mobilitas mahasiswa">
+              {options.agendas
+                .filter((a) => a.is_mobility && (a.is_active || String(a.id) === state.agenda_id))
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+            </optgroup>
+            <optgroup label="Kegiatan lainnya">
+              {options.agendas
+                .filter((a) => !a.is_mobility && (a.is_active || String(a.id) === state.agenda_id))
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+            </optgroup>
           </NativeSelect>
           <p id="f-type-helper" className="text-xs text-muted-foreground" data-testid="type-helper">
-            {type ? activityTypeHelper(type) : 'Pilih jenis untuk melihat aturan perhitungan dan kewajiban data peserta.'}
+            {agenda
+              ? agendaHelper(agenda)
+              : 'Daftar mengikuti Agenda Kerja Sama di SIM Kerjasama. Pilih jenis untuk melihat kewajiban data peserta.'}
           </p>
-          {fieldError('type_id')}
+          {fieldError('agenda_id')}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="f-direction">Inbound / Outbound *</Label>
+          <NativeSelect
+            id="f-direction"
+            value={state.direction}
+            placeholder="Pilih arah kegiatan"
+            onChange={(e) => set('direction', e.target.value as Direction)}
+            required
+            {...aria('direction', 'f-direction-helper')}
+          >
+            {(Object.keys(DIRECTION_LABEL) as Direction[]).map((d) => (
+              <option key={d} value={d}>
+                {DIRECTION_LABEL[d]}
+              </option>
+            ))}
+          </NativeSelect>
+          <p id="f-direction-helper" className="text-xs text-muted-foreground">
+            Inbound: mitra/mahasiswa datang ke PETRA. Outbound: sivitas PETRA berangkat ke mitra.
+          </p>
+          {fieldError('direction')}
         </div>
 
         <div className="space-y-1.5">
@@ -512,7 +561,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
               {...aria('submitter_unit_id')}
             >
               {options.units
-                .filter((u) => u.kind !== 'up')
+                .filter((u) => u.is_academic && u.kind !== 'up')
                 .map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
@@ -610,11 +659,6 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         {state.mode !== 'online' ? (
           <>
             <div className="space-y-1.5">
-              <Label htmlFor="f-city">Kota *</Label>
-              <Input id="f-city" value={state.city} onChange={(e) => set('city', e.target.value)} {...aria('city')} />
-              {fieldError('city')}
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="f-country_code">Negara *</Label>
               <NativeSelect
                 id="f-country_code"
@@ -636,34 +680,20 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
           <div className="hidden md:block" aria-hidden />
         )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="f-sks_recognized">SKS diakui</Label>
-          <Input
-            id="f-sks_recognized"
-            inputMode="decimal"
-            value={state.sks_recognized}
-            onChange={(e) => set('sks_recognized', e.target.value)}
-            {...aria('sks_recognized')}
-          />
-          {fieldError('sks_recognized')}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="f-funding_source">Sumber dana</Label>
-          <NativeSelect
-            id="f-funding_source"
-            value={state.funding_source}
-            placeholder="Pilih sumber dana"
-            onChange={(e) => set('funding_source', e.target.value)}
-            {...aria('funding_source')}
-          >
-            {(Object.keys(FUNDING_LABEL) as FundingSource[]).map((f) => (
-              <option key={f} value={f}>
-                {FUNDING_LABEL[f]}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
+        {/* Revisi V.1 item 5: SKS diakui only for mobility kegiatan */}
+        {isMobility && (
+          <div className="space-y-1.5" data-testid="sks-field">
+            <Label htmlFor="f-sks_recognized">SKS diakui</Label>
+            <Input
+              id="f-sks_recognized"
+              inputMode="decimal"
+              value={state.sks_recognized}
+              onChange={(e) => set('sks_recognized', e.target.value)}
+              {...aria('sks_recognized')}
+            />
+            {fieldError('sks_recognized')}
+          </div>
+        )}
 
         <div className="space-y-1.5 md:col-span-2">
           <Label htmlFor="f-description">Deskripsi *</Label>
@@ -679,7 +709,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
 
         <div className="space-y-1.5 md:col-span-2">
           <Label id="f-co_unit_ids-label" htmlFor="f-co_unit_ids">
-            Unit lain (akses baca)
+            Unit Lain yang Terlibat
           </Label>
           <Combobox
             id="f-co_unit_ids"
@@ -687,37 +717,38 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             options={unitOptions}
             value={state.co_unit_ids.map(String)}
             onChange={(v) => set('co_unit_ids', v.map(Number))}
-            placeholder="Pilih unit lain (opsional)"
+            placeholder="Pilih unit lain yang terlibat (opsional)"
             searchPlaceholder="Cari unit…"
           />
           {fieldError('co_unit_ids')}
         </div>
       </section>
 
-      <section className="space-y-3" aria-labelledby="f-document_ids-label">
-        <h2 id="f-document_ids-label" className="text-base font-semibold">
+      <section className="space-y-3" aria-labelledby="f-document_id-label">
+        <h2 id="f-document_id-label" className="text-base font-semibold">
           Kerja sama *
         </h2>
+        <p className="text-sm text-muted-foreground">Pilih satu kerja sama yang direalisasikan oleh kegiatan ini.</p>
         <AgreementPicker
-          id="f-document_ids"
-          labelId="f-document_ids-label"
+          id="f-document_id"
+          labelId="f-document_id-label"
           start={state.start_date}
           end={state.end_date}
           unitId={Number(state.submitter_unit_id) || null}
-          value={state.document_ids}
-          onChange={(ids) => set('document_ids', ids)}
+          value={state.document_id}
+          onChange={(id) => set('document_id', id)}
           known={initialDocuments}
-          error={err('document_ids')}
-          errorId={errId('document_ids')}
+          error={err('document_id')}
+          errorId={errId('document_id')}
         />
-        {fieldError('document_ids')}
+        {fieldError('document_id')}
       </section>
 
       <section className="space-y-3" aria-labelledby="sec-persons">
         <h2 id="sec-persons" className="text-base font-semibold">
           Pembicara / Dosen Asing / Tamu
         </h2>
-        <p className="text-sm text-muted-foreground">Dicatat dan diverifikasi tim Kemitraan; tidak dihitung pada KPI 1.1.</p>
+        <p className="text-sm text-muted-foreground">Dicatat sebagai pelengkap laporan; tidak dihitung pada RENSTRA 1.1.</p>
         <div id="f-external_persons">
           <ExternalPersons
             rows={state.external_persons}
@@ -759,17 +790,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
       <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
         {mode === 'wizard' && (
           <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onSaveDraft(false)}
-              loading={pending}
-              data-testid="wizard-save-draft"
-            >
-              Simpan Draf
-            </Button>
-            <Button type="submit" loading={pending} data-testid="wizard-next">
-              Lanjut
+            <Button type="submit" variant={activityId ? 'outline' : 'default'} loading={pending} data-testid="wizard-save-draft">
+              {activityId ? 'Simpan Detail' : 'Simpan Draf & lanjut isi peserta/berkas'}
             </Button>
           </>
         )}

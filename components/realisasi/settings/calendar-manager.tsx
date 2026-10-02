@@ -200,7 +200,7 @@ function FreezeButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Bekukan snapshot {label}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Nilai KPI, kontributor dan pengaturan saat ini akan disimpan sebagai snapshot {SNAPSHOT_KIND_LABEL[kind]}. Snapshot tidak dapat diubah;
+            Nilai RENSTRA, kontributor dan pengaturan saat ini akan disimpan sebagai snapshot {SNAPSHOT_KIND_LABEL[kind]}. Snapshot tidak dapat diubah;
             perbaikan hanya melalui &quot;Bekukan ulang&quot; dengan alasan.
           </AlertDialogDescription>
         </AlertDialogHeader>

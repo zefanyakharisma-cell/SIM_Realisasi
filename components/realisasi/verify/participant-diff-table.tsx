@@ -1,9 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { FileText, Minus, Pencil, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useMemo } from 'react';
+import { Minus, Pencil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { diffParticipantVersions, summarizeDiff, type DiffEntry, type RowChange } from '@/lib/realisasi/participant-diff';
 import { PSET_STATUS_LABEL, SECTION_LABEL } from '@/lib/realisasi/status';
@@ -62,10 +60,7 @@ function Cell({
   return (
     <td className={cn('px-3 py-2 align-top', changed && CELL_CHANGED, className)}>
       {children}
-      {changed && field === 'transcript_path' ? (
-        // L-13: never print the raw storage path of the previous transcript.
-        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{prevValue ? 'Transkrip diganti' : 'Transkrip ditambahkan'}</span>
-      ) : changed ? (
+      {changed ? (
         <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
           <span className="sr-only">Nilai sebelumnya: </span>
           <span aria-hidden="true">sebelumnya: </span>
@@ -86,12 +81,11 @@ export interface ParticipantDiffTableProps {
 /**
  * Participant set of `version` compared with `previous` (Design §3.5): added rows green, removed rows
  * red strike-through, changed cells highlighted with the previous value. Change type is always given
- * as text too (never colour alone). Inbound transcripts open in a side sheet.
+ * as text too (never colour alone). Transcripts live in the activity's mobility PDF (Revisi V.1).
  */
 export function ParticipantDiffTable({ version, previous, caption }: ParticipantDiffTableProps) {
   const diff = useMemo(() => diffParticipantVersions(previous, version), [previous, version]);
   const summary = summarizeDiff(diff);
-  const [transcript, setTranscript] = useState<{ href: string; nrp: string; name: string } | null>(null);
 
   const internal = diff.students.filter((e) => (e.after ?? e.before)?.section === 'internal');
   const inbound = diff.students.filter((e) => (e.after ?? e.before)?.section === 'inbound');
@@ -137,7 +131,6 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                       <th scope="col" className="px-3 py-2">Institusi asal</th>
                       <th scope="col" className="px-3 py-2">No. mahasiswa asal</th>
                       <th scope="col" className="px-3 py-2">Negara</th>
-                      <th scope="col" className="px-3 py-2">Transkrip</th>
                     </>
                   )}
                 </tr>
@@ -159,11 +152,6 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                             {r.registry_status === 'graduated' ? 'Lulus' : 'Tidak aktif'}
                           </span>
                         ) : null}
-                        {e.before?.row_note ? (
-                          <span className="mt-1 block font-sans text-xs text-amber-800 no-underline dark:text-amber-300">
-                            Catatan v{previous?.version}: {e.before.row_note}
-                          </span>
-                        ) : null}
                       </td>
                       <Cell entry={e} field="full_name">{r.full_name}</Cell>
                       {section === 'internal' ? (
@@ -176,23 +164,6 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                           <Cell entry={e} field="home_institution">{r.home_institution ?? '–'}</Cell>
                           <Cell entry={e} field="home_student_number">{r.home_student_number ?? '–'}</Cell>
                           <Cell entry={e} field="home_country_code">{r.home_country_code ?? '–'}</Cell>
-                          <Cell entry={e} field="transcript_path">
-                            {r.transcript_href && e.change !== 'removed' ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setTranscript({ href: r.transcript_href!, nrp: r.nrp, name: r.full_name })}
-                              >
-                                <FileText className="mr-1 h-4 w-4" aria-hidden="true" />
-                                Lihat transkrip<span className="sr-only"> {r.full_name}</span>
-                              </Button>
-                            ) : r.transcript_path ? (
-                              'Ada'
-                            ) : (
-                              <span className="text-red-700 dark:text-red-300">Belum ada</span>
-                            )}
-                          </Cell>
                         </>
                       )}
                     </tr>
@@ -230,11 +201,6 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                     ) : null}
                     <td className="px-3 py-2 align-top font-mono text-xs">
                       {r.employee_id}
-                      {e.before?.row_note ? (
-                        <span className="mt-1 block font-sans text-xs text-amber-800 dark:text-amber-300">
-                          Catatan v{previous?.version}: {e.before.row_note}
-                        </span>
-                      ) : null}
                     </td>
                     <Cell entry={e} field="full_name">{r.full_name}</Cell>
                     <Cell entry={e} field="unit_name">{r.unit_name ?? '–'}</Cell>
@@ -250,31 +216,6 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
         <p className="text-sm text-muted-foreground">Versi ini tidak memiliki peserta.</p>
       ) : null}
 
-      <Sheet open={transcript !== null} onOpenChange={(open) => !open && setTranscript(null)}>
-        <SheetContent side="right" className="flex w-full flex-col gap-4 sm:max-w-2xl">
-          <SheetHeader>
-            <SheetTitle>Transkrip {transcript?.name}</SheetTitle>
-            <SheetDescription>NRP {transcript?.nrp} · versi peserta v{version.version}</SheetDescription>
-          </SheetHeader>
-          {transcript ? (
-            <>
-              <iframe
-                src={transcript.href}
-                title={`Transkrip ${transcript.name}`}
-                className="min-h-[60vh] w-full flex-1 rounded-md border"
-              />
-              <a
-                href={transcript.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-medium text-primary underline underline-offset-4"
-              >
-                Buka transkrip di tab baru
-              </a>
-            </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

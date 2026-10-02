@@ -60,21 +60,14 @@ function extensionFor(filename: string): string {
   return ext && Object.values(EXT_BY_MIME).includes(ext) ? ext : 'bin';
 }
 
-function randomHex(bytes: number): string {
-  const buf = new Uint8Array(bytes);
-  globalThis.crypto.getRandomValues(buf);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 /** realisasi-files/<activityId>/<kind>/<uuid>.<ext> */
 export function newActivityFilePath(activityId: string, kind: 'ia' | 'ir' | 'evidence', filename: string): string {
   return `${BUCKETS.files}/${activityId}/${kind}/${globalThis.crypto.randomUUID()}.${extensionFor(filename)}`;
 }
 
-/** realisasi-transcripts/<activityId>/v<version>/<nrp>-<8hex>.pdf */
-export function newTranscriptPath(activityId: string, version: number, nrp: string): string {
-  const safeNrp = nrp.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  return `${BUCKETS.transcripts}/${activityId}/v${version}/${safeNrp}-${randomHex(4)}.pdf`;
+/** realisasi-transcripts/<activityId>/mobility_bundle/<uuid>.pdf — transkrip + poster + dokumentasi (Revisi V.1). */
+export function newMobilityBundlePath(activityId: string): string {
+  return `${BUCKETS.transcripts}/${activityId}/mobility_bundle/${globalThis.crypto.randomUUID()}.pdf`;
 }
 
 export async function putObject(tx: Tx, path: string, data: Buffer, mime: string): Promise<void> {
@@ -93,7 +86,7 @@ export async function getObject(tx: Tx, path: string): Promise<{ data: Buffer; m
 }
 
 const STORAGE_PATH_RE =
-  /^(?:realisasi-files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:ia|ir|evidence)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|jpg|png|bin)|realisasi-transcripts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/v[0-9]{1,4}\/[A-Z0-9]{1,20}-[0-9a-f]{8}\.pdf)$/;
+  /^(?:realisasi-files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:ia|ir|evidence)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|jpg|png|bin)|realisasi-transcripts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:mobility_bundle\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|v[0-9]{1,4}\/[A-Z0-9]{1,20}-[0-9a-f]{8})\.pdf)$/;
 
 /**
  * Strict grammar of every key this app writes (security review L-4). `/api/files` refuses anything

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_FILE_BYTES, fileHref, newActivityFilePath, newTranscriptPath, validateUpload } from './storage';
+import { MAX_FILE_BYTES, fileHref, newActivityFilePath, newMobilityBundlePath, validateUpload } from './storage';
 
 const PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
 const ID = 'a0000000-0000-4000-8000-000000000013';
@@ -29,8 +29,8 @@ describe('paths', () => {
     expect(newActivityFilePath(ID, 'evidence', 'foto.jpeg')).toMatch(/\.jpg$/);
     expect(newActivityFilePath(ID, 'evidence', 'noext')).toMatch(/\.bin$/);
   });
-  it('builds transcript paths', () => {
-    expect(newTranscriptPath(ID, 2, 'x01260012')).toMatch(new RegExp(`^realisasi-transcripts/${ID}/v2/X01260012-[0-9a-f]{8}\\.pdf$`));
+  it('builds mobility bundle paths', () => {
+    expect(newMobilityBundlePath(ID)).toMatch(new RegExp(`^realisasi-transcripts/${ID}/mobility_bundle/[0-9a-f-]{36}\\.pdf$`));
   });
   it('encodes hrefs per segment', () => {
     expect(fileHref('realisasi-files/a b/ia/x.pdf')).toBe('/api/files/realisasi-files/a%20b/ia/x.pdf');
@@ -58,7 +58,7 @@ describe('isValidStoragePath (security review L-4)', () => {
     const id = 'a0000000-0000-4000-8000-000000000013';
     expect(isValidStoragePath(newActivityFilePath(id, 'ia', 'x.pdf'))).toBe(true);
     expect(isValidStoragePath(newActivityFilePath(id, 'evidence', 'foto.JPEG'))).toBe(true);
-    expect(isValidStoragePath(newTranscriptPath(id, 3, 'x01260012'))).toBe(true);
+    expect(isValidStoragePath(newMobilityBundlePath(id))).toBe(true);
     expect(isValidStoragePath('realisasi-files/../../etc/passwd')).toBe(false);
     expect(isValidStoragePath(`realisasi-transcripts/${id}/v1/X01250024-81ed5df4.pdf\u0000`)).toBe(false);
     expect(isValidStoragePath(`other-bucket/${id}/ia/${id}.pdf`)).toBe(false);

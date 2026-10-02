@@ -53,15 +53,19 @@ describe('classifyStudents', () => {
 
 describe('activity schemas', () => {
   const base = {
-    name: 'Summer', type_id: 7, start_date: '2026-08-03', end_date: '2026-08-21', mode: 'offline' as const,
-    venue: null, city: null, country_code: null, sks_recognized: null, funding_source: null, description: 'x',
-    submitter_unit_id: 10, co_unit_ids: [], document_ids: [], sdg_ids: [], external_persons: [],
+    name: 'Summer', agenda_id: 23, direction: 'outbound' as const, start_date: '2026-08-03', end_date: '2026-08-21',
+    mode: 'offline' as const, venue: null, country_code: null, sks_recognized: null, description: 'x',
+    submitter_unit_id: 10, co_unit_ids: [], document_id: null, sdg_ids: [], external_persons: [],
   };
   it('accepts a minimal draft', () => expect(activityDetailSchema.safeParse(base).success).toBe(true));
   it('rejects end before start', () => expect(activityDetailSchema.safeParse({ ...base, end_date: '2026-08-01' }).success).toBe(false));
-  it('submit schema requires venue/city/country and an agreement', () => {
+  it('requires a direction (Inbound/Outbound)', () =>
+    expect(activityDetailSchema.safeParse({ ...base, direction: undefined }).success).toBe(false));
+  it('allows exactly one kerja sama', () =>
+    expect(activityDetailSchema.safeParse({ ...base, document_id: [101, 102] }).success).toBe(false));
+  it('submit schema requires venue/country and the kerja sama', () => {
     const r = activityDetailSubmitSchema.safeParse(base);
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error.issues.map((i) => i.path[0]).sort()).toEqual(['city', 'country_code', 'document_ids', 'venue']);
+    if (!r.success) expect(r.error.issues.map((i) => i.path[0]).sort()).toEqual(['country_code', 'document_id', 'venue']);
   });
 });

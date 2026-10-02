@@ -12,9 +12,8 @@ import { LogList } from '@/components/realisasi/activity/log-list';
 import { ParticipantTable } from '@/components/realisasi/activity/participant-table';
 import { RevisionBanner } from '@/components/realisasi/activity/revision-banner';
 import { VersionSelector } from '@/components/realisasi/activity/version-selector';
-import { DuplicateActions } from '@/components/realisasi/verify/duplicate-actions';
+import { ConflictList } from '@/components/realisasi/verify/conflict-list';
 import { MobilityActions } from '@/components/realisasi/verify/mobility-actions';
-import { PartnershipActions } from '@/components/realisasi/verify/partnership-actions';
 import { withUser } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { formatDateTime } from '@/lib/realisasi/format';
@@ -91,15 +90,20 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
     <>
       {isUnitDraft && (
         <Button asChild size="sm">
-          <Link href={`/realisasi/kegiatan/baru?draft=${detail.id}&step=1`} data-testid="continue-draft">
+          <Link href={`/realisasi/kegiatan/baru?draft=${detail.id}`} data-testid="continue-draft">
             <Pencil aria-hidden /> Lanjutkan pengisian
           </Link>
         </Button>
       )}
       {p.can_delete_draft && <DeleteDraftButton activityId={detail.id} code={detail.code} />}
-      <PartnershipActions activityId={detail.id} code={detail.code} permissions={p} />
-      <MobilityActions activityId={detail.id} code={detail.code} version={review} previous={previous} permissions={p} />
-      <DuplicateActions activityId={detail.id} permissions={p} duplicates={detail.duplicates} />
+      <MobilityActions
+        activityId={detail.id}
+        code={detail.code}
+        version={review}
+        previous={previous}
+        permissions={p}
+        conflictsOpen={detail.flags.conflicts_open}
+      />
       {p.can_edit_verified_detail && (
         <Button asChild size="sm" variant="outline">
           <Link href={`/realisasi/kegiatan/${detail.id}/edit`} data-testid="edit-verified-detail">
@@ -121,6 +125,24 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
     <div className="space-y-6">
       <ActivityHeader detail={detail} actions={actions} />
       {(inRevision || (detail.status === 'revision_requested' && user.role === 'submitter')) && <RevisionBanner detail={detail} />}
+
+      {detail.conflicts.length > 0 && (
+        <section
+          id="duplikat"
+          aria-labelledby="duplikat-title"
+          className="scroll-mt-24 space-y-3 rounded-lg border border-purple-300 bg-purple-50/40 p-4 dark:bg-purple-950/20"
+        >
+          <h2 id="duplikat-title" className="text-base font-semibold">
+            Duplikat mahasiswa{' '}
+            <span className="font-normal text-muted-foreground">({detail.flags.conflicts_open} menunggu keputusan tim Mobilitas)</span>
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Mahasiswa berikut juga diklaim oleh unit lain pada kegiatan dengan tanggal yang beririsan. Tim Mobilitas memilih kegiatan tempat
+            mahasiswa dihitung.
+          </p>
+          <ConflictList conflicts={detail.conflicts} canResolve={p.can_mobility_verify} currentActivityId={detail.id} />
+        </section>
+      )}
 
       <ActivityTabs activityId={detail.id} current={tab} tabs={tabs} />
 
@@ -160,7 +182,7 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
           </div>
         )}
 
-        {tab === 'berkas' && <FileList files={detail.files} showHistory />}
+        {tab === 'berkas' && <FileList files={detail.files} showHistory isMobility={detail.agenda.is_mobility} />}
 
         {tab === 'riwayat' && p.can_view_log && <LogList log={detail.log} />}
       </div>

@@ -13,16 +13,13 @@ function student(nrp: string, over: Partial<ParticipantStudentRow> = {}): Partic
     home_institution: null,
     home_student_number: null,
     home_country_code: null,
-    transcript_path: null,
-    transcript_href: null,
-    row_note: null,
     registry_status: 'active',
     ...over,
   } as ParticipantStudentRow;
 }
 
 function staff(id: string, over: Partial<ParticipantStaffRow> = {}): ParticipantStaffRow {
-  return { id: 1, employee_id: id, full_name: `Pegawai ${id}`, unit_name: 'IO', row_note: null, registry_status: 'active', ...over } as ParticipantStaffRow;
+  return { id: 1, employee_id: id, full_name: `Pegawai ${id}`, unit_name: 'IO', registry_status: 'active', ...over } as ParticipantStaffRow;
 }
 
 function version(n: number, students: ParticipantStudentRow[], staffRows: ParticipantStaffRow[] = []): ParticipantVersion {
@@ -52,7 +49,7 @@ describe('diffParticipantVersions', () => {
     const prev = version(1, [student('A1'), student('A2'), student('A3', { home_institution: 'X' })], [staff('PG1'), staff('PG2')]);
     const next = version(
       2,
-      [student('A1'), student('A3', { home_institution: 'Y', row_note: 'abaikan' }), student('A4')],
+      [student('A1'), student('A3', { home_institution: 'Y' }), student('A4')],
       [staff('PG1', { unit_name: 'FTI' }), staff('PG3')],
     );
     const d = diffParticipantVersions(prev, next);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withUser } from '@/lib/db';
 import { getSessionUser } from '@/lib/session';
-import { MAX_FILE_BYTES, extensionForMime, fileHref, newActivityFilePath, newTranscriptPath, putObject, sniffMime, validateUpload } from '@/lib/storage';
+import { MAX_FILE_BYTES, extensionForMime, newActivityFilePath, newMobilityBundlePath, putObject, sniffMime, validateUpload } from '@/lib/storage';
 import { rateLimited } from '@/lib/api-guard';
 import { uploadLimiter } from '@/lib/rate-limit';
 import { ERROR_MESSAGES, errorResponse } from '@/lib/realisasi/errors';
@@ -10,14 +10,10 @@ import type { RegisteredFile } from '@/lib/realisasi/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const fieldsSchema = z.discriminatedUnion('target', [
-  z.object({ activity_id: z.string().uuid(), target: z.enum(['ia', 'ir', 'evidence']) }),
-  z.object({
-    activity_id: z.string().uuid(),
-    target: z.literal('transcript'),
-    nrp: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3,20}$/, 'NRP tidak valid.'),
-  }),
-]);
+const fieldsSchema = z.object({
+  activity_id: z.string().uuid(),
+  target: z.enum(['ia', 'ir', 'mobility_bundle', 'evidence']),
+});
 
 function json(status: number, code: string, message?: string, detail?: unknown): Response {
   return Response.json({ code, message: message ?? ERROR_MESSAGES[code] ?? ERROR_MESSAGES.INTERNAL, detail }, { status });
@@ -31,9 +27,9 @@ function cleanFilename(name: string): string {
 }
 
 /**
- * POST multipart (activity_id, target = ia|ir|evidence|transcript, file, nrp?) — CONTRACTS §8.1.
- * ia/ir/evidence → storage_put + register_activity_file in one tx → RegisteredFile.
- * transcript → ensure_participant_draft + storage_put → {path, href, version}.
+ * POST multipart (activity_id, target = ia|ir|mobility_bundle|evidence, file) — CONTRACTS §8.1.
+ * storage_put + register_activity_file in one tx → RegisteredFile. The mobility bundle (one PDF with
+ * transkrip, poster and dokumentasi; Revisi V.1) goes to the personal-data bucket.
  */
 export async function POST(request: Request): Promise<Response> {
   const user = await getSessionUser();
@@ -56,7 +52,6 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = fieldsSchema.safeParse({
     activity_id: form.get('activity_id'),
     target: form.get('target'),
-    nrp: form.get('nrp') ?? undefined,
   });
   if (!parsed.success || !(file instanceof File)) {
     return json(400, 'BAD_REQUEST', parsed.success ? 'Berkas tidak ditemukan dalam permintaan.' : parsed.error.issues[0]?.message);
@@ -75,20 +70,11 @@ export async function POST(request: Request): Promise<Response> {
   const mime = sniffMime(data.subarray(0, 8)) ?? 'application/octet-stream';
 
   try {
-    if (fields.target === 'transcript') {
-      const result = await withUser(user.id, async (tx) => {
-        const [row] = await tx<{ r: { version_id: string; version: number } }[]>`
-          select realisasi.ensure_participant_draft(${fields.activity_id}::uuid) as r`;
-        const version = row!.r.version;
-        const path = newTranscriptPath(fields.activity_id, version, fields.nrp);
-        await putObject(tx, path, data, 'application/pdf');
-        return { path, href: fileHref(path), version };
-      });
-      return Response.json(result);
-    }
-
     const registered = await withUser(user.id, async (tx) => {
-      const path = newActivityFilePath(fields.activity_id, fields.target, `x.${extensionForMime(mime)}`);
+      const path =
+        fields.target === 'mobility_bundle'
+          ? newMobilityBundlePath(fields.activity_id)
+          : newActivityFilePath(fields.activity_id, fields.target, `x.${extensionForMime(mime)}`);
       await putObject(tx, path, data, mime);
       const [row] = await tx<{ r: RegisteredFile }[]>`
         select realisasi.register_activity_file(${fields.activity_id}::uuid, ${fields.target}::realisasi.file_kind,

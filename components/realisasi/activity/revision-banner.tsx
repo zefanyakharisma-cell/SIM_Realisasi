@@ -11,9 +11,7 @@ import { TRACK_LABEL } from '@/lib/realisasi/status';
 import type { ActivityDetail, Team } from '@/lib/realisasi/types';
 
 export function RevisionBanner({ detail, showAction = true }: { detail: ActivityDetail; showAction?: boolean }) {
-  const tracks = (['partnership', 'mobility'] as Team[]).filter(
-    (t) => detail[`${t}_status`] === 'revision_requested' && detail.revision[t],
-  );
+  const tracks = (['mobility'] as Team[]).filter((t) => detail.mobility_status === 'revision_requested' && detail.revision[t]);
   if (tracks.length === 0) return null;
   return (
     <Alert variant="warning" data-testid="revision-banner">

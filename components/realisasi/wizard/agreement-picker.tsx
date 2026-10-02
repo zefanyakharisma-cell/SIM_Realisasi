@@ -1,8 +1,9 @@
 'use client';
 /**
- * Kerja sama picker (Design §3.3, R-03..R-06): multi combobox fed by `documents_valid_between`
- * through GET /api/lookup/documents. Disabled until both dates are valid. Selected agreements render
- * as cards with read-only Mitra + Negara and the out-of-scope warning (R-05, warn only).
+ * Kerja sama picker (Design §3.3, R-03..R-06): single-select combobox (Revisi V.1: one kerja sama per
+ * kegiatan) fed by `documents_valid_between` through GET /api/lookup/documents. Disabled until both
+ * dates are valid. The chosen agreement renders as a card with read-only Mitra + Negara and the
+ * out-of-scope warning (R-05, warn only).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Archive, Loader2, X } from 'lucide-react';
@@ -23,8 +24,8 @@ export interface AgreementPickerProps {
   start: string;
   end: string;
   unitId: number | null;
-  value: number[];
-  onChange: (ids: number[]) => void;
+  value: number | null;
+  onChange: (id: number | null) => void;
   /** Already-linked documents (from activity_detail) so cards render before the lookup returns. */
   known: DocumentOption[];
   error?: string;
@@ -108,8 +109,9 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
         aria-invalid={Boolean(error) || undefined}
         aria-describedby={describedBy}
         options={options}
-        value={value.map(String)}
-        onChange={(v) => onChange(v.map(Number))}
+        multiple={false}
+        value={value === null ? [] : [String(value)]}
+        onChange={(v) => onChange(v.length ? Number(v[v.length - 1]) : null)}
         disabled={disabled || state.kind !== 'ok'}
         placeholder={datesReady ? 'Pilih kerja sama…' : 'Isi tanggal mulai dan selesai terlebih dahulu'}
         searchPlaceholder="Cari nomor dokumen, mitra, atau negara…"
@@ -134,9 +136,9 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
         )}
       </p>
 
-      {value.length > 0 && (
+      {value !== null && (
         <ul className="grid gap-3 md:grid-cols-2" aria-label="Kerja sama terpilih">
-          {value.map((docId) => {
+          {[value].map((docId) => {
             const d = byId.get(docId);
             const notValid = state.kind === 'ok' && !validIds.has(docId);
             return (
@@ -146,7 +148,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
                   variant="ghost"
                   size="icon"
                   className="absolute right-1 top-1 h-7 w-7"
-                  onClick={() => onChange(value.filter((x) => x !== docId))}
+                  onClick={() => onChange(null)}
                   aria-label={`Hapus kerja sama ${d?.doc_number ?? docId}`}
                   disabled={disabled}
                 >

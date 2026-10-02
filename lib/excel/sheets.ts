@@ -4,10 +4,12 @@ import type ExcelJS from 'exceljs';
 import type {
   ActivityKpiRow,
   ActivityListRow,
+  AwardsInitiativeRow,
+  AwardsStudentRow,
   ChainKpiRow,
+  ConflictRow,
   DrilldownKpi,
   DrilldownResult,
-  KnownKpiRow,
   KpiValues,
   LateAdditionRow,
   PeriodInfo,
@@ -16,11 +18,11 @@ import type {
 } from '@/lib/realisasi/types';
 import {
   ACTIVITY_STATUS_LABEL,
+  CONFLICT_STATUS_LABEL,
   DIRECTION_LABEL,
-  KNOWN_SOURCE_LABEL,
   LOG_ACTION_LABEL,
+  MOBILITY_CATEGORY_LABEL,
   MODE_LABEL,
-  SLA_LEVEL_LABEL,
   SNAPSHOT_KIND_LABEL,
   TRACK_LABEL,
   TRACK_STATUS_LABEL,
@@ -38,10 +40,11 @@ export const joinList = (xs: ReadonlyArray<string | null | undefined> | null | u
 export const yesNo = (b: boolean | null | undefined): string => (b ? 'Ya' : 'Tidak');
 
 export function dataAsOf(period: PeriodInfo): string {
-  if (period.frozen) {
-    return `Snapshot ${period.label} · dibekukan ${formatDateTime(period.frozen_at)} · id ${period.snapshot_id ?? '–'}`;
+  if (period.frozen && period.snapshot_id) {
+    return `Snapshot ${period.label} · dibekukan ${formatDateTime(period.frozen_at)} · id ${period.snapshot_id}`;
   }
-  return `Live s.d. ${formatDate(period.today)}`;
+  if (period.frozen) return `${period.label} · per pembekuan ${formatDateTime(period.frozen_at)}`;
+  return `${period.label} · data s.d. ${formatDate(period.window_end)} (live)`;
 }
 
 export function snapshotAsOf(s: SnapshotListRow): string {
@@ -54,9 +57,6 @@ export function isActivityRow(r: unknown): r is ActivityKpiRow {
 export function isChainRow(r: unknown): r is ChainKpiRow {
   return (r as { row_type?: string }).row_type === 'chain';
 }
-export function isKnownRow(r: unknown): r is KnownKpiRow {
-  return (r as { row_type?: string }).row_type === 'known';
-}
 
 export const CHAIN_STATUS_LABEL: Record<string, string> = {
   realized: 'Terlaksana',
@@ -68,14 +68,14 @@ export const CHAIN_STATUS_LABEL: Record<string, string> = {
 export const KPI_11_COLUMNS: Column<ActivityKpiRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama', key: 'name', value: (r) => r.name },
-  { header: 'Jenis', key: 'type', value: (r) => r.type_name },
-  { header: 'Arah', key: 'dir', value: (r) => label(DIRECTION_LABEL, (r.bucket === 'inbound' || r.bucket === 'outbound' ? r.bucket : r.direction) as never) },
+  { header: 'Jenis', key: 'type', value: (r) => r.agenda_name },
+  { header: 'Kategori Mobilitas', key: 'cat', value: (r) => label(MOBILITY_CATEGORY_LABEL, r.mobility_category) },
+  { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
   { header: 'Unit', key: 'unit', value: (r) => joinList(r.unit_names) },
   { header: 'Mitra', key: 'partner', value: (r) => joinList(r.partner_names) },
   { header: 'Negara', key: 'country', value: (r) => joinList(r.country_codes) },
   { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
   { header: 'Semester', key: 'sem', value: (r) => r.semester_label },
-  { header: 'Grup Kegiatan', key: 'group', value: (r) => (r.linked_count > 0 ? `${r.event_group_id} (+${r.linked_count} tertaut)` : r.event_group_id) },
   { header: 'Jumlah Mahasiswa', key: 'students', value: (r) => r.students ?? null, format: 'int' },
   { header: 'Tambahan Susulan', key: 'late', value: (r) => yesNo(r.is_late_addition) },
 ];
@@ -83,28 +83,26 @@ export const KPI_11_COLUMNS: Column<ActivityKpiRow>[] = [
 export const KPI_S1_COLUMNS: Column<ActivityKpiRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama', key: 'name', value: (r) => r.name },
-  { header: 'Jenis', key: 'type', value: (r) => r.type_name },
+  { header: 'Jenis', key: 'type', value: (r) => r.agenda_name },
   { header: 'Unit', key: 'unit', value: (r) => joinList(r.unit_names) },
   { header: 'Mitra', key: 'partner', value: (r) => joinList(r.partner_names) },
   { header: 'Negara', key: 'country', value: (r) => joinList(r.country_codes) },
   { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
   { header: 'Semester', key: 'sem', value: (r) => r.semester_label },
   { header: 'Kategori', key: 'cat', value: (r) => (r.bucket === 'international' ? 'Internasional' : r.bucket === 'domestic' ? 'Domestik' : r.bucket) },
-  { header: 'Kegiatan Tertaut', key: 'linked', value: (r) => r.linked_count, format: 'int' },
   { header: 'Tambahan Susulan', key: 'late', value: (r) => yesNo(r.is_late_addition) },
 ];
 
 export const BASE_COLUMNS: Column<ActivityKpiRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama', key: 'name', value: (r) => r.name },
-  { header: 'Jenis', key: 'type', value: (r) => r.type_name },
-  { header: 'Arah', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
+  { header: 'Jenis', key: 'type', value: (r) => r.agenda_name },
+  { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
   { header: 'Unit', key: 'unit', value: (r) => joinList(r.unit_names) },
   { header: 'Mitra', key: 'partner', value: (r) => joinList(r.partner_names) },
   { header: 'Negara', key: 'country', value: (r) => joinList(r.country_codes) },
   { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
   { header: 'Semester', key: 'sem', value: (r) => r.semester_label },
-  { header: 'Kegiatan Tertaut', key: 'linked', value: (r) => r.linked_count, format: 'int' },
   { header: 'Tambahan Susulan', key: 'late', value: (r) => yesNo(r.is_late_addition) },
 ];
 
@@ -136,40 +134,6 @@ export const REALIZATION_COLUMNS: Column<ChainKpiRow>[] = [
   },
 ];
 
-type S8Row = { kind: 'Dilaporkan' | 'Belum dilaporkan'; ref: string; title: string; date: string | null; unit: string; partner: string; country: string; source: string };
-
-export function s8Rows(rows: DrilldownResult['rows']): S8Row[] {
-  const out: S8Row[] = [];
-  for (const r of rows as unknown[]) {
-    if (isActivityRow(r)) {
-      out.push({ kind: 'Dilaporkan', ref: r.code, title: r.name, date: r.start_date, unit: joinList(r.unit_names), partner: joinList(r.partner_names), country: joinList(r.country_codes), source: 'SIM Realisasi' });
-    } else if (isKnownRow(r)) {
-      out.push({
-        kind: 'Belum dilaporkan',
-        ref: String(r.known_id),
-        title: r.title ?? 'Kegiatan internasional (rincian hanya untuk tim IO)',
-        date: r.activity_date,
-        unit: r.unit_name ?? '',
-        partner: r.partner_name ?? '',
-        country: r.country_code ?? '',
-        source: [r.source ? label(KNOWN_SOURCE_LABEL, r.source) : null, r.source_reference].filter(Boolean).join(' · '),
-      });
-    }
-  }
-  return out;
-}
-
-export const KPI_S8_COLUMNS: Column<S8Row>[] = [
-  { header: 'Jenis Baris', key: 'kind', value: (r) => r.kind },
-  { header: 'Kode/ID', key: 'ref', value: (r) => r.ref },
-  { header: 'Judul', key: 'title', value: (r) => r.title },
-  { header: 'Tanggal', key: 'date', value: (r) => r.date, format: 'date' },
-  { header: 'Unit', key: 'unit', value: (r) => r.unit },
-  { header: 'Mitra', key: 'partner', value: (r) => r.partner },
-  { header: 'Negara', key: 'country', value: (r) => r.country },
-  { header: 'Sumber', key: 'source', value: (r) => r.source },
-];
-
 /** Adds the sheet for one KPI drill-down result; returns the data row count. */
 export function addKpiSheet(wb: ExcelJS.Workbook, kpi: DrilldownKpi, dd: DrilldownResult, sheetName?: string): number {
   const rows = (dd.rows ?? []) as unknown[];
@@ -189,11 +153,6 @@ export function addKpiSheet(wb: ExcelJS.Workbook, kpi: DrilldownKpi, dd: Drilldo
       addTableSheet(wb, sheetName ?? '1.19.24', KPI_24_COLUMNS, r);
       return r.length;
     }
-    case '1.19.S8': {
-      const r = s8Rows(dd.rows);
-      addTableSheet(wb, sheetName ?? '1.19.S8', KPI_S8_COLUMNS, r);
-      return r.length;
-    }
     case 'base': {
       const r = rows.filter(isActivityRow);
       addTableSheet(wb, sheetName ?? 'Kegiatan Terverifikasi', BASE_COLUMNS, r);
@@ -208,13 +167,13 @@ type SummaryRow = { kpi: string; desc: string; value: number | null; isPct: bool
 export function summaryRows(v: KpiValues): SummaryRow[] {
   const rows: SummaryRow[] = [];
   const k11 = v.kpi_1_1;
-  rows.push({ kpi: '1.1', desc: 'Mahasiswa inbound', value: k11.inbound, isPct: false, num: null, den: null, grace: null, note: 'Pasangan (NRP, grup kegiatan) unik' });
-  rows.push({ kpi: '1.1', desc: 'Mahasiswa outbound', value: k11.outbound, isPct: false, num: null, den: null, grace: null, note: 'Pasangan (NRP, grup kegiatan) unik' });
+  rows.push({ kpi: '1.1', desc: 'Mahasiswa inbound', value: k11.inbound, isPct: false, num: null, den: null, grace: null, note: 'Pasangan (NRP, kegiatan) unik; duplikat antar-unit sesuai keputusan tim Mobilitas' });
+  rows.push({ kpi: '1.1', desc: 'Mahasiswa outbound', value: k11.outbound, isPct: false, num: null, den: null, grace: null, note: 'Pasangan (NRP, kegiatan) unik; duplikat antar-unit sesuai keputusan tim Mobilitas' });
   rows.push({ kpi: '1.1', desc: 'Total mahasiswa inbound + outbound', value: k11.total, isPct: false, num: null, den: null, grace: null, note: '' });
   for (const s of k11.by_semester ?? []) {
     rows.push({ kpi: '1.1', desc: `${s.label} — inbound / outbound`, value: s.inbound + s.outbound, isPct: false, num: null, den: null, grace: null, note: `Inbound ${s.inbound} · Outbound ${s.outbound}` });
   }
-  rows.push({ kpi: '1.19.S1', desc: 'Kegiatan internasional dengan mitra', value: v.kpi_1_19_s1.international, isPct: false, num: null, den: null, grace: null, note: 'Grup kegiatan unik' });
+  rows.push({ kpi: '1.19.S1', desc: 'Kegiatan internasional dengan mitra', value: v.kpi_1_19_s1.international, isPct: false, num: null, den: null, grace: null, note: 'Kegiatan terverifikasi' });
   rows.push({ kpi: '1.19.S1', desc: 'Kegiatan domestik (referensi)', value: v.kpi_1_19_s1.domestic, isPct: false, num: null, den: null, grace: null, note: 'Ditampilkan sebagai pembanding' });
   const scopes: Array<['all' | 'international' | 'domestic', string]> = [
     ['all', 'Semua kerja sama'],
@@ -225,22 +184,11 @@ export function summaryRows(v: KpiValues): SummaryRow[] {
     const t = v.kpi_1_19_24[key];
     rows.push({ kpi: '1.19.24', desc: `Persentase terlaksana — ${desc}`, value: t.pct, isPct: true, num: t.numerator, den: t.denominator, grace: t.grace_excluded, note: 'Satuan = rantai perpanjangan; masa tenggang dikecualikan dari penyebut' });
   }
-  const s8 = v.kpi_1_19_s8;
-  rows.push({
-    kpi: '1.19.S8',
-    desc: 'Persentase kegiatan internasional dilaporkan via SIM',
-    value: s8.pct,
-    isPct: true,
-    num: s8.reported,
-    den: s8.reported + s8.unmatched_known,
-    grace: null,
-    note: `${s8.unmatched_known} kegiatan belum dilaporkan (register)`,
-  });
   return rows;
 }
 
 export const SUMMARY_COLUMNS: Column<SummaryRow>[] = [
-  { header: 'KPI', key: 'kpi', value: (r) => r.kpi },
+  { header: 'RENSTRA', key: 'kpi', value: (r) => r.kpi },
   { header: 'Uraian', key: 'desc', value: (r) => r.desc },
   { header: 'Nilai', key: 'value', value: (r) => r.value, format: (r) => (r.isPct ? 'pct' : 'int') },
   { header: 'Pembilang', key: 'num', value: (r) => r.num, format: 'int' },
@@ -253,9 +201,10 @@ export const SUMMARY_COLUMNS: Column<SummaryRow>[] = [
 export const ACTIVITY_COLUMNS: Column<ActivityListRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
-  { header: 'Jenis Kegiatan', key: 'type', value: (r) => r.type_name },
+  { header: 'Jenis Kegiatan', key: 'type', value: (r) => r.agenda_name },
+  { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
   { header: 'Unit Pengaju', key: 'unit', value: (r) => r.submitter_unit_name },
-  { header: 'Unit Lain', key: 'units', value: (r) => joinList((r.unit_names ?? []).filter((n) => n !== r.submitter_unit_name)) },
+  { header: 'Unit Lain yang Terlibat', key: 'units', value: (r) => joinList((r.unit_names ?? []).filter((n) => n !== r.submitter_unit_name)) },
   { header: 'No. Dokumen Kerja Sama', key: 'docs', value: (r) => joinList(r.document_numbers) },
   { header: 'Mitra', key: 'partner', value: (r) => joinList(r.partner_names) },
   { header: 'Negara', key: 'country', value: (r) => joinList(r.country_codes) },
@@ -265,10 +214,7 @@ export const ACTIVITY_COLUMNS: Column<ActivityListRow>[] = [
   { header: 'Tahun Akademik', key: 'ay', value: (r) => r.ay_label },
   { header: 'Moda', key: 'mode', value: (r) => label(MODE_LABEL, r.mode) },
   { header: 'Status', key: 'status', value: (r) => label(ACTIVITY_STATUS_LABEL, r.status) },
-  { header: 'Status Kemitraan', key: 'ps', value: (r) => label(TRACK_STATUS_LABEL, r.partnership_status) },
-  { header: 'Status Mobilitas', key: 'ms', value: (r) => label(TRACK_STATUS_LABEL, r.mobility_status) },
-  { header: 'SLA Kemitraan (hari kerja)', key: 'psla', value: (r) => r.partnership_sla_days, format: 'int' },
-  { header: 'SLA Mobilitas (hari kerja)', key: 'msla', value: (r) => r.mobility_sla_days, format: 'int' },
+  { header: 'Status Verifikasi Mobilitas', key: 'ms', value: (r) => label(TRACK_STATUS_LABEL, r.mobility_status) },
   { header: 'Terlambat', key: 'late', value: (r) => yesNo(r.is_late) },
   { header: 'Batas Pelaporan', key: 'deadline', value: (r) => r.reporting_deadline, format: 'date' },
   { header: 'Diajukan', key: 'submitted', value: (r) => r.submitted_at, format: 'date' },
@@ -284,7 +230,7 @@ export const LATE_ADDITION_COLUMNS: Column<LateAdditionRow>[] = [
   { header: 'Diverifikasi', key: 'verified', value: (r) => r.verified_at, format: 'datetime' },
   { header: 'Snapshot Sebelumnya', key: 'prev', value: (r) => r.previous_snapshot_label },
   { header: 'Dihitung di Snapshot Ini', key: 'counted', value: (r) => yesNo(r.counted_in_this_snapshot) },
-  { header: 'KPI', key: 'kpi', value: (r) => joinList(r.kpi_codes) },
+  { header: 'RENSTRA', key: 'kpi', value: (r) => joinList(r.kpi_codes) },
 ];
 
 /** Post-freeze diff as text with human field labels (requirements review L-2). */
@@ -315,31 +261,46 @@ export const SNAPSHOT_ARCHIVE_COLUMNS: Column<SnapshotListRow>[] = [
   { header: '1.1 Total', key: 'k11', value: (r) => r.summary?.kpi_1_1_total ?? null, format: 'int' },
   { header: '1.19.S1 Internasional', key: 's1', value: (r) => r.summary?.kpi_1_19_s1_international ?? null, format: 'int' },
   { header: '1.19.24 %', key: 'k24', value: (r) => r.summary?.kpi_1_19_24_pct ?? null, format: 'pct' },
-  { header: '1.19.S8 %', key: 's8', value: (r) => r.summary?.kpi_1_19_s8_pct ?? null, format: 'pct' },
   { header: 'Tambahan Susulan', key: 'late', value: (r) => r.late_additions, format: 'int' },
   { header: 'Perubahan Pasca-Beku', key: 'pfc', value: (r) => r.post_freeze_changes, format: 'int' },
 ];
 
-// ---------- SLA ----------
-export interface SlaRow {
-  a: ActivityListRow;
-  track: 'partnership' | 'mobility';
-  status: string;
-  since: string | null;
-  days: number | null;
-  level: string | null;
-}
-export const SLA_LEVEL_TEXT: Record<string, string> = SLA_LEVEL_LABEL;
 
-export function slaRows(acts: ActivityListRow[]): SlaRow[] {
-  const out: SlaRow[] = [];
-  for (const a of acts) {
-    if (a.status === 'draft' || !a.submitted_at) continue;
-    out.push({ a, track: 'partnership', status: a.partnership_status, since: a.partnership_since, days: a.partnership_sla_days, level: a.partnership_sla_level });
-    if (a.mobility_status !== 'not_required') {
-      out.push({ a, track: 'mobility', status: a.mobility_status, since: a.mobility_since, days: a.mobility_sla_days, level: a.mobility_sla_level });
-    }
-  }
-  return out;
+// ---------- International Awards (Revisi V.1) ----------
+export const AWARDS_STUDENT_COLUMNS: Column<AwardsStudentRow & { rank: number }>[] = [
+  { header: 'Peringkat', key: 'rank', value: (r) => r.rank, format: 'int' },
+  { header: 'Program Studi / Unit', key: 'unit', value: (r) => r.unit_name },
+  { header: 'Joint Degree / Double Degree', key: 'jd', value: (r) => r.jd_dd, format: 'int' },
+  { header: 'Student Exchange', key: 'ex', value: (r) => r.student_exchange, format: 'int' },
+  { header: 'Short / Summer Program', key: 'ss', value: (r) => r.short_summer, format: 'int' },
+  { header: 'Kegiatan Internasional (<14 hari)', key: 'short', value: (r) => r.short_international, format: 'int' },
+  { header: 'Total', key: 'total', value: (r) => r.total, format: 'int' },
+];
+
+export const AWARDS_INITIATIVE_COLUMNS: Column<AwardsInitiativeRow & { rank: number }>[] = [
+  { header: 'Peringkat', key: 'rank', value: (r) => r.rank, format: 'int' },
+  { header: 'Program Studi / Unit', key: 'unit', value: (r) => r.unit_name },
+  { header: 'Jumlah Inbound', key: 'in', value: (r) => r.inbound, format: 'int' },
+  { header: 'Jumlah Outbound', key: 'out', value: (r) => r.outbound, format: 'int' },
+  { header: 'Jumlah Kegiatan', key: 'act', value: (r) => r.activities, format: 'int' },
+  { header: 'Total', key: 'total', value: (r) => r.total, format: 'int' },
+];
+
+export function ranked<R>(rows: R[]): Array<R & { rank: number }> {
+  return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
+// ---------- Student conflicts (Verifikasi Mobilitas) ----------
+export const CONFLICT_COLUMNS: Column<ConflictRow>[] = [
+  { header: 'NRP', key: 'nrp', value: (r) => r.nrp },
+  { header: 'Nama Mahasiswa', key: 'student', value: (r) => r.student_name },
+  { header: 'Kegiatan A', key: 'a', value: (r) => `${r.a.code} — ${r.a.name}` },
+  { header: 'Unit A', key: 'au', value: (r) => r.a.unit_name },
+  { header: 'Kegiatan B', key: 'b', value: (r) => `${r.b.code} — ${r.b.name}` },
+  { header: 'Unit B', key: 'bu', value: (r) => r.b.unit_name },
+  { header: 'Status', key: 'status', value: (r) => label(CONFLICT_STATUS_LABEL, r.status) },
+  { header: 'Diakui pada', key: 'kept', value: (r) => (r.kept_activity_id === r.a.id ? r.a.code : r.kept_activity_id === r.b.id ? r.b.code : null) },
+  { header: 'Catatan', key: 'note', value: (r) => r.note },
+  { header: 'Diputuskan oleh', key: 'by', value: (r) => r.resolved_by_name },
+  { header: 'Diputuskan pada', key: 'at', value: (r) => r.resolved_at, format: 'datetime' },
+];

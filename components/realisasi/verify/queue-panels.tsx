@@ -5,11 +5,9 @@
  */
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ActivityDetailSummary } from '@/components/realisasi/activity/detail-summary';
-import { DuplicateActions } from '@/components/realisasi/verify/duplicate-actions';
-import { IaIrPreview } from '@/components/realisasi/verify/file-preview';
+import { FileText } from 'lucide-react';
+import { ConflictList } from '@/components/realisasi/verify/conflict-list';
 import { MobilityActions } from '@/components/realisasi/verify/mobility-actions';
-import { PartnershipActions } from '@/components/realisasi/verify/partnership-actions';
 import { ParticipantDiffTable } from '@/components/realisasi/verify/participant-diff-table';
 import type { Tx } from '@/lib/db';
 import { getActivityDetail, getParticipantVersion } from '@/lib/realisasi/queries/activity';
@@ -18,35 +16,6 @@ import type { ActivityDetail, ParticipantVersion } from '@/lib/realisasi/types';
 
 /** Rows whose panel is rendered with the page; later rows load on first expand. */
 export const QUEUE_PREFETCH = 20;
-
-export async function partnershipPanel(tx: Tx, id: string): Promise<ReactNode | null> {
-  const d = await getActivityDetail(tx, id);
-  return d ? <PartnershipPanel d={d} /> : null;
-}
-
-function PartnershipPanel({ d }: { d: ActivityDetail }) {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="min-w-0 rounded-md border bg-background p-4">
-          <ActivityDetailSummary detail={d} compact />
-        </div>
-        <div className="min-w-0 rounded-md border bg-background p-4">
-          <IaIrPreview files={d.files} code={d.code} />
-        </div>
-      </div>
-      {d.duplicates.some((x) => x.status === 'open') ? (
-        <DuplicateActions activityId={d.id} permissions={{ ...d.permissions, can_unlink_duplicate: false }} duplicates={d.duplicates} />
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <PartnershipActions activityId={d.id} code={d.code} permissions={d.permissions} />
-        <Link href={`/realisasi/kegiatan/${d.id}`} className="text-sm font-medium text-primary underline underline-offset-4">
-          Buka halaman detail {d.code}
-        </Link>
-      </div>
-    </div>
-  );
-}
 
 interface Review {
   detail: ActivityDetail;
@@ -69,13 +38,29 @@ export async function mobilityPanel(tx: Tx, id: string): Promise<ReactNode | nul
   return <MobilityPanel rv={rv} />;
 }
 
+function MobilityBundleLink({ detail }: { detail: ActivityDetail }) {
+  const bundle = detail.files.find((f) => f.kind === 'mobility_bundle' && f.is_current);
+  return bundle ? (
+    <a
+      href={bundle.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4"
+    >
+      <FileText className="h-4 w-4" aria-hidden /> PDF transkrip, poster &amp; dokumentasi ({bundle.filename})
+    </a>
+  ) : (
+    <p className="text-sm text-red-700 dark:text-red-300">PDF transkrip, poster &amp; dokumentasi belum diunggah.</p>
+  );
+}
+
 function MobilityPanel({ rv }: { rv: Review }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
         <span>
           <span className="text-muted-foreground">Jenis: </span>
-          {rv.detail.type.name} ({DIRECTION_LABEL[rv.detail.type.direction]})
+          {rv.detail.agenda.name} ({DIRECTION_LABEL[rv.detail.direction]})
         </span>
         <span>
           <span className="text-muted-foreground">Unit: </span>
@@ -88,6 +73,13 @@ function MobilityPanel({ rv }: { rv: Review }) {
           </span>
         ) : null}
       </div>
+      <MobilityBundleLink detail={rv.detail} />
+      {rv.detail.conflicts.length > 0 ? (
+        <section aria-label="Duplikat mahasiswa" className="space-y-2 rounded-md border border-purple-300 bg-purple-50/40 p-3 dark:bg-purple-950/20">
+          <h4 className="text-sm font-semibold">Duplikat mahasiswa ({rv.detail.flags.conflicts_open} menunggu keputusan)</h4>
+          <ConflictList conflicts={rv.detail.conflicts} canResolve={rv.detail.permissions.can_mobility_verify} currentActivityId={rv.detail.id} />
+        </section>
+      ) : null}
       {rv.version ? (
         <ParticipantDiffTable version={rv.version} previous={rv.previous} />
       ) : (
@@ -100,6 +92,7 @@ function MobilityPanel({ rv }: { rv: Review }) {
           version={rv.version}
           previous={rv.previous}
           permissions={rv.detail.permissions}
+          conflictsOpen={rv.detail.flags.conflicts_open}
         />
         <Link href={`/realisasi/kegiatan/${rv.detail.id}?tab=peserta`} className="text-sm font-medium text-primary underline underline-offset-4">
           Buka halaman detail {rv.detail.code}

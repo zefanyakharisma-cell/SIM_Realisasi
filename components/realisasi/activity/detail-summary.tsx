@@ -1,14 +1,13 @@
 /**
  * Read-only Detail summary of an activity (CONTRACTS §6.8). Server-safe: no hooks, no handlers.
- * Imported by WP-VERIFY's Kemitraan queue (compact) and used on the detail page / wizard review.
+ * Used on the detail page and in the Verifikasi Mobilitas queue (compact).
  */
-import Link from 'next/link';
 import { AlertTriangle, Archive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import { sdgStyle } from '@/components/realisasi/activity/sdg';
 import { formatDate, formatNumber } from '@/lib/realisasi/format';
-import { DIRECTION_LABEL, FUNDING_LABEL, MODE_LABEL, PERSON_ROLE_LABEL } from '@/lib/realisasi/status';
+import { DIRECTION_LABEL, MOBILITY_CATEGORY_LABEL, MODE_LABEL, PERSON_ROLE_LABEL } from '@/lib/realisasi/status';
 import type { ActivityDetail } from '@/lib/realisasi/types';
 import { cn } from '@/lib/utils';
 
@@ -37,18 +36,19 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
   const location =
     detail.mode === 'online'
       ? detail.venue ?? DASH
-      : [detail.venue, detail.city, detail.country_name ?? detail.country_code].filter(Boolean).join(', ') || DASH;
+      : [detail.venue, detail.country_name ?? detail.country_code].filter(Boolean).join(', ') || DASH;
 
   return (
     <div className={cn('space-y-6', compact && 'space-y-4')} data-testid="activity-detail-summary">
       <Section title="Informasi kegiatan">
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           <Field label="Jenis kegiatan">
-            {detail.type.name}
-            {detail.type.direction !== 'none' && (
-              <span className="text-muted-foreground"> · {DIRECTION_LABEL[detail.type.direction]}</span>
+            {detail.agenda.name ?? `Agenda #${detail.agenda.id}`}
+            {detail.agenda.mobility_category && (
+              <span className="text-muted-foreground"> · {MOBILITY_CATEGORY_LABEL[detail.agenda.mobility_category]}</span>
             )}
           </Field>
+          <Field label="Inbound / Outbound">{DIRECTION_LABEL[detail.direction]}</Field>
           <Field label="Tanggal">
             {formatDate(detail.start_date)} – {formatDate(detail.end_date)}{' '}
             <span className="text-muted-foreground">({formatNumber(detail.duration_days)} hari)</span>
@@ -60,20 +60,19 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
           <Field label={detail.mode === 'online' ? 'Platform' : 'Tempat'}>{location}</Field>
           {!compact && (
             <>
-              <Field label="SKS diakui">{detail.sks_recognized ?? DASH}</Field>
-              <Field label="Sumber dana">{detail.funding_source ? FUNDING_LABEL[detail.funding_source] : DASH}</Field>
+              {detail.agenda.is_mobility && <Field label="SKS diakui">{detail.sks_recognized ?? DASH}</Field>}
               <Field label="Batas pelaporan">{formatDate(detail.reporting_deadline)}</Field>
             </>
           )}
           <Field label="Unit pengaju">{detail.submitter_unit.name}</Field>
-          <Field label="Unit lain">{otherUnits.length ? otherUnits.map((u) => u.name).join(', ') : DASH}</Field>
+          <Field label="Unit lain yang terlibat">{otherUnits.length ? otherUnits.map((u) => u.name).join(', ') : DASH}</Field>
           <Field label="Deskripsi" wide>
             <p className={cn('whitespace-pre-line', compact && 'line-clamp-4')}>{detail.description}</p>
           </Field>
         </dl>
       </Section>
 
-      <Section title={`Kerja sama (${detail.documents.length})`}>
+      <Section title="Kerja sama">
         {detail.documents.length === 0 ? (
           <p className="text-sm text-muted-foreground">Belum ada kerja sama yang dipilih.</p>
         ) : (
@@ -184,20 +183,6 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
         </Section>
       )}
 
-      {detail.linked_activities.length > 0 && (
-        <Section title="Kegiatan tertaut (satu grup kegiatan)">
-          <ul className="space-y-1 text-sm">
-            {detail.linked_activities.map((a) => (
-              <li key={a.id}>
-                <Link href={`/realisasi/kegiatan/${a.id}`} className="text-primary underline-offset-2 hover:underline">
-                  {a.code} · {a.name}
-                </Link>{' '}
-                <span className="text-muted-foreground">({a.unit_name})</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
     </div>
   );
 }

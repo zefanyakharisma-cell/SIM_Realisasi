@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CountryFlag } from '@/components/realisasi/country-flag';
-import { FlagPill, SlaChip, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
+import { FlagPill, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Hint } from '@/components/realisasi/hint';
 import { daysBetween, formatDate } from '@/lib/realisasi/format';
-import { FLAG_DESCRIPTION } from '@/lib/realisasi/status';
+import { DIRECTION_LABEL, FLAG_DESCRIPTION } from '@/lib/realisasi/status';
 import type { ActivityListRow } from '@/lib/realisasi/types';
 
 /** Partner cell: flag + first partner name, "+n" for the rest (full list in title). */
@@ -81,39 +81,22 @@ function DeadlinePill({ row, ctx }: { row: ActivityListRow; ctx: DeadlineContext
   );
 }
 
-/** Flags column (Design §2): Terlambat / tenggat draf, SLA per pending track, Di luar lingkup, Duplikat?. */
+/** Flags column (Design §2): Terlambat / tenggat draf, Di luar lingkup, Duplikat mahasiswa (Revisi V.1: no SLA). */
 export function FlagsCell({ row, deadline }: { row: ActivityListRow; deadline?: DeadlineContext }) {
   const items: ReactNode[] = [];
   if (row.is_late) items.push(<FlagPill key="late" flag="late" />);
   if (deadline && row.status === 'draft' && row.reporting_deadline) items.push(<DeadlinePill key="deadline" row={row} ctx={deadline} />);
-  if (row.partnership_sla_level && row.partnership_sla_days !== null && row.partnership_sla_level !== 'ok') {
-    items.push(
-      <span key="sla-p" className="inline-flex items-center gap-1">
-        <span className="sr-only">Kemitraan:</span>
-        <SlaChip days={row.partnership_sla_days} level={row.partnership_sla_level} />
-      </span>,
-    );
-  }
-  if (row.mobility_sla_level && row.mobility_sla_days !== null && row.mobility_sla_level !== 'ok') {
-    items.push(
-      <span key="sla-m" className="inline-flex items-center gap-1">
-        <span className="sr-only">Mobilitas:</span>
-        <SlaChip days={row.mobility_sla_days} level={row.mobility_sla_level} />
-      </span>,
-    );
-  }
   if (row.out_of_scope) items.push(<FlagPill key="scope" flag="out_of_scope" />);
-  if (row.duplicate_open) {
+  if (row.open_conflicts > 0) {
     items.push(
-      // L-1: link to the activity, whose page lists the candidates (DuplicateActions).
       <Link
-        key="dup"
-        href={`/realisasi/kegiatan/${row.id}`}
+        key="conflict"
+        href={`/realisasi/kegiatan/${row.id}#duplikat`}
         className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        title={FLAG_DESCRIPTION.duplicate}
+        title={FLAG_DESCRIPTION.conflict}
       >
-        <FlagPill flag="duplicate" plain />
-        <span className="sr-only">: {FLAG_DESCRIPTION.duplicate}. Lihat kandidat duplikat.</span>
+        <FlagPill flag="conflict" plain />
+        <span className="sr-only">: {FLAG_DESCRIPTION.conflict}. Lihat duplikat.</span>
       </Link>,
     );
   }
@@ -172,11 +155,11 @@ export function ActivityTable({ rows, filterRow, caption, empty, deadline }: Act
                 <Link href={`/realisasi/kegiatan/${r.id}`} className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {r.name}
                 </Link>
-                {r.linked_count > 0 ? (
-                  <span className="block text-xs text-muted-foreground">Tertaut dengan {r.linked_count} kegiatan lain</span>
-                ) : null}
               </td>
-              <td className="max-w-[180px] px-3 py-2.5 align-top">{r.type_name}</td>
+              <td className="max-w-[180px] px-3 py-2.5 align-top">
+                {r.agenda_name ?? '–'}
+                <span className="block text-xs text-muted-foreground">{DIRECTION_LABEL[r.direction]}</span>
+              </td>
               <td className="max-w-[200px] px-3 py-2.5 align-top">
                 <UnitCell row={r} />
               </td>
@@ -195,7 +178,7 @@ export function ActivityTable({ rows, filterRow, caption, empty, deadline }: Act
                   // L-1: a draft has not entered any verification track yet.
                   <span className="text-xs text-muted-foreground">Belum diajukan</span>
                 ) : (
-                  <TrackChips partnership={r.partnership_status} mobility={r.mobility_status} />
+                  <TrackChips mobility={r.mobility_status} />
                 )}
               </td>
               <td className="px-3 py-2.5 align-top">

@@ -3,23 +3,24 @@
  * Result row types are exported for client components (`import type` only).
  */
 import type { Tx } from '@/lib/db';
-import type { Direction, DocumentOption, EmployeeRecord, StudentRecord } from '@/lib/realisasi/types';
+import type { DocumentOption, EmployeeRecord, MobilityCategory, StudentRecord } from '@/lib/realisasi/types';
 
-export interface ActivityTypeOption {
+/** Jenis Kegiatan = SIM Kerjasama "Agenda Kerjasama" (`kerjasama.agendas`) + Realisasi's rule for it. */
+export interface AgendaOption {
   id: number;
   name: string;
-  direction: Direction;
-  counts_as_mobility: boolean;
-  counts_for_s1: boolean;
-  requires_mobility_review: boolean;
   is_active: boolean;
-  sort_order: number | null;
+  mobility_category: MobilityCategory | null;
+  is_mobility: boolean;
+  counts_for_s1: boolean;
 }
 export interface UnitOption {
   id: number;
   name: string;
   kind: string;
   parent_id: number | null;
+  /** Unit Akademik (SIMKS jenis_unit 1). Revisi V.1: only these use SIM Realisasi. */
+  is_academic: boolean;
 }
 export interface CountryOption {
   code: string;
@@ -45,7 +46,7 @@ export interface AcademicYearOption {
   semesters: SemesterOption[];
 }
 export interface FormOptions {
-  activityTypes: ActivityTypeOption[];
+  agendas: AgendaOption[];
   units: UnitOption[];
   countries: CountryOption[];
   sdgs: SdgOption[];
@@ -53,12 +54,8 @@ export interface FormOptions {
 }
 
 export async function getFormOptions(tx: Tx): Promise<FormOptions> {
-  const activityTypes = await tx<ActivityTypeOption[]>`
-    select id, name, direction::text as direction, counts_as_mobility, counts_for_s1,
-           requires_mobility_review, is_active, sort_order
-      from realisasi.activity_types
-     order by sort_order nulls last, id`;
-  const units = await tx<UnitOption[]>`select id, name, kind, parent_id from kerjasama.units order by id`;
+  const agendas = await getAgendas(tx);
+  const units = await tx<UnitOption[]>`select id, name, kind, parent_id, is_academic from kerjasama.units order by id`;
   const countries = await tx<CountryOption[]>`select code, name from kerjasama.countries order by name`;
   const sdgs = await tx<SdgOption[]>`select id::int as id, name from realisasi.sdgs order by id`;
   const years = await tx<Omit<AcademicYearOption, 'semesters'>[]>`
@@ -76,12 +73,21 @@ export async function getFormOptions(tx: Tx): Promise<FormOptions> {
       .map(({ academic_year_id: _ay, ...s }) => s),
   }));
   return {
-    activityTypes: [...activityTypes],
+    agendas,
     units: [...units],
     countries: [...countries],
     sdgs: [...sdgs],
     academicYears,
   };
+}
+
+export async function getAgendas(tx: Tx): Promise<AgendaOption[]> {
+  const rows = await tx<AgendaOption[]>`
+    select g.id, g.name, g.is_active, r.mobility_category::text as mobility_category,
+           (r.mobility_category is not null) as is_mobility, coalesce(r.counts_for_s1, true) as counts_for_s1
+      from kerjasama.agendas g left join realisasi.agenda_rules r on r.agenda_id = g.id
+     order by (r.mobility_category is null), g.name`;
+  return [...rows];
 }
 
 export async function getValidDocuments(tx: Tx, start: string, end: string, unitId: number | null): Promise<DocumentOption[]> {

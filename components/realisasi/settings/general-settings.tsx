@@ -136,7 +136,7 @@ export function DemoTodayCard({ demoToday, today }: { demoToday: string | null; 
         </h2>
         <p className="text-sm text-muted-foreground">
           Hari ini menurut sistem: <strong>{formatDate(today)}</strong>
-          {demoToday ? ' (tanggal demo aktif)' : ' (tanggal nyata)'}. Semua aturan tanggal, SLA, pengingat dan pembekuan memakai tanggal ini.
+          {demoToday ? ' (tanggal demo aktif)' : ' (tanggal nyata)'}. Semua aturan tanggal, pengingat dan pembekuan memakai tanggal ini.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -160,7 +160,7 @@ export function DemoTodayCard({ demoToday, today }: { demoToday: string | null; 
         <Alert variant="success" role="status">
           <AlertTitle>Job harian {formatDate(jobs.today)}</AlertTitle>
           <AlertDescription>
-            {jobs.sla_notices} notifikasi SLA · {jobs.revision_reminders} pengingat revisi · {jobs.revision_escalations} eskalasi ·{' '}
+            {jobs.revision_reminders} pengingat revisi ·{' '}
             {jobs.deadline_reminders} pengingat tenggat ·{' '}
             {jobs.frozen.length === 0
               ? 'tidak ada snapshot baru'

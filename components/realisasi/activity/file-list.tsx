@@ -8,7 +8,7 @@ import { formatBytes, formatDateTime } from '@/lib/realisasi/format';
 import { FILE_KIND_LABEL } from '@/lib/realisasi/status';
 import type { ActivityFile, FileKind } from '@/lib/realisasi/types';
 
-const KINDS: FileKind[] = ['ia', 'ir', 'evidence'];
+const KINDS: FileKind[] = ['ia', 'ir', 'mobility_bundle', 'evidence'];
 
 function FileIcon({ file }: { file: ActivityFile }) {
   const cls = 'h-4 w-4 shrink-0 text-muted-foreground';
@@ -43,11 +43,13 @@ function FileRow({ file, muted }: { file: ActivityFile; muted?: boolean }) {
   );
 }
 
-export function FileList({ files, showHistory = false }: { files: ActivityFile[]; showHistory?: boolean }) {
+/** `isMobility`: always show the mobility PDF slot (Revisi V.1); otherwise it shows only when a file exists. */
+export function FileList({ files, showHistory = false, isMobility = false }: { files: ActivityFile[]; showHistory?: boolean; isMobility?: boolean }) {
   return (
     <div className="space-y-4" data-testid="file-list">
       {KINDS.map((kind) => {
         const ofKind = files.filter((f) => f.kind === kind);
+        if (kind === 'mobility_bundle' && !isMobility && ofKind.length === 0) return null;
         const current = ofKind.filter((f) => f.is_current).sort((a, b) => b.version - a.version || b.id - a.id);
         const history = ofKind.filter((f) => !f.is_current).sort((a, b) => b.version - a.version || b.id - a.id);
         const headingId = `files-${kind}`;
@@ -55,7 +57,7 @@ export function FileList({ files, showHistory = false }: { files: ActivityFile[]
           <section key={kind} aria-labelledby={headingId}>
             <h4 id={headingId} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {FILE_KIND_LABEL[kind]}
-              {kind !== 'evidence' && ' (PDF)'}
+              {(kind === 'ia' || kind === 'ir') && ' (PDF)'}
             </h4>
             {current.length === 0 ? (
               <p className="py-2 text-sm text-muted-foreground">

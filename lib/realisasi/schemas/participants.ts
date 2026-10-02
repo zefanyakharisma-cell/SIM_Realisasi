@@ -17,12 +17,6 @@ export const studentRowSchema: z.ZodType<StudentRowPayload> = z.object({
   home_institution: nullableText(300),
   home_student_number: nullableText(60),
   home_country_code: z.string().regex(/^[A-Z]{2}$/, 'Kode negara tidak valid.').nullable().optional(),
-  transcript_path: z
-    .string()
-    .startsWith('realisasi-transcripts/', 'Lokasi transkrip tidak valid.')
-    .max(500)
-    .nullable()
-    .optional(),
 });
 
 export const staffRowSchema: z.ZodType<StaffRowPayload> = z.object({

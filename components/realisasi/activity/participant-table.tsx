@@ -1,10 +1,10 @@
 'use client';
 /**
- * Read-only participant set (one version) with optional diff highlighting and per-row note inputs
- * (CONTRACTS §6.8). Used on the activity detail page and by WP-VERIFY's Mobilitas queue.
+ * Read-only participant set (one version) with optional diff highlighting (CONTRACTS §6.8; Revisi V.1:
+ * no per-row notes, transcripts live in the mobility bundle PDF). Used on the activity detail page and
+ * in the Verifikasi Mobilitas queue.
  * Row changes are conveyed by text labels as well as colour (Design §6).
  */
-import { FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import type { ParticipantStaffRow, ParticipantStudentRow, ParticipantVersion } from '@/lib/realisasi/types';
@@ -16,8 +16,6 @@ export interface ParticipantTableProps {
   version: ParticipantVersion;
   highlight?: Record<string, Change>;
   removedRows?: ParticipantStudentRow[];
-  editableRowNotes?: boolean;
-  onRowNoteChange?: (kind: 'student' | 'staff', id: string, note: string) => void;
 }
 
 const CHANGE_LABEL: Record<Change, string> = { added: 'Baru', removed: 'Dihapus', changed: 'Berubah' };
@@ -47,34 +45,6 @@ function RegistryTag({ status }: { status: string }) {
       ⚠ {label}
     </Badge>
   );
-}
-
-function NoteCell({
-  kind,
-  id,
-  note,
-  editable,
-  onChange,
-}: {
-  kind: 'student' | 'staff';
-  id: string;
-  note: string | null;
-  editable?: boolean;
-  onChange?: ParticipantTableProps['onRowNoteChange'];
-}) {
-  if (editable) {
-    return (
-      <input
-        type="text"
-        defaultValue={note ?? ''}
-        aria-label={`Catatan untuk ${id}`}
-        placeholder="Catatan baris (opsional)"
-        onChange={(e) => onChange?.(kind, id, e.target.value)}
-        className="h-8 w-full min-w-[12rem] rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-    );
-  }
-  return note ? <span className="text-amber-800">{note}</span> : <span className="text-muted-foreground">–</span>;
 }
 
 function SectionTable({
@@ -117,7 +87,7 @@ function SectionTable({
   );
 }
 
-export function ParticipantTable({ version, highlight, removedRows, editableRowNotes, onRowNoteChange }: ParticipantTableProps) {
+export function ParticipantTable({ version, highlight, removedRows }: ParticipantTableProps) {
   const removed = removedRows ?? [];
   const internal: Array<{ row: ParticipantStudentRow; change?: Change }> = [
     ...version.students.filter((s) => s.section === 'internal').map((row) => ({ row, change: highlight?.[row.nrp] })),
@@ -131,7 +101,6 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
     row,
     change: highlight?.[row.employee_id],
   }));
-  const showNotes = editableRowNotes || [...version.students, ...version.staff].some((r) => r.row_note);
 
   return (
     <div className="space-y-6" data-testid="participant-table">
@@ -139,7 +108,7 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
         title="Mahasiswa PETRA"
         count={internal.length}
         testId="participants-internal"
-        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Prodi', ...(showNotes ? ['Catatan'] : [])]}
+        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Prodi']}
       >
         {internal.map(({ row, change }, i) => (
           <tr key={`${row.nrp}-${change ?? 'x'}`} className={cn('border-t', change && CHANGE_ROW_CLASS[change])}>
@@ -154,11 +123,6 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
             </td>
             <td className="px-3 py-2">{row.faculty_name ?? '–'}</td>
             <td className="px-3 py-2">{row.prodi_name ?? '–'}</td>
-            {showNotes && (
-              <td className="px-3 py-2">
-                <NoteCell kind="student" id={row.nrp} note={row.row_note} editable={editableRowNotes && change !== 'removed'} onChange={onRowNoteChange} />
-              </td>
-            )}
           </tr>
         ))}
       </SectionTable>
@@ -167,7 +131,7 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
         title="Mahasiswa Inbound"
         count={inbound.length}
         testId="participants-inbound"
-        headers={['No', 'NRP', 'Nama', 'Institusi asal', 'No. mahasiswa asal', 'Negara asal', 'Transkrip', ...(showNotes ? ['Catatan'] : [])]}
+        headers={['No', 'NRP', 'Nama', 'Institusi asal', 'No. mahasiswa asal', 'Negara asal']}
       >
         {inbound.map(({ row, change }, i) => (
           <tr key={`${row.nrp}-${change ?? 'x'}`} className={cn('border-t', change && CHANGE_ROW_CLASS[change])}>
@@ -183,26 +147,6 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
             <td className="px-3 py-2">{row.home_institution ?? '–'}</td>
             <td className="px-3 py-2">{row.home_student_number ?? '–'}</td>
             <td className="px-3 py-2">{row.home_country_code ? <CountryFlag code={row.home_country_code} /> : '–'}</td>
-            <td className="px-3 py-2">
-              {row.transcript_href ? (
-                <a
-                  href={row.transcript_href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
-                >
-                  <FileText className="h-3.5 w-3.5" aria-hidden />
-                  Transkrip<span className="sr-only"> {row.nrp} (buka di tab baru)</span>
-                </a>
-              ) : (
-                <span className="text-red-700">Belum ada</span>
-              )}
-            </td>
-            {showNotes && (
-              <td className="px-3 py-2">
-                <NoteCell kind="student" id={row.nrp} note={row.row_note} editable={editableRowNotes && change !== 'removed'} onChange={onRowNoteChange} />
-              </td>
-            )}
           </tr>
         ))}
       </SectionTable>
@@ -211,7 +155,7 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
         title="Pegawai PETRA"
         count={staff.length}
         testId="participants-staff"
-        headers={['No', 'ID Pegawai', 'Nama', 'Unit', ...(showNotes ? ['Catatan'] : [])]}
+        headers={['No', 'ID Pegawai', 'Nama', 'Unit']}
       >
         {staff.map(({ row, change }, i) => (
           <tr key={row.employee_id} className={cn('border-t', change && CHANGE_ROW_CLASS[change])}>
@@ -225,11 +169,6 @@ export function ParticipantTable({ version, highlight, removedRows, editableRowN
               <RegistryTag status={row.registry_status} />
             </td>
             <td className="px-3 py-2">{row.unit_name ?? '–'}</td>
-            {showNotes && (
-              <td className="px-3 py-2">
-                <NoteCell kind="staff" id={row.employee_id} note={row.row_note} editable={editableRowNotes && change !== 'removed'} onChange={onRowNoteChange} />
-              </td>
-            )}
           </tr>
         ))}
       </SectionTable>

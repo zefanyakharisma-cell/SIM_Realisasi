@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import { PERIOD_LABEL } from '@/lib/realisasi/status';
 import { cn } from '@/lib/utils';
 import type { Period } from '@/lib/realisasi/types';
 
-export const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
-  { value: 'ganjil', label: 'Ganjil (YTD)' },
-  { value: 'full', label: 'Setahun' },
-  { value: 'live', label: 'Live' },
-];
+/** Revisi V.1 cut-offs: Ganjil only, Genap only, the whole AY cumulative, and AY-to-date. */
+export const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = (['ganjil', 'genap', 'full', 'ytd'] as const).map((value) => ({
+  value,
+  label: PERIOD_LABEL[value],
+}));
 
 function buildHref(basePath: string, preserve: Record<string, string>, next: { ay?: number; period: Period; unit?: number | null }) {
   const sp = new URLSearchParams(preserve);
@@ -23,7 +24,7 @@ function buildHref(basePath: string, preserve: Record<string, string>, next: { a
   return s ? `${basePath}?${s}` : basePath;
 }
 
-/** Tahun Akademik dropdown + segmented Ganjil (YTD) | Setahun | Live (+ unit filter for university-level roles). */
+/** Tahun Akademik dropdown + segmented Ganjil | Genap | Setahun (kumulatif) | YTD (+ unit filter for university-level roles). */
 export function PeriodSelector({
   basePath,
   academicYears,

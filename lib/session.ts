@@ -12,7 +12,8 @@ import { redirect } from 'next/navigation';
 import { withSystem, type Tx } from '@/lib/db';
 
 export type Role = 'submitter' | 'io_staff' | 'io_admin' | 'viewer';
-export type Team = 'partnership' | 'mobility';
+/** Revisi V.1: one verification team (Mobility). */
+export type Team = 'mobility';
 
 export const SESSION_COOKIE = 'demo_uid';
 
@@ -68,7 +69,7 @@ function toSessionUser(r: ProfileRow): SessionUser {
     role: r.app_role,
     unitId: r.unit_id,
     unitName: r.unit_name,
-    teams: (r.teams ?? []).filter((t): t is Team => t === 'partnership' || t === 'mobility'),
+    teams: (r.teams ?? []).filter((t): t is Team => t === 'mobility'),
   };
 }
 
@@ -121,40 +122,27 @@ export async function requireUser(): Promise<SessionUser> {
 
 export type Capability =
   | 'activity.create'
-  | 'verify.partnership'
   | 'verify.mobility'
-  | 'duplicates.view'
-  | 'duplicates.manage'
-  | 'known.view'
-  | 'known.manage'
+  | 'edit.verified'
   | 'settings.manage'
   | 'reports.view'
   | 'export.participants'
   | 'export.snapshot'
-  | 'export.known'
-  | 'export.duplicates'
+  | 'export.conflicts'
   | 'snapshot.archive';
 
 /** Pure capability check mirroring Rules §10 (io_admin = all). UI hints only. */
 export function can(user: SessionUser, cap: Capability): boolean {
   if (user.role === 'io_admin') return true;
   const io = user.role === 'io_staff';
-  const partnership = io && user.teams.includes('partnership');
   const mobility = io && user.teams.includes('mobility');
   switch (cap) {
     case 'activity.create':
       return user.role === 'submitter';
-    case 'verify.partnership':
-    case 'duplicates.manage':
-    case 'known.manage':
-      return partnership;
     case 'verify.mobility':
+    case 'export.conflicts':
       return mobility;
-    case 'duplicates.view':
-    case 'known.view':
-    case 'export.known':
-    case 'export.duplicates':
-      return io;
+    case 'edit.verified':
     case 'settings.manage':
       return false;
     case 'reports.view':

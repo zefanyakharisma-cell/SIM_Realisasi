@@ -2,8 +2,8 @@
  * Activity Detail payload schemas (WP-SUBMIT, CONTRACTS §3.2 / §6.8). Client + server safe.
  *
  * - `activityDetailSchema` mirrors what `save_activity_draft` validates (draft level).
- * - `activityDetailSubmitSchema` adds the R-07 submit requirements (venue always; city + country
- *   unless online) so the wizard can warn before the DB checklist does.
+ * - `activityDetailSubmitSchema` adds the R-07 submit requirements (venue always; country unless
+ *   online; one kerja sama) so the form can warn before the DB checklist does.
  * Messages are Indonesian; the DB stays authoritative.
  */
 import { z } from 'zod';
@@ -35,7 +35,7 @@ const countryCode = z
   .regex(/^[A-Z]{2}$/, 'Kode negara tidak valid.');
 
 export const MODES = ['offline', 'online', 'hybrid'] as const;
-export const FUNDING_SOURCES = ['pcu', 'partner', 'government', 'participant', 'mixed', 'none'] as const;
+export const DIRECTIONS = ['inbound', 'outbound'] as const;
 export const PERSON_ROLES = ['speaker', 'visiting_lecturer', 'researcher', 'staff_visitor', 'other'] as const;
 
 export const externalPersonSchema: z.ZodType<ExternalPersonPayload> = z.object({
@@ -57,22 +57,21 @@ const baseObject = z.object({
     .trim()
     .min(1, 'Nama kegiatan wajib diisi.')
     .max(300, 'Maksimal 300 karakter.'),
-  type_id: z
+  agenda_id: z
     .number({ required_error: 'Pilih jenis kegiatan.', invalid_type_error: 'Pilih jenis kegiatan.' })
     .int()
     .positive('Pilih jenis kegiatan.'),
+  direction: z.enum(DIRECTIONS, { errorMap: () => ({ message: 'Pilih Inbound atau Outbound.' }) }),
   start_date: dateString('Tanggal mulai'),
   end_date: dateString('Tanggal selesai'),
   mode: z.enum(MODES, { errorMap: () => ({ message: 'Pilih moda kegiatan.' }) }),
   venue: optionalText(300),
-  city: optionalText(120),
   country_code: countryCode.nullable(),
   sks_recognized: z
     .number({ invalid_type_error: 'SKS tidak valid.' })
     .min(0, 'SKS tidak boleh negatif.')
     .max(99.9, 'SKS terlalu besar.')
     .nullable(),
-  funding_source: z.enum(FUNDING_SOURCES).nullable(),
   description: z
     .string({ required_error: 'Deskripsi wajib diisi.' })
     .trim()
@@ -82,8 +81,8 @@ const baseObject = z.object({
     .number({ required_error: 'Pilih unit pengaju.', invalid_type_error: 'Pilih unit pengaju.' })
     .int()
     .positive('Pilih unit pengaju.'),
-  co_unit_ids: idArray('Unit lain'),
-  document_ids: idArray('Kerja sama'),
+  co_unit_ids: idArray('Unit lain yang terlibat'),
+  document_id: z.number({ invalid_type_error: 'Pilih kerja sama.' }).int().positive('Pilih kerja sama.').nullable(),
   sdg_ids: z.array(z.number().int().min(1).max(17)).max(17),
   external_persons: z.array(externalPersonSchema).max(100, 'Terlalu banyak orang.'),
 });
@@ -101,11 +100,11 @@ function refineDates(v: { start_date: string; end_date: string }, ctx: z.Refinem
 export const activityDetailSchema: z.ZodType<ActivityDetailPayload> = baseObject.superRefine((v, ctx) => {
   refineDates(v, ctx);
   if (v.co_unit_ids.includes(v.submitter_unit_id)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['co_unit_ids'], message: 'Unit lain tidak boleh sama dengan unit pengaju.' });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['co_unit_ids'], message: 'Unit lain yang terlibat tidak boleh sama dengan unit pengaju.' });
   }
 });
 
-/** Draft schema + R-07 submit-time requirements (used for the wizard's "Lanjut" and hints). */
+/** Draft schema + R-07 submit-time requirements (used for the form's hints). */
 export const activityDetailSubmitSchema: z.ZodType<ActivityDetailPayload> = baseObject.superRefine((v, ctx) => {
   refineDates(v, ctx);
   if (!v.venue) {
@@ -115,12 +114,11 @@ export const activityDetailSubmitSchema: z.ZodType<ActivityDetailPayload> = base
       message: v.mode === 'online' ? 'Nama platform wajib diisi.' : 'Tempat wajib diisi.',
     });
   }
-  if (v.mode !== 'online') {
-    if (!v.city) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'Kota wajib diisi.' });
-    if (!v.country_code) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['country_code'], message: 'Pilih negara.' });
+  if (v.mode !== 'online' && !v.country_code) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['country_code'], message: 'Pilih negara.' });
   }
-  if (v.document_ids.length === 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['document_ids'], message: 'Pilih minimal satu kerja sama.' });
+  if (v.document_id === null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['document_id'], message: 'Pilih kerja sama yang direalisasikan.' });
   }
 });
 

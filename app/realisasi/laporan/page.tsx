@@ -6,12 +6,11 @@ import { withUser, type Tx } from '@/lib/db';
 import { can, requireUser, type SessionUser } from '@/lib/session';
 import { parseDbError } from '@/lib/realisasi/errors';
 import { formatDate, formatNumber } from '@/lib/realisasi/format';
-import { KNOWN_SOURCE_LABEL, KNOWN_STATUS_LABEL, SLA_LEVEL_LABEL, TRACK_LABEL, TRACK_STATUS_LABEL } from '@/lib/realisasi/status';
-import type { ActivityListRow, ChainKpiRow, ExportKind, SlaLevel } from '@/lib/realisasi/types';
+import { DIRECTION_LABEL } from '@/lib/realisasi/status';
+import type { ActivityListRow, ChainKpiRow, ExportKind, PeriodInfo } from '@/lib/realisasi/types';
 import { parseActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
-import { parseKnownFilters } from '@/lib/realisasi/schemas/known';
-import { listKnownActivities } from '@/lib/realisasi/queries/known';
+import { getAgendas } from '@/lib/realisasi/queries/lookups';
 import {
   BUCKET_LABEL,
   DRILLDOWN_BUCKETS,
@@ -28,20 +27,18 @@ import {
   type ReportKey,
 } from '@/lib/realisasi/schemas/report';
 import {
+  getAwards,
   getDashboard,
   getDrilldown,
   getSnapshotDetail,
   getSnapshotList,
   listAcademicYears,
-  listActivityTypes,
   listUnits,
 } from '@/lib/realisasi/queries/reports';
-import { slaRows } from '@/lib/excel/sheets';
 import { PageHeader } from '@/components/realisasi/page-header';
 import { ExportButton } from '@/components/realisasi/export-button';
 import { Forbidden } from '@/components/realisasi/forbidden';
 import { StatusBadge } from '@/components/realisasi/status-badge';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -51,7 +48,8 @@ import { PeriodSelector } from '@/components/realisasi/dashboard/period-selector
 import { PeriodBadge } from '@/components/realisasi/dashboard/period-badge';
 import { ChainKpiTable, DrilldownTables, EmptyRows, SummaryTable } from '@/components/realisasi/reports/kpi-tables';
 import { SnapshotDetailView, SnapshotTimeline } from '@/components/realisasi/reports/snapshot-archive';
-import { ActivityFilterForm, KnownFilterForm } from '@/components/realisasi/reports/report-filters';
+import { ActivityFilterForm } from '@/components/realisasi/reports/report-filters';
+import { AwardsTables } from '@/components/realisasi/dashboard/awards-tables';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -68,14 +66,13 @@ interface ReportDef {
 }
 
 const REPORTS: ReportDef[] = [
-  { key: 'ringkasan', title: 'Ringkasan KPI', description: 'Nilai keempat KPI beserta rincian per KPI.', kind: 'kpi-summary', visible: () => true },
-  { key: 'kpi', title: 'Rincian per KPI', description: 'Kegiatan/kerja sama yang membentuk satu KPI.', kind: 'kpi-drilldown', visible: () => true },
+  { key: 'ringkasan', title: 'Ringkasan RENSTRA', description: 'Nilai indikator RENSTRA beserta rinciannya.', kind: 'kpi-summary', visible: () => true },
+  { key: 'kpi', title: 'Rincian per indikator RENSTRA', description: 'Kegiatan/kerja sama yang membentuk satu indikator.', kind: 'kpi-drilldown', visible: () => true },
   { key: 'kegiatan', title: 'Daftar kegiatan', description: 'Seluruh kegiatan sesuai filter.', kind: 'activities', visible: () => true },
   { key: 'peserta', title: 'Daftar peserta', description: 'Nama & NRP peserta (data pribadi, dicatat).', kind: 'participants', visible: (u) => can(u, 'export.participants') },
-  { key: 'register', title: 'Register kegiatan diketahui', description: 'Kegiatan dari sumber lain (register).', kind: 'known-activities', visible: (u) => can(u, 'export.known') },
+  { key: 'awards', title: 'International Awards', description: 'Peringkat unit: inbound, outbound, dan inisiatif internasional.', kind: 'awards', visible: () => true },
   { key: 'realisasi-kerjasama', title: 'Realisasi per kerja sama', description: 'Status terlaksana tiap rantai MoU/MoA (1.19.24).', kind: 'realization-by-agreement', visible: () => true },
-  { key: 'sla', title: 'SLA verifikasi', description: 'Lama verifikasi per jalur dalam hari kerja.', kind: 'sla', visible: () => true },
-  { key: 'arsip', title: 'Arsip snapshot', description: 'Snapshot KPI yang dibekukan per semester.', kind: 'snapshot-archive', visible: (u) => can(u, 'snapshot.archive') },
+  { key: 'arsip', title: 'Arsip snapshot', description: 'Snapshot RENSTRA yang dibekukan per semester.', kind: 'snapshot-archive', visible: (u) => can(u, 'snapshot.archive') },
 ];
 
 /** Search params minus empties, for building the export link. */
@@ -154,18 +151,18 @@ async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): 
     case 'ringkasan':
     case 'kpi':
     case 'realisasi-kerjasama':
+    case 'awards':
       return renderKpiReport(tx, user, key, sp);
     case 'kegiatan':
-    case 'peserta':
-    case 'sla': {
+    case 'peserta': {
       const f = parseActivityFilters(sp);
-      const [rows, types, units, years] = await Promise.all([
+      const [rows, agendas, units, years] = await Promise.all([
         listActivities(tx, user, f),
-        listActivityTypes(tx),
+        getAgendas(tx),
         isSubmitter ? Promise.resolve(null) : listUnits(tx),
         listAcademicYears(tx),
       ]);
-      const kind: ExportKind = key === 'kegiatan' ? 'activities' : key === 'peserta' ? 'participants' : 'sla';
+      const kind: ExportKind = key === 'kegiatan' ? 'activities' : 'participants';
       const versionSel =
         key === 'peserta' ? (
           <div className="grid gap-1">
@@ -183,15 +180,12 @@ async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): 
           <ActivityFilterForm
             report={key}
             filters={f}
-            types={types.map((t) => ({ id: t.id, name: t.name }))}
+            agendas={agendas.map((t) => ({ id: t.id, name: t.name }))}
             units={units ? units.map((u) => ({ id: u.id, name: u.name })) : null}
             years={years}
             extra={versionSel}
           />
           <Toolbar kind={kind} params={cleanParams(sp, ['report'])}>
-            {key === 'sla' ? (
-              <span>{formatNumber(slaRows(rows).length)} baris jalur verifikasi dari </span>
-            ) : null}
             <span data-testid="list-total">{rows.length}</span> kegiatan
           </Toolbar>
           {key === 'peserta' ? (
@@ -200,53 +194,7 @@ async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): 
               akan diekspor.
             </p>
           ) : null}
-          {key === 'sla' ? <SlaPreview rows={rows} /> : <ActivityPreview rows={rows} />}
-        </div>
-      );
-    }
-    case 'register': {
-      const f = parseKnownFilters(sp);
-      const [rows, units] = await Promise.all([listKnownActivities(tx, f), listUnits(tx)]);
-      return (
-        <div className="space-y-4">
-          <KnownFilterForm filters={f} units={units.map((u) => ({ id: u.id, name: u.name }))} />
-          <Toolbar kind="known-activities" params={cleanParams(sp, ['report'])}>
-            <span data-testid="list-total">{rows.length}</span> entri
-          </Toolbar>
-          {rows.length === 0 ? (
-            <EmptyRows text="Belum ada kegiatan dicatat dari sumber lain." />
-          ) : (
-            <Table containerLabel="Register">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Judul</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Mitra · Negara</TableHead>
-                  <TableHead>Sumber</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.slice(0, PREVIEW_LIMIT).map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">{formatDate(r.activity_date)}</TableCell>
-                    <TableCell className="font-medium">{r.title}</TableCell>
-                    <TableCell>{r.unit_name ?? '–'}</TableCell>
-                    <TableCell>
-                      {r.partner_name ?? '–'} <span className="text-muted-foreground">{r.country_code ?? ''}</span>
-                    </TableCell>
-                    <TableCell>{KNOWN_SOURCE_LABEL[r.source] ?? r.source}</TableCell>
-                    <TableCell>
-                      {KNOWN_STATUS_LABEL[r.status] ?? r.status}
-                      {r.matched_activity_code ? <div className="text-xs text-muted-foreground">{r.matched_activity_code}</div> : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          <PreviewNote shown={Math.min(rows.length, PREVIEW_LIMIT)} total={rows.length} />
+          <ActivityPreview rows={rows} />
         </div>
       );
     }
@@ -291,7 +239,7 @@ async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): 
   }
 }
 
-async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kpi' | 'realisasi-kerjasama', sp: SP) {
+async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kpi' | 'realisasi-kerjasama' | 'awards', sp: SP) {
   const isSubmitter = user.role === 'submitter';
   const p = parsePeriodParams(sp);
   if (isSubmitter) {
@@ -302,10 +250,16 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
   const preserve: Record<string, string> = { report: key };
   let content: React.ReactNode;
   let kind: ExportKind;
-  let periodInfo;
+  let periodInfo: PeriodInfo;
   let exportParams: Record<string, string> = cleanParams(sp, ['report']);
 
-  if (key === 'ringkasan') {
+  if (key === 'awards') {
+    const aw = await getAwards(tx, p);
+    periodInfo = aw.period;
+    kind = 'awards';
+    const q = new URLSearchParams({ ay: String(aw.period.ay_id), period: aw.period.period, ...(p.unit ? { unit: String(p.unit) } : {}) });
+    content = <AwardsTables data={aw} exportQuery={q.toString()} />;
+  } else if (key === 'ringkasan') {
     const dash = await getDashboard(tx, p);
     periodInfo = dash.period;
     kind = 'kpi-summary';
@@ -330,7 +284,7 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
           {p.snapshot ? <input type="hidden" name="snapshot" value={p.snapshot} /> : null}
           <div className="grid gap-1">
             <Label htmlFor="k-kpi" className="text-xs text-muted-foreground">
-              KPI
+              Indikator RENSTRA
             </Label>
             <NativeSelect id="k-kpi" name="kpi" defaultValue={kpi} className="w-80">
               {(Object.keys(KPI_LABEL) as Array<keyof typeof KPI_LABEL>).map((k) => (
@@ -468,7 +422,9 @@ function ActivityPreview({ rows }: { rows: ActivityListRow[] }) {
               </TableCell>
               <TableCell>
                 <div className="font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.type_name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {r.agenda_name ?? '–'} · {DIRECTION_LABEL[r.direction]}
+                </div>
               </TableCell>
               <TableCell className="text-sm">{r.submitter_unit_name}</TableCell>
               <TableCell className="text-sm">
@@ -490,51 +446,3 @@ function ActivityPreview({ rows }: { rows: ActivityListRow[] }) {
     </>
   );
 }
-
-function SlaPreview({ rows }: { rows: ActivityListRow[] }) {
-  const sla = slaRows(rows);
-  if (sla.length === 0) return <EmptyRows />;
-  const tone = (l: string | null) => (l === 'red' ? 'red' : l === 'yellow' ? 'yellow' : 'neutral') as 'red' | 'yellow' | 'neutral';
-  return (
-    <>
-      <Table containerLabel="Pratinjau SLA">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Kode</TableHead>
-            <TableHead>Nama</TableHead>
-            <TableHead>Jalur</TableHead>
-            <TableHead>Status jalur</TableHead>
-            <TableHead>Sejak</TableHead>
-            <TableHead className="text-right">Hari kerja</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sla.slice(0, PREVIEW_LIMIT).map((r) => (
-            <TableRow key={`${r.a.id}-${r.track}`}>
-              <TableCell className="whitespace-nowrap font-mono text-xs">
-                <Link href={`/realisasi/kegiatan/${r.a.id}`} className="text-primary hover:underline">
-                  {r.a.code}
-                </Link>
-              </TableCell>
-              <TableCell className="text-sm">{r.a.name}</TableCell>
-              <TableCell>{TRACK_LABEL[r.track]}</TableCell>
-              <TableCell>{(TRACK_STATUS_LABEL as Record<string, string>)[r.status] ?? r.status}</TableCell>
-              <TableCell className="whitespace-nowrap text-sm">{formatDate(r.since)}</TableCell>
-              <TableCell className="text-right">
-                {r.days === null ? (
-                  <span className="text-muted-foreground">–</span>
-                ) : (
-                  <Badge variant={tone(r.level)}>
-                    {r.days} hari{r.level && r.level !== 'ok' ? ` · ${SLA_LEVEL_LABEL[r.level as SlaLevel]}` : ''}
-                  </Badge>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <PreviewNote shown={Math.min(sla.length, PREVIEW_LIMIT)} total={sla.length} />
-    </>
-  );
-}
-

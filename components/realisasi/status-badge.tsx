@@ -15,16 +15,13 @@ import {
   FLAG_TONE,
   PSET_STATUS_LABEL,
   PSET_STATUS_TONE,
-  SLA_LEVEL_LABEL,
-  SLA_TONE,
   TRACK_LABEL,
   TRACK_STATUS_LABEL,
   TRACK_STATUS_TONE,
-  slaText,
   type FlagKey,
   type Tone,
 } from '@/lib/realisasi/status';
-import type { ActivityStatus, PsetStatus, SlaLevel, Team, TrackStatus } from '@/lib/realisasi/types';
+import type { ActivityStatus, PsetStatus, Team, TrackStatus } from '@/lib/realisasi/types';
 
 const DOT: Record<Tone, string> = {
   neutral: 'bg-slate-400',
@@ -67,17 +64,17 @@ function TrackChip({ team, status }: { team: Team; status: TrackStatus }) {
   );
 }
 
-/** `Kemitraan ●` `Mobilitas ●` — dot colour = track status. */
-export function TrackChips({ partnership, mobility, className }: { partnership: TrackStatus; mobility: TrackStatus; className?: string }) {
+/** `Mobilitas ●` — dot colour = track status; nothing for kegiatan without Mobility verification (Revisi V.1). */
+export function TrackChips({ mobility, className }: { mobility: TrackStatus; className?: string }) {
+  if (mobility === 'not_required') return null;
   return (
     <span className={cn('inline-flex flex-wrap items-center gap-1', className)}>
-      <TrackChip team="partnership" status={partnership} />
       <TrackChip team="mobility" status={mobility} />
     </span>
   );
 }
 
-/** Outline pill for Terlambat / Di luar lingkup / Duplikat? / Tambahan susulan. */
+/** Outline pill for Terlambat / Di luar lingkup / Duplikat mahasiswa / Tambahan susulan. */
 export function FlagPill({ flag, title, className, plain }: { flag: FlagKey; title?: string; className?: string; plain?: boolean }) {
   const badge = (
     <Badge variant={FLAG_TONE[flag]} appearance="outline" data-flag={flag} className={className}>
@@ -86,18 +83,6 @@ export function FlagPill({ flag, title, className, plain }: { flag: FlagKey; tit
   );
   // `plain`: inside a link/button, which carries the description itself (no nested focus stop).
   return plain ? badge : <Hint content={title ?? FLAG_DESCRIPTION[flag]}>{badge}</Hint>;
-}
-
-/** 'SLA 4 hari' — yellow fill when yellow, red fill when red, neutral otherwise. */
-export function SlaChip({ days, level, className }: { days: number; level: SlaLevel; className?: string }) {
-  const tone = SLA_TONE[level];
-  return (
-    <Hint content={`${days} hari kerja sejak menunggu verifikasi (level ${SLA_LEVEL_LABEL[level]})`}>
-      <Badge variant={tone} className={cn(level === 'red' && 'border-red-700 bg-red-600 text-white', className)} data-sla={level}>
-        {slaText(days)}
-      </Badge>
-    </Hint>
-  );
 }
 
 export function PsetBadge({ status, className }: { status: PsetStatus; className?: string }) {

@@ -1,16 +1,15 @@
-// Server-safe preview tables for KPI read models (no hooks).
+// Server-safe preview tables for RENSTRA (KPI) read models (no hooks).
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Hint } from '@/components/realisasi/hint';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DIRECTION_LABEL, KNOWN_SOURCE_LABEL, FLAG_LABEL } from '@/lib/realisasi/status';
+import { DIRECTION_LABEL, FLAG_LABEL, MOBILITY_CATEGORY_LABEL } from '@/lib/realisasi/status';
 import { formatDate, formatNumber, formatPct } from '@/lib/realisasi/format';
 import type {
   ActivityKpiRow,
   ChainKpiRow,
   DrilldownKpi,
   DrilldownResult,
-  KnownKpiRow,
   KpiValues,
 } from '@/lib/realisasi/types';
 import { BUCKET_LABEL } from '@/lib/realisasi/schemas/report';
@@ -39,7 +38,7 @@ export function EmptyRows({ text = 'Tidak ada data untuk filter ini.' }: { text?
 export function ActivityKpiTable({ rows, kpi }: { rows: ActivityKpiRow[]; kpi: DrilldownKpi }) {
   if (rows.length === 0) return <EmptyRows />;
   return (
-    <Table containerLabel="Rincian kegiatan KPI">
+    <Table containerLabel="Rincian kegiatan RENSTRA">
       <TableHeader>
         <TableRow>
           <TableHead>Kode</TableHead>
@@ -62,8 +61,8 @@ export function ActivityKpiTable({ rows, kpi }: { rows: ActivityKpiRow[]; kpi: D
             <TableCell>
               <div className="font-medium">{r.name}</div>
               <div className="text-xs text-muted-foreground">
-                {r.type_name}
-                {r.linked_count > 0 ? ` · ${r.linked_count} kegiatan tertaut` : ''}
+                {r.agenda_name ?? '–'}
+                {r.mobility_category ? ` · ${MOBILITY_CATEGORY_LABEL[r.mobility_category]}` : ''}
               </div>
             </TableCell>
             <TableCell className="text-sm">{r.unit_names.join(', ')}</TableCell>
@@ -160,89 +159,32 @@ export function ChainKpiTable({ rows }: { rows: ChainKpiRow[] }) {
   );
 }
 
-export function KnownKpiTable({ rows }: { rows: KnownKpiRow[] }) {
-  if (rows.length === 0) return null;
-  return (
-    <Table containerLabel="Kegiatan belum dilaporkan">
-      <TableHeader>
-        <TableRow>
-          <TableHead>ID</TableHead>
-          <TableHead>Judul</TableHead>
-          <TableHead>Tanggal</TableHead>
-          <TableHead>Unit</TableHead>
-          <TableHead>Mitra · Negara</TableHead>
-          <TableHead>Sumber</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r) => (
-          <TableRow key={r.known_id}>
-            <TableCell className="tabular-nums">{r.known_id}</TableCell>
-            <TableCell className="font-medium">
-              {r.title ?? <span className="font-normal text-muted-foreground">Kegiatan internasional (rincian hanya untuk tim IO)</span>}
-            </TableCell>
-            <TableCell className="whitespace-nowrap">{formatDate(r.activity_date)}</TableCell>
-            <TableCell>{r.unit_name ?? '–'}</TableCell>
-            <TableCell>
-              {r.partner_name ?? '–'} {r.country_code ? <span className="text-muted-foreground">· {r.country_code}</span> : null}
-            </TableCell>
-            <TableCell className="text-sm">
-              {r.source ? (KNOWN_SOURCE_LABEL[r.source] ?? r.source) : '–'}
-              {r.source_reference ? <div className="text-xs text-muted-foreground">{r.source_reference}</div> : null}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-
 export function DrilldownTables({ dd }: { dd: DrilldownResult }) {
   const rows = dd.rows ?? [];
   const acts = rows.filter((r): r is ActivityKpiRow => r.row_type === 'activity');
   const chains = rows.filter((r): r is ChainKpiRow => r.row_type === 'chain');
-  const known = rows.filter((r): r is KnownKpiRow => r.row_type === 'known');
   if (dd.kpi === '1.19.24') return <ChainKpiTable rows={chains} />;
-  if (dd.kpi === '1.19.S8') {
-    return (
-      <div className="space-y-4">
-        {!dd.bucket || dd.bucket === 'reported' ? (
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold">Dilaporkan via SIM ({formatNumber(acts.length)})</h3>
-            <ActivityKpiTable rows={acts} kpi={dd.kpi} />
-          </section>
-        ) : null}
-        {!dd.bucket || dd.bucket === 'unmatched_known' ? (
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold">Belum dilaporkan — register ({formatNumber(known.length)})</h3>
-            {known.length === 0 ? <EmptyRows text="Tidak ada kegiatan internasional yang belum dilaporkan." /> : <KnownKpiTable rows={known} />}
-          </section>
-        ) : null}
-      </div>
-    );
-  }
   return <ActivityKpiTable rows={acts} kpi={dd.kpi} />;
 }
 
-/** Ringkasan KPI table (same rows as the Excel "Ringkasan" sheet). */
+/** Ringkasan RENSTRA table (same rows as the Excel "Ringkasan" sheet). */
 export function SummaryTable({ values }: { values: KpiValues }) {
   const t = values.kpi_1_19_24;
   const rows: Array<[string, string, string, string]> = [
     ['1.1', 'Mahasiswa inbound', formatNumber(values.kpi_1_1.inbound), ''],
     ['1.1', 'Mahasiswa outbound', formatNumber(values.kpi_1_1.outbound), ''],
-    ['1.1', 'Total mahasiswa', formatNumber(values.kpi_1_1.total), 'Pasangan (NRP, grup kegiatan) unik'],
+    ['1.1', 'Total mahasiswa', formatNumber(values.kpi_1_1.total), 'Pasangan (NRP, kegiatan); duplikat antar-unit dihitung sekali'],
     ['1.19.S1', 'Kegiatan internasional dengan mitra', formatNumber(values.kpi_1_19_s1.international), ''],
     ['1.19.S1', 'Kegiatan domestik (referensi)', formatNumber(values.kpi_1_19_s1.domestic), ''],
     ['1.19.24', 'Terlaksana — semua kerja sama', formatPct(t.all.pct), `${formatNumber(t.all.numerator)} dari ${formatNumber(t.all.denominator)} · ${formatNumber(t.all.grace_excluded)} masa tenggang`],
     ['1.19.24', 'Terlaksana — internasional', formatPct(t.international.pct), `${formatNumber(t.international.numerator)} dari ${formatNumber(t.international.denominator)} · ${formatNumber(t.international.grace_excluded)} masa tenggang`],
     ['1.19.24', 'Terlaksana — domestik', formatPct(t.domestic.pct), `${formatNumber(t.domestic.numerator)} dari ${formatNumber(t.domestic.denominator)} · ${formatNumber(t.domestic.grace_excluded)} masa tenggang`],
-    ['1.19.S8', 'Kegiatan internasional dilaporkan via SIM', formatPct(values.kpi_1_19_s8.pct), `${formatNumber(values.kpi_1_19_s8.reported)} dilaporkan · ${formatNumber(values.kpi_1_19_s8.unmatched_known)} belum dilaporkan`],
   ];
   return (
-    <Table containerLabel="Ringkasan KPI">
+    <Table containerLabel="Ringkasan RENSTRA">
       <TableHeader>
         <TableRow>
-          <TableHead>KPI</TableHead>
+          <TableHead>RENSTRA</TableHead>
           <TableHead>Uraian</TableHead>
           <TableHead className="text-right">Nilai</TableHead>
           <TableHead>Catatan</TableHead>

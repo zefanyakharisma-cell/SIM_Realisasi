@@ -6,10 +6,7 @@ export type NavIcon =
   | 'dashboard'
   | 'list'
   | 'plus'
-  | 'handshake'
   | 'users'
-  | 'copy'
-  | 'book'
   | 'report'
   | 'settings'
   | 'file';
@@ -47,28 +44,14 @@ export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
     }),
   ];
   if (can(user, 'activity.create')) realisasi.push(item('/realisasi/kegiatan/baru', 'Kegiatan Baru', 'plus'));
-  if (can(user, 'verify.partnership'))
-    realisasi.push(
-      item('/realisasi/verifikasi/kemitraan', 'Verifikasi Kemitraan', 'handshake', {
-        badge: counts.partnership_queue,
-        badgeLabel: `${counts.partnership_queue} dalam antrean`,
-      }),
-    );
   if (can(user, 'verify.mobility'))
     realisasi.push(
       item('/realisasi/verifikasi/mobilitas', 'Verifikasi Mobilitas', 'users', {
-        badge: counts.mobility_queue,
-        badgeLabel: `${counts.mobility_queue} dalam antrean`,
+        // Revisi V.1: one badge for everything the mobility team must process (queue + duplicate students).
+        badge: counts.mobility_queue + counts.conflicts_open,
+        badgeLabel: `${counts.mobility_queue} dalam antrean, ${counts.conflicts_open} duplikat mahasiswa`,
       }),
     );
-  if (can(user, 'duplicates.manage'))
-    realisasi.push(
-      item('/realisasi/verifikasi/duplikat', 'Duplikat', 'copy', {
-        badge: counts.duplicates_open,
-        badgeLabel: `${counts.duplicates_open} kandidat terbuka`,
-      }),
-    );
-  if (can(user, 'known.view')) realisasi.push(item('/realisasi/kegiatan-diketahui', 'Kegiatan Diketahui', 'book'));
   realisasi.push(item('/realisasi/laporan', 'Laporan & Ekspor', 'report'));
   if (can(user, 'settings.manage')) realisasi.push(item('/realisasi/pengaturan', 'Pengaturan', 'settings'));
 
