@@ -113,6 +113,14 @@ once Windows CRLF line endings from the paste are ignored), 380 columns, 26 poli
 7 accounts, 39/39 SIMKS documents visible, cron job `realisasi-daily-jobs`. As io_admin: role resolves, dashboard computes.
 Remaining: Vercel `DATABASE_URL` (connector lacks permission to set env vars) and rotating the DB password.
 
+**Revisi V.1 (not yet applied to `simks-partnership`).** The migrations were edited in place (agenda-based Jenis
+Kegiatan, Inbound/Outbound, one kerja sama per kegiatan, Mobility-only verification, student conflicts, four period
+cut-offs, International Awards). The live install above is the previous build, so the new one must be installed with a
+**reset of Realisasi's own schemas** (`scripts/db-deploy-supabase.sh --reset-realisasi`, or the SQL Editor files below,
+which start with the same reset). Realisasi demo data is re-seeded; SIM Kerjasama tables are only read. Rehearsed
+locally; expected fingerprint `functions 163 84b8965fcf9d1961b66537daf939dc6c`, `columns 311
+2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e`.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
@@ -121,8 +129,8 @@ Remaining: Vercel `DATABASE_URL` (connector lacks permission to set env vars) an
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
-3. The result grid shows the fingerprint; it must read `functions 179 d1b4e9b966adc41af70a6574f2d29334`,
-   `columns 380 c9ebd5632031b508bc93abbd7aecf942`, `policies 26 eeffda2ce3c17574a082ef903b081191`.
+3. The result grid shows the fingerprint; it must read `functions 163 84b8965fcf9d1961b66537daf939dc6c`,
+   `columns 311 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e` (Revisi V.1 build).
 
 The file is one transaction (an error rolls everything back), is safe to run again, and equals
 `scripts/db-deploy-supabase.sh --reset-realisasi`.
