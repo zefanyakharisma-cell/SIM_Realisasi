@@ -27,12 +27,7 @@ export function WizardShell({
         <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
           <nav aria-label="Bagian formulir" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {FORM_SECTIONS.map((s, i) => (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                className={draftId || i === 0 ? 'text-primary hover:underline' : 'pointer-events-none text-muted-foreground'}
-                aria-disabled={!draftId && i > 0}
-              >
+              <a key={s.id} href={`#${s.id}`} className="text-primary hover:underline">
                 {i + 1}. {s.label}
               </a>
             ))}
