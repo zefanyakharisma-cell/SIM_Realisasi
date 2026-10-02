@@ -14,7 +14,7 @@ select pg_temp.ok(pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'grace_e
 select pg_temp.ok(not pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'denominator', 902) and not pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'grace_excluded', 902),
                   '902 not active yet in Live');
 select pg_temp.ok((select (r ->> 'grace_until')::date = '2026-12-15' from jsonb_array_elements(
-                    (select realisasi.kpi_drilldown(2, 'live', '1.19.24', 'grace_excluded') from (select set_config('request.jwt.claims', json_build_object('sub', :'ADMIN')::text, true)) x) -> 'rows') r
+                    (select realisasi.kpi_drilldown(2, 'ytd', '1.19.24', 'grace_excluded') from (select set_config('request.jwt.claims', json_build_object('sub', :'ADMIN')::text, true)) x) -> 'rows') r
                    where (r ->> 'chain_id')::int = 901), 'R-47 grace-excluded listed with grace_until');
 
 -- AT-06: auto-renewed 903 without activity: in denominator, never numerator (Live and both 2025/2026 snapshots)
@@ -44,7 +44,7 @@ select pg_temp.eq((select current_document_id || '/' || chain_start || '/' || ch
 select pg_temp.ok(pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'numerator', 117) and not pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'numerator', 116),
                   'R-45 activity on MoA 117 realizes chain 117 only, not parent MoU 116');
 select pg_temp.ok(pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'denominator', 116), 'MoU 116 still counted in denominator');
-select pg_temp.ok(not pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'numerator', 112), 'pending S-25 does not realize 112');
+select pg_temp.ok(not pg_temp.has('2026-08-01', '2026-10-01', '2026-10-01', 'numerator', 101), 'S-16 (in revision) does not realize 101');
 select pg_temp.ok(not pg_temp.has('2025-08-01', '2026-01-31', '2026-03-02', 'numerator', 106, '2026-03-02 01:00+07'),
                   'as_of: S-19 (verified 2026-04-15) does not realize 106 at the Ganjil freeze');
 select pg_temp.ok(not pg_temp.has('2025-08-01', '2026-07-31', '2026-08-30', 'denominator', 118) and not pg_temp.has('2025-08-01', '2026-07-31', '2026-08-30', 'denominator', 119),
@@ -58,10 +58,10 @@ select pg_temp.ok((v #>> '{kpi_1_19_24,all,numerator}')::int = (v #>> '{kpi_1_19
                   'R-46 all = international + domestic')
   from (select realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) v) x;
 select pg_temp.eq(realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) #> '{kpi_1_19_24,all}',
-                  '{"numerator": 6, "denominator": 19, "grace_excluded": 1, "pct": 31.6}'::jsonb, 'Live 2026/2027 KPI 1.19.24 all');
+                  '{"numerator": 12, "denominator": 19, "grace_excluded": 1, "pct": 63.2}'::jsonb, 'YTD 2026/2027 KPI 1.19.24 all (non-mobility kegiatan verified on submit)');
 select pg_temp.eq((select v_chains.is_international from realisasi.v_chains where chain_id = 903), false, '903 domestic chain');
 select pg_temp.eq((select numerator || '/' || denominator || '/' || grace_excluded from realisasi.kpi_1_19_24('2026-08-01', '2026-10-01', 6) where scope = 'all'),
-                  '6/19/1', 'Schema wrapper kpi_1_19_24 agrees');
+                  '12/19/1', 'Schema wrapper kpi_1_19_24 agrees');
 select pg_temp.eq((select grace_excluded from realisasi.kpi_1_19_24('2026-08-01', '2026-10-01', 0) where scope = 'all'), 0::bigint, 'wrapper honours p_grace_months');
 
 -- unit scope: chains with a document scoped to the unit

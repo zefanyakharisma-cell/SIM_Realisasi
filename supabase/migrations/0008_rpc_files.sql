@@ -17,7 +17,9 @@ begin
     return realisasi.can_view_activity(v_act)
        and exists (select 1 from realisasi.activity_files f where f.activity_id = v_act and f.storage_path = p_path);
   elsif v_bucket = 'realisasi-transcripts' then
-    return realisasi.can_view_participants(v_act);
+    -- the mobility bundle (transcripts, poster, documentation; Revisi V.1) is personal data
+    return realisasi.can_view_participants(v_act)
+       and exists (select 1 from realisasi.activity_files f where f.activity_id = v_act and f.storage_path = p_path);
   end if;
   return false;
 end $$;
@@ -26,7 +28,7 @@ create function realisasi.storage_put(p_path text, p_mime text, p_data bytea) re
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_bucket text := split_part(p_path, '/', 1);
         v_act uuid := realisasi._path_activity(p_path); v_seg3 text := split_part(p_path, '/', 3);
-        v_draft uuid; v_ver int; v_ok boolean := false;
+        v_ok boolean := false;
 begin
   if v_bucket not in ('realisasi-files','realisasi-transcripts') or v_act is null or split_part(p_path, '/', 4) = ''
      or p_path like '%..%' then
@@ -48,17 +50,15 @@ begin
     if v_bucket = 'realisasi-files' then
       v_ok := v_seg3 in ('ia','ir','evidence') and realisasi._can_write_files(v_act);
     else
-      v_draft := realisasi._draft_pset(v_act);
-      select version into v_ver from realisasi.participant_set_versions where id = v_draft;
-      v_ok := realisasi._can_edit_participants(v_act) and v_ver is not null and v_seg3 = 'v' || v_ver;
+      v_ok := v_seg3 = 'mobility_bundle' and realisasi._can_write_files(v_act);
     end if;
   end if;
   if not v_ok then perform realisasi._raise('FILE_FORBIDDEN', 'Anda tidak memiliki akses ke berkas ini.'); end if;
 
   -- Blobs are immutable once referenced (H5; R-30/R-31/R-64). An unreferenced upload may be retried by its uploader.
   if exists (select 1 from realisasi.file_blobs b where b.path = p_path) then
-    if (exists (select 1 from realisasi.activity_files f where f.storage_path = p_path)
-        or exists (select 1 from realisasi.participant_students ps where ps.transcript_path = p_path)) or (select b.created_by from realisasi.file_blobs b where b.path = p_path) is distinct from v_uid then
+    if exists (select 1 from realisasi.activity_files f where f.storage_path = p_path)
+       or (select b.created_by from realisasi.file_blobs b where b.path = p_path) is distinct from v_uid then
       perform realisasi._raise('FILE_FORBIDDEN', 'Anda tidak memiliki akses ke berkas ini.');
     end if;
     update realisasi.file_blobs set data = p_data, mime = p_mime, size_bytes = length(p_data), created_at = realisasi.now_ts()
@@ -92,9 +92,9 @@ declare a realisasi.activities;
 begin
   select * into a from realisasi.activities where id = p_activity;
   if a.status = 'verified' then
-    perform realisasi._log(p_activity, 'update', 'partnership', p_action, null, p_detail);
-  elsif a.partnership_status = 'revision_requested' and a.status <> 'draft' then
-    perform realisasi._log(p_activity, 'revision', 'partnership', p_action, null, p_detail);
+    perform realisasi._log(p_activity, 'update', null, p_action, null, p_detail);
+  elsif a.mobility_status = 'revision_requested' and a.status <> 'draft' then
+    perform realisasi._log(p_activity, 'revision', 'mobility', p_action, null, p_detail);
   end if;
 end $$;
 
@@ -105,7 +105,7 @@ begin
   a := realisasi._get_activity(p_activity);
   if not realisasi._can_write_files(p_activity) then
     if a.status = 'verified' and realisasi._is_unit_editor(p_activity) then
-      perform realisasi._raise('R29_EDIT_FORBIDDEN', 'Hanya tim IO terkait yang dapat mengubah kegiatan terverifikasi.');
+      perform realisasi._raise('R29_EDIT_FORBIDDEN', 'Hanya Admin IO yang dapat mengubah berkas kegiatan terverifikasi.');
     end if;
     if realisasi._is_unit_editor(p_activity) then perform realisasi._state_invalid(); end if;
     perform realisasi._forbidden();
@@ -120,19 +120,21 @@ declare v_uid uuid := realisasi._require_uid(); a realisasi.activities; v_ver in
 begin
   a := realisasi._check_file_write(p_activity);
   if p_kind is null then perform realisasi._invalid('kind'); end if;
-  if p_storage_path is null or p_storage_path not like 'realisasi-files/' || p_activity::text || '/' || p_kind::text || '/%' then
+  if p_storage_path is null or p_storage_path not like
+       (case when p_kind = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+        || p_activity::text || '/' || p_kind::text || '/%') then
     perform realisasi._invalid('storage_path');
   end if;
   select * into b from realisasi.file_blobs where path = p_storage_path;
   if not found then perform realisasi._raise('FILE_NOT_FOUND', 'Berkas tidak ditemukan.'); end if;
   -- type and size always come from the stored blob; the caller's p_mime/p_size_bytes are ignored (M8, R-13)
-  if p_kind in ('ia','ir') and (b.mime <> 'application/pdf' or substring(b.data from 1 for 5) <> '\x255044462d'::bytea) then
+  if p_kind in ('ia','ir','mobility_bundle') and (b.mime <> 'application/pdf' or substring(b.data from 1 for 5) <> '\x255044462d'::bytea) then
     perform realisasi._raise('R13_FILE_TYPE', 'Format berkas tidak diizinkan (PDF).');
   end if;
   if p_kind = 'evidence' and b.mime not in ('application/pdf','image/jpeg','image/png') then
     perform realisasi._raise('R13_FILE_TYPE', 'Format berkas tidak diizinkan (PDF, JPG, PNG).');
   end if;
-  if p_kind in ('ia','ir') then
+  if p_kind in ('ia','ir','mobility_bundle') then
     select coalesce(max(version), 0) + 1 into v_ver from realisasi.activity_files where activity_id = p_activity and kind = p_kind;
     update realisasi.activity_files set is_current = false where activity_id = p_activity and kind = p_kind and is_current;
   else

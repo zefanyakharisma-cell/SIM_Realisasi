@@ -19,7 +19,7 @@ select pg_temp.ok(not exists (select 1 from realisasi.kpi_snapshot_items where s
                   'AT-08 Ganjil snapshot has no S-19 item');
 select pg_temp.eq((select string_agg(kpi_code || ':' || is_late_addition, ',' order by kpi_code) from realisasi.kpi_snapshot_items
                     where snapshot_id = pg_temp.sid('genap_full_year') and ref_id = pg_temp.aid(19)::text),
-                  '1.19.S1:true,1.19.S8:true,base:true', 'AT-08 Genap snapshot S-19 items marked late');
+                  '1.19.S1:true,base:true', 'AT-08 Genap snapshot S-19 items marked late');
 select pg_temp.eq((select count(*) from realisasi.kpi_snapshot_items where snapshot_id = pg_temp.sid('genap_full_year') and is_late_addition and ref_type = 'activity'
                     and ref_id <> pg_temp.aid(19)::text), 0::bigint, 'only S-19 is a late activity');
 select pg_temp.ok((select is_late_addition from realisasi.kpi_snapshot_items where snapshot_id = pg_temp.sid('genap_full_year') and kpi_code = '1.19.24'
@@ -28,7 +28,7 @@ select pg_temp.ok(not (select is_late_addition from realisasi.kpi_snapshot_items
                     and bucket = 'numerator' and ref_id = '102'), 'chain already realized in Ganjil is not late');
 select pg_temp.ok(realisasi.is_late_addition(pg_temp.aid(19)), 'is_late_addition(S-19)');
 select pg_temp.eq((values -> 'kpi_1_19_s1')::text, '{"domestic": 1, "international": 3}', 'Ganjil 25/26 S1 values') from _s where kind = 'ganjil_ytd';
-select pg_temp.eq((values -> 'kpi_1_1' ->> 'total')::int, 19, 'Genap 25/26 KPI 1.1 total') from _s where kind = 'genap_full_year';
+select pg_temp.eq((values -> 'kpi_1_1' ->> 'total')::int, 21, 'Genap 25/26 KPI 1.1 total') from _s where kind = 'genap_full_year';
 -- items and values always agree
 select pg_temp.eq((select count(*)::int from realisasi.kpi_snapshot_items where snapshot_id = s.id and kpi_code = '1.1'), (s.values #>> '{kpi_1_1,total}')::int,
                   'items = values (1.1) ' || s.kind) from _s s;
@@ -41,18 +41,18 @@ select pg_temp.ok((select settings_used ? 'grace_period_months' and not settings
 :as_view
 select pg_temp.eq((select jsonb_agg(jsonb_build_object('code', r ->> 'code', 'counted', r -> 'counted_in_this_snapshot', 'prev', r ->> 'previous_snapshot_label')
                      order by r ->> 'code') from jsonb_array_elements(realisasi.snapshot_late_additions(pg_temp.sid('genap_full_year'))) r),
-                  '[{"code":"RL-2026-0019","counted":true,"prev":"Ganjil 2025/2026 (YTD)"}]'::jsonb, 'AT-08 late additions of Genap snapshot');
+                  '[{"code":"RL-2026-0019","counted":true,"prev":"Ganjil 2025/2026"}]'::jsonb, 'AT-08 late additions of Genap snapshot');
 select pg_temp.eq((select r -> 'kpi_codes' from jsonb_array_elements(realisasi.snapshot_late_additions(pg_temp.sid('genap_full_year'))) r),
-                  '["1.19.24", "1.19.S1", "1.19.S8", "base"]'::jsonb, 'late addition KPI codes');
+                  '["1.19.24", "1.19.S1", "base"]'::jsonb, 'late addition KPI codes');
 select pg_temp.eq(jsonb_array_length(realisasi.snapshot_late_additions(pg_temp.sid('ganjil_ytd'))), 0, 'first snapshot has no late additions');
 select pg_temp.eq((select jsonb_agg(r ->> 'code' || '/' || (r ->> 'action') || '/' || (r -> 'diff' -> 'venue' ->> 1))
                      from jsonb_array_elements(realisasi.snapshot_post_freeze_changes(pg_temp.sid('genap_full_year'))) r),
                   '["RL-2026-0005/edit/Auditorium Gedung W PCU"]'::jsonb, 'S-05 edit listed as post-freeze change of Genap snapshot');
 select pg_temp.eq(jsonb_array_length(realisasi.snapshot_post_freeze_changes(pg_temp.sid('ganjil_ytd'))), 0, 'none before the Ganjil freeze');
 select pg_temp.eq((select jsonb_agg(r ->> 'label' order by r ->> 'frozen_at' desc) from jsonb_array_elements(realisasi.snapshot_list(1)) r),
-                  '["Genap 2025/2026 (Setahun)", "Ganjil 2025/2026 (YTD)"]'::jsonb, 'snapshot_list newest first');
+                  '["Setahun 2025/2026", "Ganjil 2025/2026"]'::jsonb, 'snapshot_list newest first');
 select pg_temp.eq((select r -> 'summary' from jsonb_array_elements(realisasi.snapshot_list(1)) r where r ->> 'kind' = 'genap_full_year'),
-                  '{"kpi_1_1_total": 19, "kpi_1_19_s8_pct": 100.0, "kpi_1_19_24_pct": 63.2, "kpi_1_19_s1_international": 13}'::jsonb, 'snapshot summary');
+                  '{"kpi_1_1_total": 21, "kpi_1_19_24_pct": 57.9, "kpi_1_19_s1_international": 14}'::jsonb, 'snapshot summary');
 select pg_temp.eq((select (r ->> 'late_additions') || '/' || (r ->> 'post_freeze_changes') || '/' || (r ->> 'frozen_by_name')
                      from jsonb_array_elements(realisasi.snapshot_list(1)) r where r ->> 'kind' = 'genap_full_year'), '1/1/Job terjadwal', 'archive counters');
 select pg_temp.eq(realisasi.snapshot_detail(pg_temp.sid('genap_full_year')) -> 'values', (select values from _s where kind = 'genap_full_year'), 'snapshot_detail values');
@@ -62,7 +62,21 @@ select pg_temp.eq(realisasi.period_info(1, 'full') ->> 'label', 'Setahun 2025/20
 select pg_temp.eq(realisasi.dashboard(1, 'full') -> 'values', (select values from _s where kind = 'genap_full_year'), 'frozen dashboard = snapshot values');
 select pg_temp.eq((realisasi.dashboard(1, 'full') ->> 'late_additions')::int, 1, 'frozen dashboard late additions');
 select pg_temp.eq(realisasi.dashboard(2, 'full') #>> '{previous,ay_label}', '2025/2026', 'previous AY comparison');
-select pg_temp.eq((realisasi.dashboard(2, 'full') #>> '{previous,kpi_1_1,total}')::int, 19, 'previous comes from the frozen Genap snapshot');
+select pg_temp.eq((realisasi.dashboard(2, 'full') #>> '{previous,kpi_1_1,total}')::int, 21, 'previous comes from the frozen Genap snapshot');
+-- Revisi V.1 cut-offs: Ganjil only, Genap only, whole year, YTD
+select pg_temp.eq(realisasi.period_info(1, 'genap') ->> 'label', 'Genap 2025/2026', 'genap label');
+select pg_temp.eq((realisasi.period_info(1, 'genap') ->> 'window_start') || '..' || (realisasi.period_info(1, 'genap') ->> 'window_end'),
+                  '2026-02-01..2026-07-31', 'genap window = Genap semester only');
+select pg_temp.ok((realisasi.period_info(1, 'genap') ->> 'frozen')::boolean and realisasi.period_info(1, 'genap') ->> 'snapshot_id' is null,
+                  'genap after the full-year freeze: frozen, computed as of that freeze');
+select pg_temp.eq((realisasi.dashboard(1, 'genap') #>> '{values,kpi_1_1,total}')::int, 14, 'genap only: 12 outbound + 2 inbound');
+select pg_temp.eq((realisasi.dashboard(1, 'ganjil') #>> '{values,kpi_1_1,total}')::int
+                + (realisasi.dashboard(1, 'genap') #>> '{values,kpi_1_1,total}')::int,
+                  (realisasi.dashboard(1, 'full') #>> '{values,kpi_1_1,total}')::int, 'ganjil + genap = whole year (KPI 1.1)');
+select pg_temp.eq(realisasi.period_info(2, 'ytd') ->> 'label', 'YTD 2026/2027', 'ytd label');
+select pg_temp.eq(realisasi.period_info(2, 'ytd') ->> 'window_end', realisasi.today()::text, 'ytd ends today');
+select pg_temp.throws($$select realisasi.period_info(2, 'live')$$, 'VALIDATION_INVALID', 'old live period is gone');
+select pg_temp.eq((realisasi.dashboard(2, 'genap') ->> 'late_additions')::int, 0, 'genap without a snapshot works live');
 select pg_temp.eq((select count(*) from jsonb_array_elements(realisasi.kpi_drilldown(null, null, 'base', null, null, pg_temp.sid('ganjil_ytd')) -> 'rows')), 
                   (select count(*) from realisasi.kpi_snapshot_items where snapshot_id = pg_temp.sid('ganjil_ytd') and kpi_code = 'base'), 'drilldown by snapshot id');
 select pg_temp.throws($$select realisasi.freeze_snapshot(2, 'ganjil_ytd')$$, 'AUTH_FORBIDDEN', 'viewer cannot freeze');
@@ -76,7 +90,7 @@ select pg_temp.eq((select (r #>> '{summary,kpi_1_1_total}')::int from jsonb_arra
 :as_admin
 select pg_temp.throws($$select realisasi.freeze_snapshot(1, 'ganjil_ytd')$$, 'R55_ALREADY_FROZEN', 'R-55 one live snapshot per period');
 select pg_temp.throws(format('select realisasi.refreeze_snapshot(%L, %L)', pg_temp.sid('ganjil_ytd'), ' '), 'R58_REASON_REQUIRED', 'R-58 reason required');
-:as_part
+:as_mob
 select pg_temp.throws(format('select realisasi.refreeze_snapshot(%L, %L)', pg_temp.sid('ganjil_ytd'), 'x'), 'AUTH_FORBIDDEN', 'only io_admin refreezes');
 -- R-56: a settings change does not alter existing snapshots
 :as_admin
@@ -103,7 +117,7 @@ select pg_temp.throws($$select realisasi.freeze_snapshot(9, 'ganjil_ytd')$$, 'R5
 select pg_temp.throws($$select realisasi.period_info(9, 'full')$$, 'R55_NO_SEMESTER', 'period_info without semesters');
 
 -- R-31 a post-freeze edit is flagged and appears as a post-freeze change of the next snapshot
-:as_part
+:as_admin
 select realisasi.edit_verified_activity(pg_temp.aid(7), '{"venue":"Gedung Q PCU"}', 'Koreksi ruang');
 reset role;
 select pg_temp.ok(in_frozen_period, 'edit in frozen Genap window flagged') from realisasi.activity_log where activity_id = pg_temp.aid(7) and action = 'edit';

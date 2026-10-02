@@ -1,4 +1,4 @@
--- 01_config: settings, calendar, holidays, Jenis Kegiatan, SDGs. Idempotent and deployment-agnostic: also applied to
+-- 01_config: settings, calendar, Jenis Kegiatan rules, SDGs. Idempotent and deployment-agnostic: also applied to
 -- Supabase by supabase/seed-supabase/01_config.sql. Team membership lives with the accounts (00_kerjasama.sql locally,
 -- seed-supabase/03_accounts.sql on Supabase).
 
@@ -7,10 +7,8 @@
 insert into realisasi.deployment_flags (key, enabled) values ('demo_time_travel', true) on conflict (key) do nothing;
 
 insert into realisasi.settings (key, value) values
-  ('grace_period_months', '6'), ('reporting_deadline_days', '30'), ('sla_yellow_days', '3'), ('sla_red_days', '5'),
-  ('revision_reminder_days', '7'), ('revision_escalate_days', '14'), ('dup_date_window_days', '3'),
-  ('dup_name_similarity', '0.5'), ('known_match_window_days', '7'), ('known_name_similarity', '0.4'),
-  ('nudge_resend_days', '14'), ('deadline_reminder_before_days', '7'), ('demo_today', 'null')
+  ('grace_period_months', '6'), ('reporting_deadline_days', '30'), ('revision_reminder_days', '7'),
+  ('deadline_reminder_before_days', '7'), ('demo_today', 'null')
 on conflict (key) do nothing;
 
 insert into realisasi.academic_years (id, label, start_date, end_date) values
@@ -26,38 +24,15 @@ insert into realisasi.semesters (id, academic_year_id, term, start_date, end_dat
 on conflict (id) do update set academic_year_id = excluded.academic_year_id, term = excluded.term,
   start_date = excluded.start_date, end_date = excluded.end_date, cutoff_date = excluded.cutoff_date;
 
-insert into realisasi.holidays (day, name) values
-  ('2025-01-01','Tahun Baru Masehi'), ('2025-01-27','Isra Mikraj Nabi Muhammad SAW'), ('2025-01-29','Tahun Baru Imlek'),
-  ('2025-03-29','Hari Suci Nyepi'), ('2025-03-31','Hari Raya Idul Fitri'), ('2025-04-01','Hari Raya Idul Fitri'),
-  ('2025-04-18','Wafat Yesus Kristus'), ('2025-04-20','Kebangkitan Yesus Kristus (Paskah)'), ('2025-05-01','Hari Buruh Internasional'),
-  ('2025-05-12','Hari Raya Waisak'), ('2025-05-29','Kenaikan Yesus Kristus'), ('2025-06-01','Hari Lahir Pancasila'),
-  ('2025-06-06','Hari Raya Idul Adha'), ('2025-06-27','Tahun Baru Islam'), ('2025-08-17','Hari Kemerdekaan RI'),
-  ('2025-09-05','Maulid Nabi Muhammad SAW'), ('2025-12-25','Hari Raya Natal'),
-  ('2026-01-01','Tahun Baru Masehi'), ('2026-01-16','Isra Mikraj Nabi Muhammad SAW'), ('2026-02-17','Tahun Baru Imlek'),
-  ('2026-03-19','Hari Suci Nyepi'), ('2026-03-20','Hari Raya Idul Fitri'), ('2026-03-21','Hari Raya Idul Fitri'),
-  ('2026-04-03','Wafat Yesus Kristus'), ('2026-04-05','Kebangkitan Yesus Kristus (Paskah)'), ('2026-05-01','Hari Buruh Internasional'),
-  ('2026-05-14','Kenaikan Yesus Kristus'), ('2026-05-27','Hari Raya Idul Adha'), ('2026-05-31','Hari Raya Waisak'),
-  ('2026-06-01','Hari Lahir Pancasila'), ('2026-06-16','Tahun Baru Islam'), ('2026-08-17','Hari Kemerdekaan RI'),
-  ('2026-08-25','Maulid Nabi Muhammad SAW'), ('2026-12-25','Hari Raya Natal'),
-  ('2027-01-01','Tahun Baru Masehi'), ('2027-01-05','Isra Mikraj Nabi Muhammad SAW'), ('2027-02-06','Tahun Baru Imlek'),
-  ('2027-03-08','Hari Suci Nyepi'), ('2027-03-10','Hari Raya Idul Fitri'), ('2027-03-11','Hari Raya Idul Fitri'),
-  ('2027-03-26','Wafat Yesus Kristus'), ('2027-03-28','Kebangkitan Yesus Kristus (Paskah)'), ('2027-05-01','Hari Buruh Internasional'),
-  ('2027-05-06','Kenaikan Yesus Kristus'), ('2027-05-17','Hari Raya Idul Adha'), ('2027-05-20','Hari Raya Waisak'),
-  ('2027-06-01','Hari Lahir Pancasila'), ('2027-06-06','Tahun Baru Islam'), ('2027-08-15','Maulid Nabi Muhammad SAW'),
-  ('2027-08-17','Hari Kemerdekaan RI'), ('2027-12-25','Hari Raya Natal')
-on conflict (day) do update set name = excluded.name;
 
-insert into realisasi.activity_types (id, name, direction, counts_as_mobility, counts_for_s1, requires_mobility_review, is_active, sort_order) values
-  (1, 'Student Outbound Mobility',          'outbound', true,  true, true,  true, 1),
-  (2, 'Student Inbound Mobility',           'inbound',  true,  true, true,  true, 2),
-  (3, 'Staff Outbound Mobility',            'none',     false, true, true,  true, 3),
-  (4, 'Visiting Lecturer / Guest Lecture',  'none',     false, true, false, true, 4),
-  (5, 'Joint Research',                     'none',     false, true, false, true, 5),
-  (6, 'Joint Seminar / Conference',         'none',     false, true, false, true, 6),
-  (7, 'Summer / Winter Program (Outbound)', 'outbound', true,  true, true,  true, 7),
-  (8, 'Community Service (Joint)',          'none',     false, true, false, true, 8),
-  (9, 'Joint Publication',                  'none',     false, true, false, true, 9)
-on conflict (id) do nothing;
+-- Jenis Kegiatan = SIMKS agenda (kerjasama.agendas). Default mobility categories (Revisi V.1); IO Admin edits them in
+-- Pengaturan. Agendas without a row are non-mobility kegiatan that count for KPI 1.19.S1.
+insert into realisasi.agenda_rules (agenda_id, mobility_category) values
+  (16, 'jd_dd'), (17, 'jd_dd'), (18, 'jd_dd'), (85, 'jd_dd'),
+  (2, 'student_exchange'), (20, 'student_exchange'), (28, 'student_exchange'), (33, 'student_exchange'),
+  (22, 'short_summer'), (23, 'short_summer'), (29, 'short_summer'),
+  (21, 'other_mobility'), (24, 'other_mobility'), (38, 'other_mobility')
+on conflict (agenda_id) do nothing;
 
 insert into realisasi.sdgs (id, name) values
   (1,'Tanpa Kemiskinan'), (2,'Tanpa Kelaparan'), (3,'Kehidupan Sehat dan Sejahtera'), (4,'Pendidikan Berkualitas'),
@@ -70,4 +45,3 @@ on conflict (id) do update set name = excluded.name;
 
 select setval('realisasi.academic_years_id_seq', greatest((select max(id) from realisasi.academic_years), 1));
 select setval('realisasi.semesters_id_seq', greatest((select max(id) from realisasi.semesters), 1));
-select setval('realisasi.activity_types_id_seq', greatest((select max(id) from realisasi.activity_types), 1));

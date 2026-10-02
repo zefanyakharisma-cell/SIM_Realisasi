@@ -1,4 +1,15 @@
--- 0007_rpc_submission: lookups, drafts, participants, checklist, submit, duplicate scan.
+-- 0007_rpc_submission: lookups, drafts, participants, checklist, submit, student-conflict scan.
+
+-- Agenda rules (Revisi V.1): an agenda is a mobility kegiatan when realisasi.agenda_rules gives it a category
+create function realisasi.agenda_category(p_agenda int) returns realisasi.mobility_category
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select mobility_category from realisasi.agenda_rules where agenda_id = p_agenda
+$$;
+
+create function realisasi.agenda_is_mobility(p_agenda int) returns boolean
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select realisasi.agenda_category(p_agenda) is not null
+$$;
 
 -- Lookups (Schema §4) ------------------------------------------------------
 -- Registry lookups: only roles that enter participants (submitter, mobility team, io_admin); at most 500 ids (L5)
@@ -86,7 +97,7 @@ $$;
 
 create function realisasi._status_result(p_id uuid) returns jsonb
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select jsonb_build_object('id', a.id, 'status', a.status, 'partnership_status', a.partnership_status,
+  select jsonb_build_object('id', a.id, 'status', a.status,
                             'mobility_status', a.mobility_status, 'verified_at', a.verified_at)
     from realisasi.activities a where a.id = p_id
 $$;
@@ -114,14 +125,13 @@ $$;
 create function realisasi._activity_state(p_id uuid) returns jsonb
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select jsonb_build_object(
-    'name', a.name, 'type_id', a.type_id, 'start_date', a.start_date, 'end_date', a.end_date,
-    'mode', a.mode, 'venue', a.venue, 'city', a.city, 'country_code', a.country_code,
-    'sks_recognized', a.sks_recognized, 'funding_source', a.funding_source, 'description', a.description,
+    'name', a.name, 'agenda_id', a.agenda_id, 'direction', a.direction, 'start_date', a.start_date, 'end_date', a.end_date,
+    'mode', a.mode, 'venue', a.venue, 'country_code', a.country_code,
+    'sks_recognized', a.sks_recognized, 'description', a.description,
     'submitter_unit_id', a.submitter_unit_id,
     'co_unit_ids', coalesce((select jsonb_agg(unit_id order by unit_id) from realisasi.activity_units
                               where activity_id = a.id and not is_submitter), '[]'),
-    'document_ids', coalesce((select jsonb_agg(original_document_id order by original_document_id)
-                               from realisasi.activity_documents where activity_id = a.id), '[]'),
+    'document_id', (select original_document_id from realisasi.activity_documents where activity_id = a.id),
     'sdg_ids', coalesce((select jsonb_agg(sdg_id order by sdg_id) from realisasi.activity_sdgs where activity_id = a.id), '[]'),
     'external_persons', coalesce((select jsonb_agg(jsonb_build_object('full_name', e.full_name, 'institution', e.institution,
                                      'country_code', e.country_code, 'role', e.role, 'notes', e.notes) order by e.id)
@@ -143,9 +153,9 @@ declare
   v_old jsonb := case when p_id is null then '{}'::jsonb else realisasi._activity_state(p_id) end;
   v_m jsonb;            -- merged payload
   v_missing text[] := '{}';
-  v_name text; v_type int; v_start date; v_end date; v_mode realisasi.activity_mode; v_venue text; v_city text;
-  v_country text; v_sks numeric; v_funding realisasi.funding_source; v_desc text; v_unit int;
-  v_co int[]; v_docs int[]; v_sdgs int[]; v_ext jsonb; v_e jsonb; v_i int;
+  v_name text; v_agenda int; v_dir realisasi.direction; v_start date; v_end date; v_mode realisasi.activity_mode;
+  v_venue text; v_country text; v_sks numeric; v_desc text; v_unit int;
+  v_co int[]; v_doc int; v_docs int[]; v_sdgs int[]; v_ext jsonb; v_e jsonb; v_i int;
   v_bad int; v_bad_number text; v_uid uuid := auth.uid();
   v_k text; v_id uuid; v_group uuid;
 begin
@@ -153,14 +163,14 @@ begin
   -- merge: absent keys keep their value on update
   v_m := v_old;
   for v_k in select jsonb_object_keys(p_data) loop
-    if v_k in ('name','type_id','start_date','end_date','mode','venue','city','country_code','sks_recognized',
-               'funding_source','description','submitter_unit_id','co_unit_ids','document_ids','sdg_ids','external_persons') then
+    if v_k in ('name','agenda_id','direction','start_date','end_date','mode','venue','country_code','sks_recognized',
+               'description','submitter_unit_id','co_unit_ids','document_id','sdg_ids','external_persons') then
       v_m := v_m || jsonb_build_object(v_k, p_data -> v_k);
     end if;
   end loop;
 
   -- required fields
-  foreach v_k in array array['name','type_id','start_date','end_date','mode','description','submitter_unit_id'] loop
+  foreach v_k in array array['name','agenda_id','direction','start_date','end_date','mode','description','submitter_unit_id'] loop
     if realisasi._jtext(v_m, v_k) is null then v_missing := v_missing || v_k; end if;
   end loop;
   if cardinality(v_missing) > 0 then
@@ -172,17 +182,17 @@ begin
   v_name := realisasi._jtext(v_m, 'name');
   v_desc := realisasi._jtext(v_m, 'description');
   v_venue := realisasi._jtext(v_m, 'venue');
-  v_city := realisasi._jtext(v_m, 'city');
   v_country := upper(realisasi._jtext(v_m, 'country_code'));
-  begin v_type := (v_m ->> 'type_id')::int; exception when others then perform realisasi._invalid('type_id'); end;
+  begin v_agenda := (v_m ->> 'agenda_id')::int; exception when others then perform realisasi._invalid('agenda_id'); end;
+  begin v_dir := (v_m ->> 'direction')::realisasi.direction; exception when others then perform realisasi._invalid('direction'); end;
   begin v_start := (v_m ->> 'start_date')::date; exception when others then perform realisasi._invalid('start_date'); end;
   begin v_end := (v_m ->> 'end_date')::date; exception when others then perform realisasi._invalid('end_date'); end;
   begin v_mode := (v_m ->> 'mode')::realisasi.activity_mode; exception when others then perform realisasi._invalid('mode'); end;
   begin v_sks := nullif(v_m ->> 'sks_recognized', '')::numeric(4,1); exception when others then perform realisasi._invalid('sks_recognized'); end;
-  begin v_funding := realisasi._jtext(v_m, 'funding_source')::realisasi.funding_source; exception when others then perform realisasi._invalid('funding_source'); end;
   begin v_unit := (v_m ->> 'submitter_unit_id')::int; exception when others then perform realisasi._invalid('submitter_unit_id'); end;
   v_co := realisasi._int_array(v_m -> 'co_unit_ids', 'co_unit_ids');
-  v_docs := realisasi._int_array(v_m -> 'document_ids', 'document_ids');
+  begin v_doc := nullif(v_m ->> 'document_id', '')::int; exception when others then perform realisasi._invalid('document_id'); end;
+  v_docs := case when v_doc is null then '{}'::int[] else array[v_doc] end;   -- Revisi V.1: one kerja sama per kegiatan
   v_sdgs := realisasi._int_array(v_m -> 'sdg_ids', 'sdg_ids');
   v_ext := coalesce(nullif(v_m -> 'external_persons', 'null'::jsonb), '[]'::jsonb);
   if jsonb_typeof(v_ext) <> 'array' then perform realisasi._invalid('external_persons'); end if;
@@ -193,16 +203,19 @@ begin
   end if;
   if v_sks is not null and v_sks < 0 then perform realisasi._invalid('sks_recognized'); end if;
 
-  -- type must exist; must be active when newly chosen
-  if not exists (select 1 from realisasi.activity_types t where t.id = v_type
-                   and (t.is_active or (v_old ->> 'type_id')::int = v_type)) then
-    perform realisasi._invalid('type_id');
+  -- Jenis Kegiatan = SIMKS agenda; must exist, and be active when newly chosen
+  if not exists (select 1 from kerjasama.agendas g where g.id = v_agenda
+                   and (g.is_active or (v_old ->> 'agenda_id')::int = v_agenda)) then
+    perform realisasi._invalid('agenda_id');
   end if;
+  -- SKS diakui only applies to mobility kegiatan (Revisi V.1 item 5)
+  if not realisasi.agenda_is_mobility(v_agenda) then v_sks := null; end if;
   if v_country is not null and not exists (select 1 from kerjasama.countries where code = v_country) then
     perform realisasi._invalid('country_code');
   end if;
-  if not exists (select 1 from kerjasama.units where id = v_unit) then perform realisasi._invalid('submitter_unit_id'); end if;
-  if exists (select 1 from unnest(v_co) u where not exists (select 1 from kerjasama.units x where x.id = u)) then
+  -- Revisi V.1: SIM Realisasi is used by Unit Akademik only (submitter and units involved)
+  if not exists (select 1 from kerjasama.units where id = v_unit and is_academic) then perform realisasi._invalid('submitter_unit_id'); end if;
+  if exists (select 1 from unnest(v_co) u where not exists (select 1 from kerjasama.units x where x.id = u and x.is_academic)) then
     perform realisasi._invalid('co_unit_ids');
   end if;
   v_co := array(select u from unnest(v_co) u where u <> v_unit order by u);
@@ -234,22 +247,22 @@ begin
   if found then
     perform realisasi._raise('R04_AGREEMENT_NOT_VALID',
       format('Kerja sama %s tidak berlaku pada tanggal kegiatan.', coalesce(v_bad_number, '#' || v_bad)),
-      jsonb_build_object('document_ids', jsonb_build_array(v_bad)));
+      jsonb_build_object('document_ids', jsonb_build_array(v_bad), 'fields', jsonb_build_array('document_id')));
   end if;
 
   -- apply ------------------------------------------------------------------
   if p_id is null then
     insert into realisasi.event_groups (created_by, created_at) values (v_uid, realisasi.now_ts()) returning id into v_group;
-    insert into realisasi.activities (name, type_id, start_date, end_date, mode, venue, city, country_code, sks_recognized,
-                                      funding_source, description, submitter_unit_id, created_by, event_group_id, created_at)
-    values (v_name, v_type, v_start, v_end, v_mode, v_venue, v_city, v_country, v_sks, v_funding, v_desc, v_unit,
+    insert into realisasi.activities (name, agenda_id, direction, start_date, end_date, mode, venue, country_code, sks_recognized,
+                                      description, submitter_unit_id, created_by, event_group_id, created_at)
+    values (v_name, v_agenda, v_dir, v_start, v_end, v_mode, v_venue, v_country, v_sks, v_desc, v_unit,
             v_uid, v_group, realisasi.now_ts())
     returning id into v_id;
   else
     v_id := p_id;
     update realisasi.activities
-       set name = v_name, type_id = v_type, start_date = v_start, end_date = v_end, mode = v_mode, venue = v_venue,
-           city = v_city, country_code = v_country, sks_recognized = v_sks, funding_source = v_funding,
+       set name = v_name, agenda_id = v_agenda, direction = v_dir, start_date = v_start, end_date = v_end, mode = v_mode,
+           venue = v_venue, country_code = v_country, sks_recognized = v_sks,
            description = v_desc, submitter_unit_id = v_unit
      where id = p_id;
   end if;
@@ -325,7 +338,7 @@ begin
 
   v_act := realisasi._get_activity(p_id);
   if not realisasi._is_unit_editor(p_id) then perform realisasi._forbidden(); end if;
-  if not (v_act.status = 'draft' or v_act.partnership_status = 'revision_requested') then perform realisasi._state_invalid(); end if;
+  if not (v_act.status = 'draft' or v_act.mobility_status = 'revision_requested') then perform realisasi._state_invalid(); end if;
   if p_data ? 'submitter_unit_id' and v_unit is distinct from v_act.submitter_unit_id then
     if v_act.status <> 'draft' then perform realisasi._invalid('submitter_unit_id'); end if;
     if v_role = 'submitter' and v_unit is distinct from realisasi.my_unit() then
@@ -333,8 +346,8 @@ begin
     end if;
   end if;
   v_res := realisasi._apply_activity_payload(p_id, p_data, case when v_act.status = 'draft' then 'draft' else 'revision' end);
-  if v_act.status <> 'draft' and v_act.partnership_status = 'revision_requested' and (v_res -> 'diff') <> '{}'::jsonb then
-    perform realisasi._log(p_id, 'revision', 'partnership', 'edit_detail', null, v_res -> 'diff');
+  if v_act.status <> 'draft' and (v_res -> 'diff') <> '{}'::jsonb then
+    perform realisasi._log(p_id, 'revision', 'mobility', 'edit_detail', null, v_res -> 'diff');
   end if;
   return p_id;
 end $$;
@@ -360,8 +373,7 @@ begin
   delete from realisasi.activity_partner_snapshot where activity_id = p_id;
   delete from realisasi.activity_units where activity_id = p_id;
   delete from realisasi.activity_log where activity_id = p_id;
-  delete from realisasi.duplicate_candidates where activity_a = p_id or activity_b = p_id;
-  update realisasi.known_activities set status = 'unmatched', matched_activity_id = null where matched_activity_id = p_id;
+  delete from realisasi.participant_conflicts where activity_a = p_id or activity_b = p_id;
   delete from realisasi.activities where id = p_id;
   delete from realisasi.event_groups g where g.id = v_act.event_group_id
      and not exists (select 1 from realisasi.activities a where a.event_group_id = g.id);
@@ -379,12 +391,12 @@ begin
   returning id into v_new;
   if v_src is not null then
     insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
-                home_institution, home_student_number, home_country_code, transcript_path, row_note)
+                home_institution, home_student_number, home_country_code)
     select v_new, section, nrp, full_name, faculty_name, prodi_name, home_institution, home_student_number,
-           home_country_code, transcript_path, null
+           home_country_code
       from realisasi.participant_students where set_version_id = v_src order by id;
-    insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name, row_note)
-    select v_new, employee_id, full_name, unit_name, null from realisasi.participant_staff where set_version_id = v_src order by id;
+    insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+    select v_new, employee_id, full_name, unit_name from realisasi.participant_staff where set_version_id = v_src order by id;
   end if;
   return v_new;
 end $$;
@@ -425,7 +437,7 @@ begin
 
   if to_regclass('pg_temp._ps_in') is null then
     create temp table _ps_in (idx int, section text, nrp text, home_institution text, home_student_number text,
-                                          home_country_code text, transcript_path text) on commit drop;
+                                          home_country_code text) on commit drop;
   end if;
   if to_regclass('pg_temp._pst_in') is null then
     create temp table _pst_in (idx int, employee_id text) on commit drop;
@@ -434,8 +446,7 @@ begin
 
   insert into _ps_in
   select (o - 1)::int, e ->> 'section', upper(btrim(e ->> 'nrp')), realisasi._jtext(e, 'home_institution'),
-         realisasi._jtext(e, 'home_student_number'), upper(realisasi._jtext(e, 'home_country_code')),
-         realisasi._jtext(e, 'transcript_path')
+         realisasi._jtext(e, 'home_student_number'), upper(realisasi._jtext(e, 'home_country_code'))
     from jsonb_array_elements(v_students) with ordinality x(e, o);
   insert into _pst_in select (o - 1)::int, upper(btrim(e ->> 'employee_id'))
     from jsonb_array_elements(v_staff) with ordinality x(e, o);
@@ -500,26 +511,11 @@ begin
     perform realisasi._raise('R19_EMPLOYEE_NOT_FOUND', format('ID pegawai tidak ditemukan di data SDM: %s.', v_list), jsonb_build_object('rows', v_rows));
   end if;
 
-  -- transcripts: an uploaded blob of this draft version, or a path carried over from an earlier version of this activity
-  select i.idx, i.nrp into r from _ps_in i
-   where i.transcript_path is not null
-     and not (   (i.transcript_path like 'realisasi-transcripts/' || p_activity::text || '/v' || v_ver || '/%'
-                  and exists (select 1 from realisasi.file_blobs b where b.path = i.transcript_path))
-              or exists (select 1 from realisasi.participant_students ps
-                           join realisasi.participant_set_versions v on v.id = ps.set_version_id
-                          where v.activity_id = p_activity and v.id <> v_vid and ps.transcript_path = i.transcript_path))
-   order by i.idx limit 1;
-  if found then
-    perform realisasi._raise('VALIDATION_INVALID', 'Nilai tidak valid: transcript_path.',
-      jsonb_build_object('fields', jsonb_build_array('transcript_path'),
-                         'rows', jsonb_build_array(jsonb_build_object('section', 'inbound', 'index', r.idx, 'id', r.nrp, 'code', 'VALIDATION_INVALID'))));
-  end if;
-
   select i.idx, i.nrp into r from _ps_in i join mock_baak.students s on s.nrp = i.nrp
    where i.section = 'inbound' and coalesce(i.home_institution, s.home_institution) is null order by i.idx limit 1;
   if found then
     perform realisasi._raise('R17_INBOUND_DATA_REQUIRED',
-      format('Mahasiswa inbound %s wajib memiliki institusi asal dan transkrip (PDF).', r.nrp),
+      format('Mahasiswa inbound %s wajib memiliki institusi asal.', r.nrp),
       jsonb_build_object('rows', jsonb_build_array(jsonb_build_object('section', 'inbound', 'index', r.idx, 'id', r.nrp, 'code', 'R17_INBOUND_DATA_REQUIRED'))));
   end if;
 
@@ -527,12 +523,11 @@ begin
   delete from realisasi.participant_students where set_version_id = v_vid;
   delete from realisasi.participant_staff where set_version_id = v_vid;
   insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
-              home_institution, home_student_number, home_country_code, transcript_path)
+              home_institution, home_student_number, home_country_code)
   select v_vid, i.section::realisasi.student_section, i.nrp, s.full_name, s.faculty_name, s.prodi_name,
          case when i.section = 'inbound' then coalesce(i.home_institution, s.home_institution) end,
          case when i.section = 'inbound' then i.home_student_number end,
-         case when i.section = 'inbound' then coalesce(i.home_country_code, s.home_country_code) end,
-         case when i.section = 'inbound' then i.transcript_path end
+         case when i.section = 'inbound' then coalesce(i.home_country_code, s.home_country_code) end
     from _ps_in i join mock_baak.students s on s.nrp = i.nrp order by i.idx;
   insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
   select v_vid, i.employee_id, e.full_name, e.unit_name from _pst_in i join mock_hr.employees e on e.employee_id = i.employee_id
@@ -553,34 +548,31 @@ end $$;
 create function realisasi._checklist(p_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
-  a realisasi.activities; t realisasi.activity_types;
+  a realisasi.activities;
   v_out jsonb := '[]'::jsonb; v_missing text[] := '{}'; v_bad text; v_list text;
-  v_pset uuid; v_rows int; v_required boolean; v_draft uuid;
+  v_pset uuid; v_rows int; v_mob boolean; v_draft uuid; v_has boolean;
 begin
   select * into a from realisasi.activities where id = p_id;
   if not found then return '[]'::jsonb; end if;
-  select * into t from realisasi.activity_types where id = a.type_id;
+  v_mob := realisasi.agenda_is_mobility(a.agenda_id);
   v_pset := realisasi._relevant_pset(p_id);
   v_draft := realisasi._draft_pset(p_id);
   v_rows := coalesce(realisasi._pset_rows(v_pset), 0);
-  v_required := t.requires_mobility_review or v_rows > 0;
 
   -- R07_REQUIRED_FIELD
   if nullif(btrim(a.name), '') is null then v_missing := v_missing || 'name'::text; end if;
   if nullif(btrim(a.description), '') is null then v_missing := v_missing || 'description'::text; end if;
   if nullif(btrim(a.venue), '') is null then v_missing := v_missing || 'venue'::text; end if;
-  if a.mode <> 'online' and nullif(btrim(a.city), '') is null then v_missing := v_missing || 'city'::text; end if;
   if a.mode <> 'online' and a.country_code is null then v_missing := v_missing || 'country_code'::text; end if;
   v_out := v_out || jsonb_build_object('code', 'R07_REQUIRED_FIELD', 'ok', cardinality(v_missing) = 0,
     'message', case when cardinality(v_missing) = 0 then 'Data wajib sudah lengkap.'
                     else 'Data wajib belum lengkap: ' || array_to_string(v_missing, ', ') || '.' end,
     'fields', to_jsonb(v_missing));
 
-  -- R07_AGREEMENT_REQUIRED
-  v_out := v_out || jsonb_build_object('code', 'R07_AGREEMENT_REQUIRED',
-    'ok', exists (select 1 from realisasi.activity_documents where activity_id = p_id),
-    'message', case when exists (select 1 from realisasi.activity_documents where activity_id = p_id)
-                    then 'Minimal satu kerja sama sudah dipilih.' else 'Pilih minimal satu kerja sama.' end);
+  -- R07_AGREEMENT_REQUIRED (Revisi V.1: exactly one kerja sama)
+  v_has := exists (select 1 from realisasi.activity_documents where activity_id = p_id);
+  v_out := v_out || jsonb_build_object('code', 'R07_AGREEMENT_REQUIRED', 'ok', v_has,
+    'message', case when v_has then 'Kerja sama sudah dipilih.' else 'Pilih kerja sama yang direalisasikan.' end);
 
   -- R04_AGREEMENT_NOT_VALID
   select string_agg(d.doc_number, ', ' order by d.doc_number) into v_bad
@@ -600,31 +592,36 @@ begin
     'message', case when a.academic_year_id is not null then 'Tahun akademik terdaftar.'
                     else 'Tanggal mulai berada di luar tahun akademik yang terdaftar. Hubungi Admin IO.' end);
   -- R07 IA / IR
-  v_out := v_out || jsonb_build_object('code', 'R07_IA_REQUIRED',
-    'ok', exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ia' and is_current),
-    'message', case when exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ia' and is_current)
-                    then 'Implementation Arrangement (PDF) sudah diunggah.' else 'Implementation Arrangement (PDF) wajib diunggah.' end);
-  v_out := v_out || jsonb_build_object('code', 'R07_IR_REQUIRED',
-    'ok', exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ir' and is_current),
-    'message', case when exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ir' and is_current)
-                    then 'Implementation Report (PDF) sudah diunggah.' else 'Implementation Report (PDF) wajib diunggah.' end);
+  v_has := exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ia' and is_current);
+  v_out := v_out || jsonb_build_object('code', 'R07_IA_REQUIRED', 'ok', v_has,
+    'message', case when v_has then 'Implementation Arrangement (PDF) sudah diunggah.' else 'Implementation Arrangement (PDF) wajib diunggah.' end);
+  v_has := exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'ir' and is_current);
+  v_out := v_out || jsonb_build_object('code', 'R07_IR_REQUIRED', 'ok', v_has,
+    'message', case when v_has then 'Implementation Report (PDF) sudah diunggah.' else 'Implementation Report (PDF) wajib diunggah.' end);
+  -- R13 mobility bundle (Revisi V.1 item 8): transkrip + poster + dokumentasi in one PDF
+  v_has := exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'mobility_bundle' and is_current);
+  v_out := v_out || jsonb_build_object('code', 'R13_MOBILITY_BUNDLE_REQUIRED', 'ok', not v_mob or v_has,
+    'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
+                    when v_has then 'Berkas mobilitas (transkrip, poster, dokumentasi) sudah diunggah.'
+                    else 'Kegiatan mobilitas wajib mengunggah Transkrip Mahasiswa, Poster Kegiatan, dan Dokumentasi Kegiatan dalam satu file PDF.' end);
 
   -- R11
-  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED', 'ok', not (v_required and v_rows = 0),
-    'message', case when not (v_required and v_rows = 0) then 'Data peserta sesuai ketentuan jenis kegiatan.'
-                    else 'Jenis kegiatan ini wajib memiliki data peserta.' end);
-  -- R12
+  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED', 'ok', not (v_mob and v_rows = 0),
+    'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
+                    when v_rows > 0 then 'Data peserta sesuai ketentuan jenis kegiatan.'
+                    else 'Kegiatan mobilitas wajib memiliki data peserta.' end);
+  -- R12 (by the kegiatan's Inbound/Outbound choice)
+  v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'internal');
   v_out := v_out || jsonb_build_object('code', 'R12_OUTBOUND_STUDENT_REQUIRED',
-    'ok', t.direction <> 'outbound' or exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'internal'),
-    'message', case when t.direction <> 'outbound' then 'Tidak diperlukan untuk jenis kegiatan ini.'
-                    when exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'internal')
-                    then 'Mahasiswa PETRA sudah tercantum.'
+    'ok', not v_mob or a.direction <> 'outbound' or v_has,
+    'message', case when not v_mob or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_has then 'Mahasiswa PETRA sudah tercantum.'
                     else 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.' end);
+  v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'inbound');
   v_out := v_out || jsonb_build_object('code', 'R12_INBOUND_STUDENT_REQUIRED',
-    'ok', t.direction <> 'inbound' or exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'inbound'),
-    'message', case when t.direction <> 'inbound' then 'Tidak diperlukan untuk jenis kegiatan ini.'
-                    when exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'inbound')
-                    then 'Mahasiswa inbound sudah tercantum.'
+    'ok', not v_mob or a.direction <> 'inbound' or v_has,
+    'message', case when not v_mob or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_has then 'Mahasiswa inbound sudah tercantum.'
                     else 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.' end);
   -- R16
   select string_agg(ps.nrp, ', ' order by ps.id) into v_list from realisasi.participant_students ps
@@ -633,12 +630,10 @@ begin
     'message', case when v_list is null then 'Semua NRP ditemukan di data BAAK.' else format('NRP tidak ditemukan di data BAAK: %s.', v_list) end);
   -- R17
   select string_agg(ps.nrp, ', ' order by ps.id) into v_list from realisasi.participant_students ps
-   where ps.set_version_id = v_pset and ps.section = 'inbound'
-     and (ps.home_institution is null or ps.transcript_path is null
-          or not exists (select 1 from realisasi.file_blobs b where b.path = ps.transcript_path));
+   where ps.set_version_id = v_pset and ps.section = 'inbound' and ps.home_institution is null;
   v_out := v_out || jsonb_build_object('code', 'R17_INBOUND_DATA_REQUIRED', 'ok', v_list is null,
     'message', case when v_list is null then 'Data mahasiswa inbound lengkap.'
-                    else format('Mahasiswa inbound %s wajib memiliki institusi asal dan transkrip (PDF).', v_list) end);
+                    else format('Mahasiswa inbound %s wajib memiliki institusi asal.', v_list) end);
   -- R19
   select string_agg(st.employee_id, ', ' order by st.id) into v_list from realisasi.participant_staff st
    where st.set_version_id = v_pset and not exists (select 1 from mock_hr.employees e where e.employee_id = st.employee_id);
@@ -646,8 +641,8 @@ begin
     'message', case when v_list is null then 'Semua ID pegawai ditemukan di data SDM.' else format('ID pegawai tidak ditemukan di data SDM: %s.', v_list) end);
   -- R21
   v_out := v_out || jsonb_build_object('code', 'R21_NEW_VERSION_REQUIRED',
-    'ok', not (a.mobility_status = 'revision_requested' and v_draft is null),
-    'message', case when a.mobility_status <> 'revision_requested' then 'Tidak diperlukan.'
+    'ok', not (v_mob and a.mobility_status = 'revision_requested' and v_draft is null),
+    'message', case when not v_mob or a.mobility_status <> 'revision_requested' then 'Tidak diperlukan.'
                     when v_draft is not null then 'Versi peserta baru sudah dibuat.'
                     else 'Perbarui data peserta (versi baru) sebelum mengajukan ulang.' end);
 
@@ -668,55 +663,74 @@ begin
   return realisasi._checklist(p_id);
 end $$;
 
--- Duplicate scan (R-33), internal --------------------------------------------------
-create function realisasi._scan_duplicates(p_activity uuid) returns int
+-- Student conflicts (Revisi V.1, Verifikasi Mobilitas rule 2.1), internal ----------------------------------------
+-- Students an activity claims: the counting section (internal for outbound, inbound for inbound) of its approved
+-- participant version, else of its pending one. Drafts and non-mobility activities claim nobody.
+create function realisasi._claimed_nrps(p_activity uuid) returns setof text
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select s.nrp
+    from realisasi.activities a
+    join lateral (select v.id from realisasi.participant_set_versions v
+                   where v.activity_id = a.id and v.status in ('approved','pending')
+                   order by (v.status = 'approved') desc, v.version desc limit 1) v on true
+    join realisasi.participant_students s on s.set_version_id = v.id
+         and s.section = case when a.direction = 'outbound' then 'internal' else 'inbound' end::realisasi.student_section
+   where a.id = p_activity and a.status <> 'draft' and realisasi.agenda_is_mobility(a.agenda_id)
+$$;
+
+-- (Re)scan one activity: an open conflict for every claimed NRP that another unit's non-draft activity with
+-- overlapping dates also claims. The same unit on two activities is never a conflict (rule 2.2). Open conflicts
+-- that no longer hold (student removed, dates/unit changed) are dropped; resolved ones are kept as decided.
+create function realisasi._scan_conflicts(p_activity uuid) returns int
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_w int := coalesce(realisasi.setting_int('dup_date_window_days'), 3);
-        v_t numeric := coalesce(realisasi.setting_num('dup_name_similarity'), 0.5);
-        r record; n int := 0; c int;
+declare n int := 0; v_code text;
 begin
-  -- serialise scans per renewal chain so two concurrent submits on one chain see each other (L3)
-  for c in select distinct chain_id from realisasi.activity_documents where activity_id = p_activity order by 1 loop
-    perform pg_advisory_xact_lock(hashtext('realisasi.dup_scan'), c);
-  end loop;
-  for r in
-    with ins as (
-      insert into realisasi.duplicate_candidates (activity_a, activity_b, score)
-      select least(a.id, b.id), greatest(a.id, b.id), round(similarity(lower(a.name), lower(b.name))::numeric, 2)
-        from realisasi.activities a
-        join realisasi.activities b on b.id <> a.id and b.event_group_id <> a.event_group_id
-                                   and b.status not in ('draft','rejected')
-       where a.id = p_activity
-         and a.status not in ('draft','rejected')
-         and exists (select 1 from realisasi.activity_documents x join realisasi.activity_documents y on y.chain_id = x.chain_id
-                      where x.activity_id = a.id and y.activity_id = b.id)
-         and a.start_date <= b.end_date + v_w and b.start_date <= a.end_date + v_w
-         and similarity(lower(a.name), lower(b.name)) >= v_t
-      on conflict (activity_a, activity_b) do nothing
-      returning id, activity_a, activity_b)
-    select ins.id, (select code from realisasi.activities where id = p_activity) as code from ins
-  loop
-    n := n + 1;
-    perform realisasi._notify_team('partnership', 'duplicate_candidate', 'Kemungkinan duplikat: ' || r.code,
-      'Kegiatan ' || r.code || ' mirip dengan kegiatan lain pada kerja sama yang sama.', '/realisasi/verifikasi/duplikat');
-  end loop;
+  -- serialise scans so two concurrent submits claiming the same students see each other
+  perform pg_advisory_xact_lock(hashtext('realisasi.conflict_scan'));
+  if to_regclass('pg_temp._cf_pairs') is null then
+    create temp table _cf_pairs (nrp text, a uuid, b uuid) on commit drop;
+  end if;
+  truncate _cf_pairs;
+  insert into _cf_pairs
+  select x.nrp, least(me.id, o.id), greatest(me.id, o.id)
+    from realisasi.activities me
+    join realisasi.activities o on o.id <> me.id and o.status <> 'draft'
+                               and o.submitter_unit_id <> me.submitter_unit_id
+                               and o.start_date <= me.end_date and me.start_date <= o.end_date
+    cross join lateral (select realisasi._claimed_nrps(me.id) as nrp) x
+   where me.id = p_activity
+     and x.nrp in (select realisasi._claimed_nrps(o.id));
+
+  delete from realisasi.participant_conflicts c
+   where c.status = 'open' and (c.activity_a = p_activity or c.activity_b = p_activity)
+     and not exists (select 1 from _cf_pairs p where p.nrp = c.nrp and p.a = c.activity_a and p.b = c.activity_b);
+
+  insert into realisasi.participant_conflicts (nrp, activity_a, activity_b, created_at)
+  select nrp, a, b, realisasi.now_ts() from _cf_pairs
+  on conflict (nrp, activity_a, activity_b) do nothing;
+  get diagnostics n = row_count;
+
+  if n > 0 then
+    select code into v_code from realisasi.activities where id = p_activity;
+    perform realisasi._notify_team('mobility', 'conflict_found', 'Duplikat mahasiswa: ' || v_code,
+      format('%s mahasiswa pada kegiatan %s juga diklaim unit lain pada tanggal yang sama. Pilih kegiatan yang diakui.', n, v_code),
+      '/realisasi/verifikasi/mobilitas#duplikat');
+  end if;
   return n;
 end $$;
 
 -- submit_activity -------------------------------------------------------------------
+-- Revisi V.1: no Partnership verification. A non-mobility kegiatan is verified on submit; a mobility kegiatan goes to
+-- the Mobility queue (pending) and is scanned for student conflicts.
 create function realisasi.submit_activity(p_id uuid) returns jsonb
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare
-  v_uid uuid := realisasi._require_uid(); a realisasi.activities; t realisasi.activity_types;
-  v_check jsonb; v_fail jsonb; v_draft uuid; v_required boolean; v_dups int := 0;
-  v_p_rev boolean; v_m_rev boolean; v_new_m realisasi.track_status; v_promote boolean := false;
-  v_rev_at timestamptz; v_type_before int; v_notify_m boolean := false; v_ts timestamptz := realisasi.now_ts();
+  v_uid uuid := realisasi._require_uid(); a realisasi.activities;
+  v_check jsonb; v_fail jsonb; v_draft uuid; v_mob boolean; v_conf int := 0; v_ts timestamptz := realisasi.now_ts();
 begin
   a := realisasi._get_activity(p_id);
   if not realisasi._is_unit_editor(p_id) then perform realisasi._forbidden(); end if;
-  v_p_rev := a.partnership_status = 'revision_requested';
-  v_m_rev := a.mobility_status = 'revision_requested';
-  if not (a.status = 'draft' or (a.status = 'revision_requested' and (v_p_rev or v_m_rev))) then
+  if not (a.status = 'draft' or (a.status = 'revision_requested' and a.mobility_status = 'revision_requested')) then
     perform realisasi._state_invalid();
   end if;
 
@@ -727,95 +741,42 @@ begin
     perform realisasi._raise(v_fail -> 0 ->> 'code', v_fail -> 0 ->> 'message', jsonb_build_object('failures', v_fail));
   end if;
 
-  select * into t from realisasi.activity_types where id = a.type_id;
+  v_mob := realisasi.agenda_is_mobility(a.agenda_id);
   v_draft := realisasi._draft_pset(p_id);
 
+  if v_mob then
+    -- an older version still pending is replaced by the new one (one_pending_pset)
+    update realisasi.participant_set_versions set status = 'superseded'
+     where activity_id = p_id and status = 'pending' and id <> v_draft;
+    update realisasi.participant_set_versions set status = 'pending', submitted_by = v_uid, submitted_at = v_ts where id = v_draft;
+  elsif v_draft is not null then
+    delete from realisasi.participant_students where set_version_id = v_draft;
+    delete from realisasi.participant_staff where set_version_id = v_draft;
+    delete from realisasi.participant_set_versions where id = v_draft;
+  end if;
+
+  update realisasi.activities
+     set submitted_at = coalesce(submitted_at, v_ts),
+         mobility_status = case when v_mob then 'pending' else 'not_required' end::realisasi.track_status,
+         mobility_since = v_ts
+   where id = p_id;
+
   if a.status = 'draft' then
-    v_required := t.requires_mobility_review or coalesce(realisasi._pset_rows(v_draft), 0) > 0;
-    if v_required then
-      update realisasi.participant_set_versions set status = 'pending', submitted_by = v_uid, submitted_at = v_ts where id = v_draft;
-    elsif v_draft is not null then
-      delete from realisasi.participant_set_versions where id = v_draft;
-    end if;
-    update realisasi.activities
-       set submitted_at = v_ts, partnership_status = 'pending', partnership_since = v_ts,
-           mobility_status = case when v_required then 'pending' else 'not_required' end::realisasi.track_status,
-           mobility_since = v_ts
-     where id = p_id;
     perform realisasi._log(p_id, 'system', null, 'submit');
-    perform realisasi._notify_team('partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
-      'Kegiatan "' || a.name || '" diajukan untuk verifikasi kemitraan.', '/realisasi/verifikasi/kemitraan');
-    if v_required then
-      perform realisasi._notify_team_except('mobility', 'partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
-        'Kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
-    end if;
-    v_dups := realisasi._scan_duplicates(p_id);
   else
-    v_new_m := a.mobility_status;
-    if v_p_rev then
-      -- R-24: did the revision change Jenis Kegiatan?
-      select max(created_at) into v_rev_at from realisasi.activity_log
-       where activity_id = p_id and track = 'partnership' and action = 'request_revision';
-      select (l.diff -> 'type_id' ->> 0)::int into v_type_before from realisasi.activity_log l
-       where l.activity_id = p_id and l.action = 'edit_detail' and l.diff ? 'type_id'
-         and (v_rev_at is null or l.created_at >= v_rev_at)
-       order by l.created_at, l.id limit 1;
-      if v_type_before is not null and v_type_before <> a.type_id then
-        v_required := t.requires_mobility_review
-                      or coalesce(realisasi._pset_rows(coalesce(v_draft, realisasi._relevant_pset(p_id))), 0) > 0;
-        if v_required then
-          if v_draft is null then v_draft := realisasi._copy_pset_to_draft(p_id); end if;
-          v_promote := true; v_new_m := 'pending';
-        elsif not v_m_rev then
-          v_new_m := 'not_required';
-          if v_draft is not null then delete from realisasi.participant_set_versions where id = v_draft; v_draft := null; end if;
-        end if;
-      elsif v_draft is not null then
-        if realisasi._pset_rows(v_draft) > 0 or t.requires_mobility_review then
-          v_promote := true; v_new_m := 'pending';
-        elsif not v_m_rev then
-          delete from realisasi.participant_set_versions where id = v_draft; v_draft := null;
-        end if;
-      end if;
-    end if;
-    if v_m_rev then
-      if v_draft is null then
-        perform realisasi._raise('R21_NEW_VERSION_REQUIRED', 'Perbarui data peserta (versi baru) sebelum mengajukan ulang.');
-      end if;
-      v_promote := true; v_new_m := 'pending';
-    end if;
-    if v_promote then
-      -- an older version still pending is replaced by the new one (H4/L2; one_pending_pset)
-      update realisasi.participant_set_versions set status = 'superseded'
-       where activity_id = p_id and status = 'pending' and id <> v_draft;
-      update realisasi.participant_set_versions set status = 'pending', submitted_by = v_uid, submitted_at = v_ts where id = v_draft;
-      v_notify_m := true;
-    end if;
-    update realisasi.activities
-       set partnership_status = case when v_p_rev then 'pending'::realisasi.track_status else partnership_status end,
-           partnership_since  = case when v_p_rev then v_ts else partnership_since end,
-           mobility_status    = v_new_m,
-           mobility_since     = case when v_new_m is distinct from a.mobility_status or v_promote then v_ts else mobility_since end
-     where id = p_id;
-    if v_p_rev then
-      perform realisasi._log(p_id, 'revision', 'partnership', 'resubmit');
-      perform realisasi._notify_team('partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
-        'Kegiatan "' || a.name || '" diajukan ulang setelah revisi.', '/realisasi/verifikasi/kemitraan');
-    end if;
-    if v_m_rev or (v_promote and not v_m_rev) then
-      perform realisasi._log(p_id, 'revision', 'mobility', 'resubmit');
-    end if;
-    if v_notify_m and v_p_rev then
-      perform realisasi._notify_team_except('mobility', 'partnership', 'submission_received', 'Pengajuan baru: ' || a.code,
-        'Data peserta kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
-    elsif v_notify_m then
-      perform realisasi._notify_team('mobility', 'submission_received', 'Pengajuan baru: ' || a.code,
-        'Data peserta kegiatan "' || a.name || '" diajukan untuk verifikasi mobilitas.', '/realisasi/verifikasi/mobilitas');
-    end if;
-    -- name/date/agreement may have changed in the revision: rescan (L3)
-    if v_p_rev then v_dups := realisasi._scan_duplicates(p_id); end if;
+    perform realisasi._log(p_id, 'revision', 'mobility', 'resubmit');
+  end if;
+
+  if v_mob then
+    perform realisasi._notify_team('mobility', 'submission_received',
+      case when a.status = 'draft' then 'Perlu diverifikasi: ' else 'Revisi diajukan: ' end || a.code,
+      'Kegiatan "' || a.name || '" menunggu Verifikasi Mobilitas.', '/realisasi/verifikasi/mobilitas');
+    v_conf := realisasi._scan_conflicts(p_id);
+  else
+    perform realisasi._notify_unit(a.submitter_unit_id, 'activity_verified', 'Kegiatan tercatat: ' || a.code,
+      'Kegiatan "' || a.name || '" sudah tercatat dan dihitung dalam capaian Renstra.', '/realisasi/kegiatan/' || a.id);
   end if;
 
   select * into a from realisasi.activities where id = p_id;
-  return realisasi._status_result(p_id) || jsonb_build_object('is_late', a.is_late, 'duplicates_found', v_dups);
+  return realisasi._status_result(p_id) || jsonb_build_object('is_late', a.is_late, 'conflicts_found', v_conf);
 end $$;

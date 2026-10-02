@@ -14,7 +14,7 @@ begin
   end loop;
   if to_regprocedure('auth.uid()') is null then missing := missing || 'function auth.uid()'::text; end if;
   foreach t in array array['unit','jenis_unit','negara','partner','proposal_dokumen','dokumen_kerja_sama',
-                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun'] loop
+                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun','agenda'] loop
     if to_regclass('public.' || t) is null then missing := missing || ('table public.' || t); end if;
   end loop;
   if cardinality(missing) > 0 then

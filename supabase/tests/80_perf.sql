@@ -22,10 +22,10 @@ select gen_random_uuid() as nid, gen_random_uuid() as ngrp, s.id as sid, k, s.rn
   from _src s cross join generate_series(1, (6200 / (select count(*) from _src))::int + 1) k
  limit 6200;
 insert into realisasi.event_groups (id) select ngrp from _map;
-insert into realisasi.activities (id, code, name, type_id, start_date, end_date, mode, venue, city, country_code, description,
-       submitter_unit_id, created_by, submitted_at, verified_at, partnership_status, mobility_status, event_group_id, partnership_since, mobility_since)
-select m.nid, 'X-'||m.k||'-'||m.rn, a.name||' '||m.k, a.type_id, a.start_date, a.end_date, a.mode, a.venue, a.city, a.country_code, a.description,
-       1000 + (m.k*7+m.rn)%50, a.created_by, a.submitted_at, a.verified_at, 'approved', a.mobility_status, m.ngrp, a.partnership_since, a.mobility_since
+insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code, description,
+       submitter_unit_id, created_by, submitted_at, verified_at, mobility_status, event_group_id, mobility_since)
+select m.nid, 'X-'||m.k||'-'||m.rn, a.name||' '||m.k, a.agenda_id, a.direction, a.start_date, a.end_date, a.mode, a.venue, a.country_code, a.description,
+       1000 + (m.k*7+m.rn)%50, a.created_by, a.submitted_at, a.verified_at, a.mobility_status, m.ngrp, a.mobility_since
   from _map m join realisasi.activities a on a.id = m.sid;
 insert into realisasi.activity_units select m.nid, 1000 + (m.k*7+m.rn)%50, true from _map m;
 insert into realisasi.activity_documents (activity_id, original_document_id)
@@ -57,7 +57,9 @@ select pg_temp.ok(not exists (
 
 -- H6 timings (scaled: baseline was ~6 s for the dashboard, ~3 s for compute_kpis)
 :as_admin
-select pg_temp.ok(pg_temp.ms($$select realisasi.dashboard(2, 'live', null)$$) < 2500, 'H6 admin dashboard < 2.5 s on the scaled copy (was ~6 s)');
+select pg_temp.ok(pg_temp.ms($$select realisasi.dashboard(2, 'ytd', null)$$) < 2500, 'H6 admin dashboard < 2.5 s on the scaled copy (was ~6 s)');
+select pg_temp.ok(pg_temp.ms($$select realisasi.international_awards(1, 'full', null)$$) < 2500, 'International Awards < 2.5 s on the scaled copy');
+select pg_temp.ok(pg_temp.ms($$select count(*) from realisasi.v_activity_list$$) < 500, 'v_activity_list as admin < 500 ms');
 select pg_temp.ok(pg_temp.ms($$select realisasi.agreement_flags(1)$$) < 100, 'H6 agreement_flags < 100 ms');
 reset role;
 select pg_temp.ok(pg_temp.ms($$select realisasi.compute_kpis('2025-08-01', '2026-07-31', '2026-08-30', 1)$$) < 1500, 'H6 compute_kpis (full year, all units) < 1.5 s (was ~3 s)');

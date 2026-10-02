@@ -92,11 +92,19 @@ select pg_temp.throws($$select realisasi.save_activity_draft(null, '{"name":"x"}
 reset role;
 update public.akun set is_active = true where id = 4;
 
+-- ---- Revisi V.1: agendas (Jenis Kegiatan) and Unit Akademik ---------------------------------------------------------
+select pg_temp.eq((select count(*) from kerjasama.agendas), (select count(*) from public.agenda where not is_amendment), 'agendas = SIMKS agenda minus amendment');
+select pg_temp.eq((select name from kerjasama.agendas where id = 23), 'Short Program', 'agenda name');
+select pg_temp.ok(not (select is_active from kerjasama.agendas where id = 3), 'inactive agenda flagged');
+select pg_temp.eq((select array_agg(id order by id) from kerjasama.units where is_academic),
+                  (select array_agg(id order by id) from public.unit where id_jenis_unit = 1), 'is_academic = jenis_unit 1');
+select pg_temp.ok(not (select is_academic from kerjasama.units where id = 2), 'International Office is not academic');
+
 -- ---- RPC validation replaces the dropped FKs ------------------------------------------------------------------------
 create function pg_temp.payload(p_extra jsonb default '{}') returns jsonb language sql as $$
-  select '{"name":"Uji Adapter","type_id":5,"start_date":"2026-09-01","end_date":"2026-09-05","mode":"offline","venue":"PCU",
-           "city":"Surabaya","country_code":"ID","funding_source":"pcu","description":"Uji adapter.","submitter_unit_id":10,
-           "co_unit_ids":[],"document_ids":[101],"sdg_ids":[4],"external_persons":[]}'::jsonb || p_extra $$;
+  select '{"name":"Uji Adapter","agenda_id":4,"direction":"inbound","start_date":"2026-09-01","end_date":"2026-09-05","mode":"offline",
+           "venue":"PCU","country_code":"ID","description":"Uji adapter.","submitter_unit_id":10,
+           "co_unit_ids":[],"document_id":101,"sdg_ids":[4],"external_persons":[]}'::jsonb || p_extra $$;
 grant execute on function pg_temp.payload(jsonb) to authenticated;
 :as_fti
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"co_unit_ids":[424242]}'))$$, 'VALIDATION_INVALID',
@@ -104,7 +112,9 @@ select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.paylo
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"country_code":"IDN"}'))$$, 'VALIDATION_INVALID',
                       'alpha-3 country code rejected (alpha-2 only)');
 select pg_temp.ok(realisasi.save_activity_draft(null, pg_temp.payload()) is not null, 'valid ids accepted');
-select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"document_ids":[424242]}'))$$, 'R04_AGREEMENT_NOT_VALID',
+select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":424242}'))$$, 'VALIDATION_INVALID',
+                      'unknown agenda rejected without an FK');
+select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"document_id":424242}'))$$, 'R04_AGREEMENT_NOT_VALID',
                       'unknown document rejected');
 reset role;
 select pg_temp.ok(pg_temp.err(format($$insert into realisasi.activity_documents (activity_id, original_document_id) values (%L, 424242)$$,
@@ -119,15 +129,15 @@ select pg_temp.ok(exists (select 1 from pg_constraint k where k.conrelid = c.att
 select pg_temp.ok(not has_table_privilege('authenticated', 'public.' || t, 'SELECT') and not has_table_privilege('anon', 'public.' || t, 'SELECT'),
                   'no API-role grant on SIMKS public.' || t)
   from unnest(array['unit','jenis_unit','negara','partner','proposal_dokumen','dokumen_kerja_sama','partner_pengusul',
-                    'proposal_dokumen_unit','jabatan','akun']) t;
+                    'proposal_dokumen_unit','jabatan','akun','agenda']) t;
 select pg_temp.ok(not has_table_privilege('authenticated', t, 'SELECT'), 'no grant on ' || t)
   from unnest(array['kerjasama.iso3166', 'realisasi.account_roles', 'realisasi.document_overrides']) t;
 select pg_temp.ok(not has_table_privilege('anon', 'kerjasama.' || v, 'SELECT') and has_table_privilege('authenticated', 'kerjasama.' || v, 'SELECT'),
                   'kerjasama.' || v || ': authenticated only')
-  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles']) v;
+  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles','agendas']) v;
 select pg_temp.ok(not coalesce((select reloptions from pg_class where oid = ('kerjasama.' || v)::regclass) @> array['security_invoker=true'], false),
                   'kerjasama.' || v || ' reads with the owner''s rights')
-  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles']) v;
+  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles','agendas']) v;
 create temp table _cnt as
 select (select count(*) from public.dokumen_kerja_sama) d, (select count(*) from public.unit) u, (select count(*) from public.partner) p;
 grant select on _cnt to authenticated;
@@ -146,7 +156,7 @@ reset role;
 -- tables of supabase/local/00_simks_stub.sql (+ their indexes) and the jenis_kerjasama enum.
 create temp table _simks(name text);
 insert into _simks values ('unit'),('jenis_unit'),('negara'),('partner'),('proposal_dokumen'),('dokumen_kerja_sama'),
-  ('partner_pengusul'),('proposal_dokumen_unit'),('jabatan'),('akun');
+  ('partner_pengusul'),('proposal_dokumen_unit'),('jabatan'),('akun'),('agenda');
 select pg_temp.eq((select string_agg(c.relname, ',' order by c.relname) from pg_class c
                     where c.relnamespace = 'public'::regnamespace and c.relkind in ('r','v','m','f','p','S')
                       and c.relname not in (select name from _simks)
