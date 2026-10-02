@@ -43,7 +43,8 @@ test.beforeAll(() => {
 test('ua-fti: one-page mobility kegiatan, AT-10 unknown NRP blocks, PDF bundle, submit → Mobility queue', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFti);
   await page.goto('/realisasi/kegiatan/baru');
-  await expect(page.getByText('Tersedia setelah Detail disimpan sebagai draf.').first()).toBeVisible();
+  await expect(page.getByText('Pratinjau: bagian ini dapat diisi setelah Detail disimpan sebagai draf.').first()).toBeVisible();
+  await expect(page.getByTestId('wizard-submit')).toBeDisabled();
 
   await fillDetail(page, { name: 'Student Exchange Uji E2E', agenda: 'Student Exchange', direction: 'outbound', country: 'JP' });
   await expect(page.getByTestId('type-helper')).toContainText('Kegiatan mobilitas');
