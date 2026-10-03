@@ -1,0 +1,204 @@
+<title>SIM Realisasi Data Model</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: reading column for text; the ERD breaks out into a pannable sheet; dictionary is a filterable stack of table cards */
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --sheet:#FBFCFD; --fg:#18222D; --muted:#5B6877; --line:#D5DCE3; --grid:#E8EDF2;
+  --accent:#1F6FB2;
+  --d-simks:#6E7B8A; --d-activity:#1F6FB2; --d-participant:#1B8A6B; --d-calendar:#B7791F; --d-ops:#7A5BA6;
+  --d-simks-bg:#EEF1F4; --d-activity-bg:#E4EFF9; --d-participant-bg:#E2F3ED; --d-calendar-bg:#FBF0DC; --d-ops-bg:#EFE9F7;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161C; --surface:#18202A; --sheet:#141B23; --fg:#E3E9EF; --muted:#98A6B5; --line:#2B3642; --grid:#1D2630;
+  --accent:#6FB0E8;
+  --d-simks:#93A1B0; --d-activity:#6FB0E8; --d-participant:#5CC7A3; --d-calendar:#E0A94E; --d-ops:#B39AD9;
+  --d-simks-bg:#202932; --d-activity-bg:#16293B; --d-participant-bg:#132D26; --d-calendar-bg:#2E2414; --d-ops-bg:#251E33;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161C; --surface:#18202A; --sheet:#141B23; --fg:#E3E9EF; --muted:#98A6B5; --line:#2B3642; --grid:#1D2630;
+  --accent:#6FB0E8;
+  --d-simks:#93A1B0; --d-activity:#6FB0E8; --d-participant:#5CC7A3; --d-calendar:#E0A94E; --d-ops:#B39AD9;
+  --d-simks-bg:#202932; --d-activity-bg:#16293B; --d-participant-bg:#132D26; --d-calendar-bg:#2E2414; --d-ops-bg:#251E33;
+  color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 64px;display:grid;gap:44px}
+header.top{display:grid;gap:10px;max-width:74ch}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:0;text-wrap:balance}
+h2{font-size:22px;margin:0;text-wrap:balance}
+h3{font-size:16px;margin:0;font-family:var(--mono);font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:14px;color:var(--muted)}
+.stats b{color:var(--fg);font-variant-numeric:tabular-nums}
+section{display:grid;gap:16px}
+.sec-head{display:grid;gap:6px;max-width:80ch}
+
+/* legend + ERD sheet */
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.d-simks.dot{background:var(--d-simks)} .d-activity.dot{background:var(--d-activity)} .d-participant.dot{background:var(--d-participant)}
+.d-calendar.dot{background:var(--d-calendar)} .d-ops.dot{background:var(--d-ops)}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:80vh;
+  background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:18px 18px}
+.sheet svg{display:block}
+.hint{font-size:12.5px;color:var(--muted)}
+#erd .box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+#erd .ent.view .box{stroke-dasharray:5 3}
+#erd .hdr{stroke:none}
+#erd .d-simks .hdr{fill:var(--d-simks-bg)} #erd .d-activity .hdr{fill:var(--d-activity-bg)} #erd .d-participant .hdr{fill:var(--d-participant-bg)}
+#erd .d-calendar .hdr{fill:var(--d-calendar-bg)} #erd .d-ops .hdr{fill:var(--d-ops-bg)}
+#erd .d-simks .box{stroke:var(--d-simks)} #erd .d-activity .box{stroke:var(--d-activity)} #erd .d-participant .box{stroke:var(--d-participant)}
+#erd .d-calendar .box{stroke:var(--d-calendar)} #erd .d-ops .box{stroke:var(--d-ops)}
+#erd text{font-family:var(--mono);font-size:11px;fill:var(--fg)}
+#erd .tn{font-weight:600;font-size:12.5px}
+#erd .sc{fill:var(--muted);font-size:10px;font-family:var(--sans)}
+#erd .ct{fill:var(--muted);font-size:10.5px}
+#erd .cn.pk{font-weight:600}
+#erd .kb{font-size:8.5px;font-weight:600;font-family:var(--sans)}
+#erd .kpk{fill:var(--d-calendar)} #erd .kfk{fill:var(--d-activity)} #erd .klfk{fill:var(--d-simks)} #erd .kuq{fill:var(--d-participant)}
+#erd .ln{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-linejoin:round}
+#erd .mk{fill:none;stroke:var(--muted);stroke-width:1.2}
+#erd .lfk .ln{stroke-dasharray:5 4}
+#erd .rel.hot .ln,#erd .rel.hot .mk{stroke:var(--accent);stroke-width:2.2}
+#erd.focus .rel:not(.hot){opacity:.18}
+#erd.focus .ent:not(.hot){opacity:.35}
+#erd .ent{cursor:pointer}
+#erd .ent:focus-visible .box{stroke-width:3}
+
+/* dictionary */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;position:sticky;top:env(safe-area-inset-top,0px);z-index:2;
+  background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+.controls input{flex:1 1 240px;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.controls input:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chip{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.dict{display:grid;gap:18px}
+.tbl-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:10px;scroll-margin-top:80px;min-width:0}
+.tbl-card:target{box-shadow:0 0 0 2px var(--accent)}
+.tbl-card header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.tbl-card .schema{color:var(--muted);font-weight:400}
+.tbl-card .dom{font-size:12px;color:var(--muted);margin-left:auto}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+.tbl-card table{min-width:720px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+code{font-family:var(--mono);font-size:12.5px}
+.c-name{white-space:nowrap} .c-type{white-space:nowrap;color:var(--muted)} .c-null{color:var(--muted);width:3.5em}
+.c-key{white-space:nowrap;width:7em}
+.k{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:3px;border:1px solid}
+.k-pk{color:var(--d-calendar);border-color:var(--d-calendar)} .k-fk{color:var(--d-activity);border-color:var(--d-activity)}
+.k-lfk{color:var(--d-simks);border-color:var(--d-simks);border-style:dashed} .k-uq{color:var(--d-participant);border-color:var(--d-participant)}
+a.ref{color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;white-space:nowrap}
+a.ref:hover{text-decoration:underline}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+.panel table{min-width:620px}
+ul.plain{margin:0;padding-left:20px;display:grid;gap:8px;max-width:84ch}
+.empty{padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">PostgreSQL · schemas realisasi, kerjasama, mock_baak, mock_hr</div>
+  <h1>SIM Realisasi Data Model</h1>
+  <p class="muted">Entity relationship diagram and data dictionary, transcribed from <code>supabase/migrations</code> (0001–0002) and the business rules in Rules.md v1.1. SIM Kerjasama data is reached only through read-only views; Realisasi never writes SIMKS tables.</p>
+  <div class="stats"><span><b>%%N_TABLES%%</b> tables &amp; views</span><span><b>%%N_COLS%%</b> columns</span><span><b>%%N_RELS%%</b> relationships</span><span><b>%%N_ENUMS%%</b> enum types</span></div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <h2>Entity relationship diagram</h2>
+    <p class="muted">Crow's foot notation: the forked end is the many side. Dashed lines are logical references to SIM Kerjasama views or the mock registries, checked by the RPCs because views cannot be foreign-key targets.</p>
+  </div>
+  <div class="legend">
+    <span><span class="dot d-simks"></span>SIM Kerjasama views</span>
+    <span><span class="dot d-activity"></span>Kegiatan</span>
+    <span><span class="dot d-participant"></span>Peserta &amp; verifikasi</span>
+    <span><span class="dot d-calendar"></span>Kalender, konfigurasi &amp; RENSTRA</span>
+    <span><span class="dot d-ops"></span>Operasional &amp; mock</span>
+    <span><svg width="44" height="14" aria-hidden="true"><path d="M2 7 H42" stroke="currentColor" stroke-width="1.3"/></svg>foreign key</span>
+    <span><svg width="44" height="14" aria-hidden="true"><path d="M2 7 H42" stroke="currentColor" stroke-width="1.3" stroke-dasharray="5 4"/></svg>logical reference</span>
+  </div>
+  <div class="sheet" id="sheet">%%ERD%%</div>
+  <p class="hint">Hover or focus a table to trace its relationships; click it to open its dictionary entry. Every uuid actor column (created_by, actor_id, reviewed_by…) points at <code>kerjasama.profiles.id</code>; those lines are left out to keep the diagram readable.</p>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Data dictionary</h2>
+    <p class="muted">Key badges: <span class="k k-pk">PK</span> primary key, <span class="k k-fk">FK</span> foreign key, <span class="k k-lfk">FK*</span> logical reference without a database constraint, <span class="k k-uq">UQ</span> part of a unique constraint.</p>
+  </div>
+  <div class="controls">
+    <input id="q" type="search" aria-label="Search the data dictionary" placeholder="Search tables, columns, descriptions (e.g. nrp, verified_at, R-33)" autocomplete="off">
+    %%CHIPS%%
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="dict" id="dict">%%DICT%%</div>
+  <p class="empty" id="empty" hidden>No table matches. Clear the search or the domain filter.</p>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Enum types</h2><p class="muted">All in schema <code>realisasi</code>.</p></div>
+  <div class="panel"><table><thead><tr><th>Type</th><th>Values</th><th>Meaning</th></tr></thead><tbody>%%ENUMS%%</tbody></table></div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Views &amp; rules held by the schema</h2></div>
+  <ul class="plain">
+    %%VIEWS%%
+    <li><b>One agreement per kegiatan:</b> unique index <code>one_agreement_per_activity</code> on activity_documents (R-03).</li>
+    <li><b>One current IA, IR and mobility PDF:</b> partial unique index <code>one_current_ia_ir</code> on activity_files.</li>
+    <li><b>One approved, one draft, one pending participant version</b> per kegiatan: partial unique indexes on participant_set_versions (R-21).</li>
+    <li><b>Conflict pairs are ordered and decided consistently:</b> <code>activity_a &lt; activity_b</code>; <code>kept_activity_id</code> is set exactly when resolved and must be one of the pair (R-33, R-34).</li>
+    <li><b>One live snapshot</b> per academic year and kind: partial unique index <code>one_live_snapshot</code> where <code>superseded_by is null</code> (R-58).</li>
+    <li><b>Files max 10 MB</b> and stored under their bucket path (file_blobs checks).</li>
+  </ul>
+</section>
+</div>
+<script>
+(function(){
+  var erd=document.getElementById('erd');
+  var rels=[].slice.call(erd.querySelectorAll('.rel'));
+  var ents=[].slice.call(erd.querySelectorAll('.ent'));
+  function focus(t){
+    erd.classList.add('focus');
+    var linked={}; linked[t]=1;
+    rels.forEach(function(r){var on=r.dataset.a===t||r.dataset.b===t;r.classList.toggle('hot',on);if(on){linked[r.dataset.a]=1;linked[r.dataset.b]=1;}});
+    ents.forEach(function(e){e.classList.toggle('hot',!!linked[e.dataset.t]);});
+  }
+  function clear(){erd.classList.remove('focus');rels.forEach(function(r){r.classList.remove('hot')});ents.forEach(function(e){e.classList.remove('hot')});}
+  ents.forEach(function(e){
+    e.addEventListener('mouseenter',function(){focus(e.dataset.t)});
+    e.addEventListener('mouseleave',clear);
+    e.addEventListener('focus',function(){focus(e.dataset.t)});
+    e.addEventListener('blur',clear);
+    e.addEventListener('click',function(){var q=document.getElementById('q');q.value='';active=null;chips.forEach(function(c){c.setAttribute('aria-pressed','false')});apply();});
+  });
+
+  var cards=[].slice.call(document.querySelectorAll('.tbl-card'));
+  var chips=[].slice.call(document.querySelectorAll('.chip'));
+  var q=document.getElementById('q'), active=null;
+  function apply(){
+    var term=q.value.trim().toLowerCase(), shown=0;
+    cards.forEach(function(c){
+      var ok=(!active||c.dataset.dom===active)&&(!term||c.dataset.search.indexOf(term)>-1);
+      c.hidden=!ok; if(ok)shown++;
+    });
+    document.getElementById('count').textContent=shown+' of '+cards.length+' tables';
+    document.getElementById('empty').hidden=shown>0;
+  }
+  q.addEventListener('input',apply);
+  chips.forEach(function(ch){ch.addEventListener('click',function(){
+    active=active===ch.dataset.dom?null:ch.dataset.dom;
+    chips.forEach(function(c){c.setAttribute('aria-pressed',String(c.dataset.dom===active))});
+    apply();
+  })});
+  apply();
+})();
+</script>
