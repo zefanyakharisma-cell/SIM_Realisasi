@@ -537,6 +537,8 @@ export interface PeriodInfo {
   frozen_at: Timestamp | null;
   frozen_by_name: string | null;
   today: DateString;
+  /** The active academic year (contains today); YTD is offered only for it. */
+  current_ay_id: number | null;
   academic_years: Array<{ id: number; label: string }>;
 }
 

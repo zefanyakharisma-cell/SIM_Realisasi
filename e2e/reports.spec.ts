@@ -26,10 +26,16 @@ test('AT-01: the summer program claimed by FTI and Prodi Informatika counts once
   await expect(page.getByTestId('kpi-card-1.1')).toContainText('Outbound 0');
 });
 
-test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD; RENSTRA wording; no S8', async ({ page }) => {
+test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD (active year only); RENSTRA wording; no S8', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
-  await page.goto('/realisasi?ay=1&period=ganjil');
+  await page.goto('/realisasi?ay=2&period=ganjil');
   for (const p of ['ganjil', 'genap', 'full', 'ytd']) await expect(page.getByTestId(`period-${p}`)).toBeVisible();
+  // YTD exists only for the active academic year; an old YTD link shows Setahun
+  await page.goto('/realisasi?ay=1&period=ytd');
+  await expect(page.getByTestId('period-ytd')).toHaveCount(0);
+  await expect(page.getByTestId('period-full')).toHaveAttribute('aria-current', 'page');
+  await page.goto('/realisasi?ay=1&period=ganjil');
+  for (const p of ['ganjil', 'genap', 'full']) await expect(page.getByTestId(`period-${p}`)).toBeVisible();
   await expect(page.getByTestId('kpi-card-1.1')).toContainText('RENSTRA 1.1');
   await expect(page.getByTestId('kpi-card-1.19.S8')).toHaveCount(0);
   const value = () => page.getByTestId('kpi-card-1.1').getByTestId('kpi-value');
@@ -53,7 +59,7 @@ test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD; RENSTRA wording; no S
   expect(values.some((v) => v.includes('Setahun 2025/2026'))).toBeTruthy();
 });
 
-test('International Awards tab: four leaderboards per submitting unit, exportable', async ({ page }) => {
+test('International Awards tab: four leaderboards per Program Studi, exportable', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi?period=ytd');
   await expect(page.getByTestId('work-queue')).toContainText('duplikat mahasiswa');
@@ -63,7 +69,8 @@ test('International Awards tab: four leaderboards per submitting unit, exportabl
     await expect(page.getByTestId(`awards-${id}`)).toBeVisible();
   }
   const intl = page.getByTestId('awards-outbound-international').getByTestId('awards-row').first();
-  await expect(intl).toContainText('Fakultas Teknologi Industri');
+  await expect(intl).toContainText('Prodi Informatika');
+  await expect(page.getByTestId('awards-outbound-international')).not.toContainText('Fakultas');
   await expect(page.getByTestId('period-genap')).toHaveAttribute('href', /tab=awards/);
 
   const res = await page.request.get('/api/export/awards?period=ytd');
@@ -75,14 +82,41 @@ test('International Awards tab: four leaderboards per submitting unit, exportabl
   );
 });
 
-test('AT-05: YTD 1.19.24 card shows grace count and drill-down lists doc 901', async ({ page }) => {
+test('AT-05: YTD 1.19.S4 card shows grace count and drill-down lists doc 901', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi?period=ytd');
-  const card = page.getByTestId('kpi-card-1.19.24');
+  const card = page.getByTestId('kpi-card-1.19.S4');
   await expect(card).toContainText('dalam masa tenggang');
   await card.getByTestId('kpi-grace-link').click();
   await expect(page).toHaveURL(/report=kpi/);
+  await expect(page).toHaveURL(/renstra=1\.19\.S4/);
+  await expect(page.getByTestId('renstra-overall')).toContainText('%');
   await expect(page.locator('table')).toContainText('Masa tenggang');
+});
+
+test('Revisi V.2: Laporan per RENSTRA rolls Prodi into Fakultas and exports Rekap → Data → Info', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  for (const renstra of ['1.1', '1.1.a', '1.1.b', '1.19.S1']) {
+    await page.goto(`/realisasi/laporan?report=kpi&period=ytd&renstra=${renstra}`);
+    await expect(page.getByTestId('renstra-title')).toContainText(renstra);
+    const rows = page.getByTestId('rollup-row');
+    // seed: FTI (10) → Prodi Informatika (11), Prodi Teknik Elektro (12); every academic unit is listed
+    await expect(rows).toHaveCount(7);
+    const total = async (id: number) => Number(await rows.and(page.locator(`[data-unit-id="${id}"]`)).getAttribute('data-total'));
+    const own10 = Number((await rows.and(page.locator('[data-unit-id="10"]')).locator('td').nth(2).textContent())!.replace(/\D/g, '') || 0);
+    expect(await total(10)).toBe(own10 + (await total(11)) + (await total(12)));
+
+    const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
+    expect(wb.worksheets.map((w) => w.name)).toEqual(
+      renstra === '1.19.S1' ? [`${renstra} Rekap`, `${renstra} Data`, 'Info'] : [`${renstra} Rekap`, `${renstra} Data`, `${renstra} Mahasiswa`, 'Info'],
+    );
+    expect(wb.worksheets[0]!.rowCount - 1).toBe(8); // 7 units + total row
+    const listed = Number(await page.getByTestId('list-total').textContent());
+    expect(wb.getWorksheet(`${renstra} Data`)!.rowCount - 1).toBe(listed);
+  }
+  await page.goto('/realisasi/laporan?report=kpi&period=ytd&renstra=1.19.S4');
+  const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
+  expect(wb.worksheets.map((w) => w.name)).toEqual(['1.19.S4 Rekap', '1.19.S4 Data', 'Info']);
 });
 
 test('AT-07: Kerjasama realisasi tab lists activities with the document at activity time', async ({ page }) => {
@@ -100,7 +134,7 @@ test('AT-08: Arsip shows S-19 as a late addition in the Genap 2025/2026 snapshot
   const genap = items.filter({ hasText: 'Setahun' });
   const wb = await downloadWorkbook(page, () => genap.getByTestId('export-excel').click());
   expect(wb.worksheets.map((w) => w.name)).toEqual(
-    expect.arrayContaining(['Info', 'Ringkasan', '1.1', '1.19.S1', '1.19.24', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
+    expect.arrayContaining(['Info', 'Ringkasan', '1.1', '1.19.S1', '1.19.S4', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
   );
   expect(wb.worksheets[0]!.name).toBe('Info');
   const late = wb.getWorksheet('Tambahan Susulan')!;

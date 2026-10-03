@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 2 OF 5 (commit b0bf749).
+-- SIM Realisasi Supabase install, PART 2 OF 5 (commit fb2a4bc).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -651,12 +651,20 @@ begin
 end $$;
 
 -- delete_draft (R-15) ------------------------------------------------------------
+-- who may delete a draft: IO Admin any draft; a submitter only the drafts they created
+create function realisasi._can_delete_draft(p_id uuid) returns boolean
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select coalesce(realisasi.my_role() = 'io_admin', false)
+      or (coalesce(realisasi.my_role() = 'submitter', false)
+          and exists (select 1 from realisasi.activities a where a.id = p_id and a.created_by = auth.uid()))
+$$;
+
 create function realisasi.delete_draft(p_id uuid) returns void
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare v_uid uuid := realisasi._require_uid(); v_act realisasi.activities;
 begin
   v_act := realisasi._get_activity(p_id);
-  if not realisasi._is_unit_editor(p_id) then perform realisasi._forbidden(); end if;
+  if not realisasi._can_delete_draft(p_id) then perform realisasi._forbidden(); end if;
   if v_act.status <> 'draft' then perform realisasi._raise('R15_NOT_DRAFT', 'Hanya draf yang dapat dihapus.'); end if;
 
   delete from realisasi.file_blobs
