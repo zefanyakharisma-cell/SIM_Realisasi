@@ -362,6 +362,7 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
         <PeriodSelector
           basePath="/realisasi/laporan"
           academicYears={periodInfo.academic_years}
+          currentAyId={periodInfo.current_ay_id}
           ay={periodInfo.ay_id}
           period={periodInfo.period}
           unit={isSubmitter ? null : (p.unit ?? null)}

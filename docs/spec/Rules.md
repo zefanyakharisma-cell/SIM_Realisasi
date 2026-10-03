@@ -29,7 +29,7 @@ only.
 - **R-12** Mandatory participant section by the kegiatan's direction: outbound → ≥1 PETRA student; inbound → ≥1 inbound student.
 - **R-13** Files: PDF only for IA/IR and the mobility PDF, max 10 MB each; evidence accepts PDF/JPG/PNG (max 10 MB) or links.
 - **R-14** A unit may submit for itself; "Unit Lain yang Terlibat" are added by the submitter and get read-only access.
-- **R-15** Drafts can be deleted by the unit (they never counted); submitted activities are never deleted.
+- **R-15** A draft can be deleted by the account that created it, or by IO Admin (any draft); other users of the unit can edit it but not delete it. Drafts never counted; submitted activities are never deleted.
 
 ## 3. Participants
 - **R-16** Every counted student must have an NRP that resolves in the BAAK registry. Unknown NRPs block submission.
@@ -74,7 +74,7 @@ only.
 ## 6. RENSTRA calculations (shown as "RENSTRA"; identifiers keep `kpi_*`)
 General:
 - **R-36** Only `verified` activities count. Activity date = Tanggal Mulai.
-- **R-37** Period cut-offs for the dashboard, charts, reports and every Excel export: **Ganjil** (Ganjil start → end), **Genap** (Genap start → end), **Setahun (kumulatif)** (academic-year start → end), **YTD** (academic-year start → today, never frozen). Ganjil and Setahun read their frozen snapshots when present; Genap is computed over its window as of the full-year snapshot's freeze, so it never drifts afterwards.
+- **R-37** Period cut-offs for the dashboard, charts, reports and every Excel export: **Ganjil** (Ganjil start → end), **Genap** (Genap start → end), **Setahun (kumulatif)** (academic-year start → end), **YTD** (academic-year start → today, never frozen; offered only for the active academic year, other years fall back to Setahun). Ganjil and Setahun read their frozen snapshots when present; Genap is computed over its window as of the full-year snapshot's freeze, so it never drifts afterwards.
 
 **RENSTRA 1.1 — Jumlah mahasiswa Inbound & Outbound**
 - **R-38** Count = (NRP, kegiatan) pairs among students in the approved participant set of verified mobility kegiatan.
@@ -97,9 +97,9 @@ General:
 KPI 1.19.S8 and the Known Activities register (former R-48…R-54) are removed.
 
 ## 7. International Awards (dashboard tab, report and export)
-- **R-48** Grouped by **submitting unit**, same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total.
+- **R-48** Ranked by **Program Studi** only (Fakultas, Program and UP units are never ranked), same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total. Student boards credit each student to their own Prodi; a student without a PETRA prodi (e.g. inbound exchange) goes to the submitting unit when it is a Prodi, else is not counted. A Fakultas scope shows its Prodis.
 - **R-49** Student boards — **Inbound** (inbound kegiatan, inbound students), **Outbound Dalam Negeri** (outbound, kegiatan country = ID, PETRA students), **Outbound Internasional** (outbound, country ≠ ID). Columns: Program Studi JD/DD, Student Exchange, Short/Summer Program, Kegiatan Internasional (<14 hari) = other mobility kegiatan lasting `end − start + 1 < 14` days; each student counts in one column.
-- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per unit — inbound mobility, outbound mobility, other kegiatan — and the total.
+- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per submitting Prodi — inbound mobility, outbound mobility, other kegiatan — and the total.
 
 ## 8. Semester freeze & snapshots
 - **R-55** Each semester has a cutoff date (default end + 30 days). On the cutoff the system freezes a snapshot: Ganjil → `ganjil_ytd`, Genap → `genap_full_year` (shown as Setahun).

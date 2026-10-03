@@ -169,6 +169,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
       <PeriodSelector
         basePath="/realisasi"
         academicYears={period.academic_years}
+        currentAyId={period.current_ay_id}
         ay={period.ay_id}
         period={period.period}
         unit={user.role === 'submitter' ? null : scope.unit_id}

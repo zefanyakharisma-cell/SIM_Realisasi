@@ -1,5 +1,5 @@
 'use client';
-/** "Hapus draf" with confirmation (R-15: drafts only; hard delete incl. files). */
+/** "Hapus draf" with confirmation (R-15: drafts only, by their creator or IO Admin; hard delete incl. files). */
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
@@ -18,7 +18,16 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
 import { deleteDraft } from '@/lib/realisasi/actions/submission';
 
-export function DeleteDraftButton({ activityId, code }: { activityId: string; code: string }) {
+export function DeleteDraftButton({
+  activityId,
+  code,
+  compact = false,
+}: {
+  activityId: string;
+  code: string;
+  /** icon-only trigger for list rows; stays on the list after deleting */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +44,7 @@ export function DeleteDraftButton({ activityId, code }: { activityId: string; co
       }
       setOpen(false);
       toast.success(`Draf ${code} dihapus.`);
-      router.push('/realisasi/kegiatan');
+      if (!compact) router.push('/realisasi/kegiatan');
       router.refresh();
     });
   }
@@ -43,9 +52,15 @@ export function DeleteDraftButton({ activityId, code }: { activityId: string; co
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" data-testid="delete-draft">
-          <Trash2 aria-hidden /> Hapus draf
-        </Button>
+        {compact ? (
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Hapus draf ${code}`} data-testid={`delete-draft-${code}`}>
+            <Trash2 aria-hidden />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" data-testid="delete-draft">
+            <Trash2 aria-hidden /> Hapus draf
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

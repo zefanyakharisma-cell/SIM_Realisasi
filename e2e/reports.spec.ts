@@ -26,10 +26,16 @@ test('AT-01: the summer program claimed by FTI and Prodi Informatika counts once
   await expect(page.getByTestId('kpi-card-1.1')).toContainText('Outbound 0');
 });
 
-test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD; RENSTRA wording; no S8', async ({ page }) => {
+test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD (active year only); RENSTRA wording; no S8', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
-  await page.goto('/realisasi?ay=1&period=ganjil');
+  await page.goto('/realisasi?ay=2&period=ganjil');
   for (const p of ['ganjil', 'genap', 'full', 'ytd']) await expect(page.getByTestId(`period-${p}`)).toBeVisible();
+  // YTD exists only for the active academic year; an old YTD link shows Setahun
+  await page.goto('/realisasi?ay=1&period=ytd');
+  await expect(page.getByTestId('period-ytd')).toHaveCount(0);
+  await expect(page.getByTestId('period-full')).toHaveAttribute('aria-current', 'page');
+  await page.goto('/realisasi?ay=1&period=ganjil');
+  for (const p of ['ganjil', 'genap', 'full']) await expect(page.getByTestId(`period-${p}`)).toBeVisible();
   await expect(page.getByTestId('kpi-card-1.1')).toContainText('RENSTRA 1.1');
   await expect(page.getByTestId('kpi-card-1.19.S8')).toHaveCount(0);
   const value = () => page.getByTestId('kpi-card-1.1').getByTestId('kpi-value');
@@ -53,7 +59,7 @@ test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD; RENSTRA wording; no S
   expect(values.some((v) => v.includes('Setahun 2025/2026'))).toBeTruthy();
 });
 
-test('International Awards tab: four leaderboards per submitting unit, exportable', async ({ page }) => {
+test('International Awards tab: four leaderboards per Program Studi, exportable', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi?period=ytd');
   await expect(page.getByTestId('work-queue')).toContainText('duplikat mahasiswa');
@@ -63,7 +69,8 @@ test('International Awards tab: four leaderboards per submitting unit, exportabl
     await expect(page.getByTestId(`awards-${id}`)).toBeVisible();
   }
   const intl = page.getByTestId('awards-outbound-international').getByTestId('awards-row').first();
-  await expect(intl).toContainText('Fakultas Teknologi Industri');
+  await expect(intl).toContainText('Prodi Informatika');
+  await expect(page.getByTestId('awards-outbound-international')).not.toContainText('Fakultas');
   await expect(page.getByTestId('period-genap')).toHaveAttribute('href', /tab=awards/);
 
   const res = await page.request.get('/api/export/awards?period=ytd');

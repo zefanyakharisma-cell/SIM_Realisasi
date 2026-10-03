@@ -118,7 +118,7 @@ Kegiatan, Inbound/Outbound, one kerja sama per kegiatan, Mobility-only verificat
 cut-offs, International Awards). The live install above is the previous build, so the new one must be installed with a
 **reset of Realisasi's own schemas** (`scripts/db-deploy-supabase.sh --reset-realisasi`, or the SQL Editor files below,
 which start with the same reset). Realisasi demo data is re-seeded; SIM Kerjasama tables are only read. Rehearsed
-locally; expected fingerprint `functions 163 84b8965fcf9d1961b66537daf939dc6c`, `columns 311
+locally; expected fingerprint `functions 166 1b2d9eeffee9aa384a5e535947f38ef8`, `columns 311
 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e`.
 
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
@@ -129,7 +129,7 @@ locally; expected fingerprint `functions 163 84b8965fcf9d1961b66537daf939dc6c`, 
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
-3. The result grid shows the fingerprint; it must read `functions 163 84b8965fcf9d1961b66537daf939dc6c`,
+3. The result grid shows the fingerprint; it must read `functions 166 1b2d9eeffee9aa384a5e535947f38ef8`,
    `columns 311 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e` (Revisi V.1 build).
 
 The file is one transaction (an error rolls everything back), is safe to run again, and equals

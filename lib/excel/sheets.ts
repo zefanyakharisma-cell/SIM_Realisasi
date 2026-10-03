@@ -269,7 +269,7 @@ export const SNAPSHOT_ARCHIVE_COLUMNS: Column<SnapshotListRow>[] = [
 // ---------- International Awards (Revisi V.1) ----------
 export const AWARDS_STUDENT_COLUMNS: Column<AwardsStudentRow & { rank: number }>[] = [
   { header: 'Peringkat', key: 'rank', value: (r) => r.rank, format: 'int' },
-  { header: 'Program Studi / Unit', key: 'unit', value: (r) => r.unit_name },
+  { header: 'Program Studi', key: 'unit', value: (r) => r.unit_name },
   { header: 'Joint Degree / Double Degree', key: 'jd', value: (r) => r.jd_dd, format: 'int' },
   { header: 'Student Exchange', key: 'ex', value: (r) => r.student_exchange, format: 'int' },
   { header: 'Short / Summer Program', key: 'ss', value: (r) => r.short_summer, format: 'int' },
@@ -279,7 +279,7 @@ export const AWARDS_STUDENT_COLUMNS: Column<AwardsStudentRow & { rank: number }>
 
 export const AWARDS_INITIATIVE_COLUMNS: Column<AwardsInitiativeRow & { rank: number }>[] = [
   { header: 'Peringkat', key: 'rank', value: (r) => r.rank, format: 'int' },
-  { header: 'Program Studi / Unit', key: 'unit', value: (r) => r.unit_name },
+  { header: 'Program Studi', key: 'unit', value: (r) => r.unit_name },
   { header: 'Jumlah Inbound', key: 'in', value: (r) => r.inbound, format: 'int' },
   { header: 'Jumlah Outbound', key: 'out', value: (r) => r.outbound, format: 'int' },
   { header: 'Jumlah Kegiatan', key: 'act', value: (r) => r.activities, format: 'int' },
