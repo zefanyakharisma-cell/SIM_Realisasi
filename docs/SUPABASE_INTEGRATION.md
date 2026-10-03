@@ -121,6 +121,16 @@ which start with the same reset). Realisasi demo data is re-seeded; SIM Kerjasam
 locally; expected fingerprint `functions 165 44dfa2b2cc108735a8a41beb212bea65`, `columns 311
 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e`.
 
+## Live data import (2026-10-03)
+
+Applied to `simks-partnership` step by step through the Supabase connector, each step checked against a local rehearsal
+checksum: the `kerjasama.units` view (Fakultas -> Prodi -> Program by depth), `seed-supabase/05` (registries), `06a`-`06e`
+(100 kegiatan AY 2025/2026), `07` (20 kegiatan AY 2026/2027) and `08` (re-freeze). Result: 133 kegiatan; KPI 1.1 Ganjil 165,
+Genap 132, Setahun 297, YTD 2026/2027 40. **Still to run once in the SQL Editor:** the awards speed-up part of
+`supabase/deploy/patch-2026-10-03-units-awards.sql` (it contains TRUNCATE/DROP, which the connector cannot confirm). Until
+then the live awards functions are the previous version; their results are the same, only slower. Afterwards the live
+fingerprint equals the one below.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
