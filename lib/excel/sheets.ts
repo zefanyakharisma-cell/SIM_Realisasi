@@ -10,6 +10,7 @@ import type {
   ConflictRow,
   DrilldownKpi,
   DrilldownResult,
+  KpiParticipantRow,
   KpiValues,
   LateAdditionRow,
   PeriodInfo,
@@ -29,6 +30,7 @@ import {
 } from '@/lib/realisasi/status';
 import { formatDate, formatDateTime } from '@/lib/realisasi/format';
 import { addTableSheet, type Column } from '@/lib/excel/workbook';
+import type { RollupRow } from '@/lib/realisasi/unit-rollup';
 
 // ---------- small helpers ----------
 export function label<K extends string>(map: Partial<Record<K, string>> | undefined, key: K | null | undefined): string | null {
@@ -150,7 +152,7 @@ export function addKpiSheet(wb: ExcelJS.Workbook, kpi: DrilldownKpi, dd: Drilldo
     }
     case '1.19.24': {
       const r = rows.filter(isChainRow);
-      addTableSheet(wb, sheetName ?? '1.19.24', KPI_24_COLUMNS, r);
+      addTableSheet(wb, sheetName ?? '1.19.S4', KPI_24_COLUMNS, r);
       return r.length;
     }
     case 'base': {
@@ -160,6 +162,87 @@ export function addKpiSheet(wb: ExcelJS.Workbook, kpi: DrilldownKpi, dd: Drilldo
     }
   }
 }
+
+// ---------- Laporan per RENSTRA (Revisi V.2) ----------
+/** Sheet 1 of a RENSTRA workbook: one row per unit, Fakultas → Program Studi → Program, then the scope total. */
+export interface RollupSheetRow {
+  faculty: string | null;
+  prodi: string | null;
+  program: string | null;
+  level: string;
+  own: number | null;
+  total: number;
+  isTotal: boolean;
+}
+
+export function rollupSheetRows(rows: RollupRow[], totalLabel: string, scopeValue: number): RollupSheetRow[] {
+  const out: RollupSheetRow[] = rows.map((r) => ({
+    faculty: r.path[0] ?? null,
+    prodi: r.depth >= 1 ? (r.path[1] ?? null) : null,
+    program: r.depth >= 2 ? r.path.slice(2).join(' / ') : null,
+    level: r.level,
+    own: r.own,
+    total: r.total,
+    isTotal: false,
+  }));
+  out.push({ faculty: totalLabel, prodi: null, program: null, level: 'Total', own: null, total: scopeValue, isTotal: true });
+  return out;
+}
+
+export function rollupColumns(valueHeader: string): Column<RollupSheetRow>[] {
+  return [
+    { header: 'Fakultas', key: 'fac', value: (r) => r.faculty },
+    { header: 'Program Studi', key: 'prodi', value: (r) => r.prodi },
+    { header: 'Program', key: 'program', value: (r) => r.program },
+    { header: 'Tingkat', key: 'level', value: (r) => r.level },
+    { header: `${valueHeader} (unit sendiri)`, key: 'own', value: (r) => r.own, format: 'int' },
+    { header: `${valueHeader} (total)`, key: 'total', value: (r) => r.total, format: 'int' },
+  ];
+}
+
+export interface OverallPctRow {
+  desc: string;
+  num: number;
+  den: number;
+  grace: number;
+  pct: number | null;
+}
+
+export const KPI_S4_OVERALL_COLUMNS: Column<OverallPctRow>[] = [
+  { header: 'RENSTRA', key: 'k', value: () => '1.19.S4' },
+  { header: 'Uraian', key: 'desc', value: (r) => r.desc },
+  { header: 'Kerja Sama Terlaksana', key: 'num', value: (r) => r.num, format: 'int' },
+  { header: 'Kerja Sama Aktif (penyebut)', key: 'den', value: (r) => r.den, format: 'int' },
+  { header: 'Masa Tenggang (dikecualikan)', key: 'grace', value: (r) => r.grace, format: 'int' },
+  { header: 'Persentase', key: 'pct', value: (r) => r.pct, format: 'pct' },
+];
+
+/** KPI activity columns plus the Fakultas of each involved unit (data sheet of a RENSTRA workbook). */
+export function withFacultyColumn(cols: Column<ActivityKpiRow>[], facultyOf: ReadonlyMap<string, string>): Column<ActivityKpiRow>[] {
+  const fac: Column<ActivityKpiRow> = {
+    header: 'Fakultas',
+    key: 'faculty',
+    value: (r) => joinList([...new Set(r.unit_names.map((n) => facultyOf.get(n) ?? n))]),
+  };
+  const i = cols.findIndex((c) => c.key === 'unit');
+  return [...cols.slice(0, i + 1), fac, ...cols.slice(i + 1)];
+}
+
+/** Students behind 1.1 (personal data; snapshot workbook and the 1.1 RENSTRA workbooks). */
+export const KPI_PARTICIPANT_COLUMNS: Column<KpiParticipantRow>[] = [
+  { header: 'Kode Kegiatan', key: 'code', value: (r) => r.code },
+  { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
+  { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
+  { header: 'Bagian (PETRA/Inbound)', key: 'section', value: (r) => (r.section === 'inbound' ? 'Inbound' : 'PETRA') },
+  { header: 'NRP', key: 'nrp', value: (r) => r.nrp, format: 'text' },
+  { header: 'Nama', key: 'fn', value: (r) => r.full_name },
+  { header: 'Fakultas', key: 'fac', value: (r) => r.faculty_name },
+  { header: 'Prodi', key: 'prodi', value: (r) => r.prodi_name },
+  { header: 'Institusi Asal', key: 'home', value: (r) => r.home_institution },
+  { header: 'Negara Asal', key: 'homecc', value: (r) => r.home_country_code },
+  { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
+  { header: 'Semester', key: 'sem', value: (r) => r.semester_label },
+];
 
 // ---------- Ringkasan ----------
 type SummaryRow = { kpi: string; desc: string; value: number | null; isPct: boolean; num: number | null; den: number | null; grace: number | null; note: string };
@@ -182,7 +265,7 @@ export function summaryRows(v: KpiValues): SummaryRow[] {
   ];
   for (const [key, desc] of scopes) {
     const t = v.kpi_1_19_24[key];
-    rows.push({ kpi: '1.19.24', desc: `Persentase terlaksana — ${desc}`, value: t.pct, isPct: true, num: t.numerator, den: t.denominator, grace: t.grace_excluded, note: 'Satuan = rantai perpanjangan; masa tenggang dikecualikan dari penyebut' });
+    rows.push({ kpi: '1.19.S4', desc: `Persen terlaksana MoU & MoA — ${desc}`, value: t.pct, isPct: true, num: t.numerator, den: t.denominator, grace: t.grace_excluded, note: 'Satuan = rantai perpanjangan; masa tenggang dikecualikan dari penyebut' });
   }
   return rows;
 }
@@ -260,7 +343,7 @@ export const SNAPSHOT_ARCHIVE_COLUMNS: Column<SnapshotListRow>[] = [
   { header: 'Alasan Bekukan Ulang', key: 'reason', value: (r) => r.refreeze_reason },
   { header: '1.1 Total', key: 'k11', value: (r) => r.summary?.kpi_1_1_total ?? null, format: 'int' },
   { header: '1.19.S1 Internasional', key: 's1', value: (r) => r.summary?.kpi_1_19_s1_international ?? null, format: 'int' },
-  { header: '1.19.24 %', key: 'k24', value: (r) => r.summary?.kpi_1_19_24_pct ?? null, format: 'pct' },
+  { header: '1.19.S4 %', key: 'k24', value: (r) => r.summary?.kpi_1_19_24_pct ?? null, format: 'pct' },
   { header: 'Tambahan Susulan', key: 'late', value: (r) => r.late_additions, format: 'int' },
   { header: 'Perubahan Pasca-Beku', key: 'pfc', value: (r) => r.post_freeze_changes, format: 'int' },
 ];
