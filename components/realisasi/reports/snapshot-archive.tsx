@@ -58,7 +58,7 @@ export function SnapshotTimeline({ rows, selectedId }: { rows: SnapshotListRow[]
                         </p>
                       ) : null}
                       <p className="text-xs text-muted-foreground">
-                        1.1 {formatNumber(s.summary?.kpi_1_1_total)} · 1.19.S1 {formatNumber(s.summary?.kpi_1_19_s1_international)} · 1.19.24{' '}
+                        1.1 {formatNumber(s.summary?.kpi_1_1_total)} · 1.19.S1 {formatNumber(s.summary?.kpi_1_19_s1_international)} · 1.19.S4{' '}
                         {formatPct(s.summary?.kpi_1_19_24_pct)} · {formatNumber(s.late_additions)} tambahan
                         susulan · {formatNumber(s.post_freeze_changes)} perubahan pasca-beku
                       </p>

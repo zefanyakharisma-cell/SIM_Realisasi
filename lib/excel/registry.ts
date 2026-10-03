@@ -22,19 +22,18 @@ import { formatDate, formatDateTime } from '@/lib/realisasi/format';
 import { parseActivityFilters, describeActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
 import {
-  BUCKET_LABEL,
   CHART_LABEL,
-  KPI_LABEL,
   getParam,
   isUuid,
-  parseBucket,
   parseChartKey,
-  parseDrilldownKpi,
   parsePeriodParams,
   parsePositiveInt,
   parseRealizationStatus,
+  parseRenstraParams,
   realizationStatusToBucket,
+  renstraLabel,
   type ChartKey,
+  type RenstraDef,
   type PeriodParams,
 } from '@/lib/realisasi/schemas/report';
 import {
@@ -58,6 +57,11 @@ import {
   POST_FREEZE_COLUMNS,
   REALIZATION_COLUMNS,
   SNAPSHOT_ARCHIVE_COLUMNS,
+  KPI_11_COLUMNS,
+  KPI_24_COLUMNS,
+  KPI_PARTICIPANT_COLUMNS,
+  KPI_S1_COLUMNS,
+  KPI_S4_OVERALL_COLUMNS,
   SUMMARY_COLUMNS,
   addKpiSheet,
   dataAsOf,
@@ -65,9 +69,13 @@ import {
   joinList,
   label,
   ranked,
+  rollupColumns,
+  rollupSheetRows,
   snapshotAsOf,
   summaryRows,
+  withFacultyColumn,
 } from '@/lib/excel/sheets';
+import { getRenstraReport } from '@/lib/realisasi/queries/renstra';
 
 export interface ExportContext {
   tx: Tx;
@@ -328,30 +336,87 @@ async function buildKpiSummary({ tx, user, params }: ExportContext): Promise<Exp
   return { workbook: wb, periodLabel: dash.period.label, rowCount, containsPersonal: false, filters: periodRecord(p) };
 }
 
-// ---------------------------------------------------------------- kpi-drilldown
+// ---------------------------------------------------------------- kpi-drilldown (Laporan per RENSTRA, Revisi V.2)
+// Sheet 1 = the RENSTRA table (per unit, or the overall % for 1.19.S4), sheet 2 = the Kegiatan / kerja sama behind it,
+// sheet 3 = the students (1.1 family, roles allowed to export participants), Info last.
+const RENSTRA_VALUE_HEADER: Record<RenstraDef['unit'], string> = { mahasiswa: 'Jumlah Mahasiswa', kegiatan: 'Jumlah Kegiatan', persen: 'Persentase' };
+
 async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<ExportResult> {
   const p = scopedPeriod(user, params);
-  const kpi = parseDrilldownKpi(getParam(params, 'kpi'));
-  if (!kpi) throw new ExportParamError('Parameter kpi tidak valid.');
-  const bucket = parseBucket(kpi, getParam(params, 'bucket'));
+  const key = parseRenstraParams(params);
+  if (!key) throw new ExportParamError('Parameter renstra tidak valid.');
   if (p.snapshot && !can(user, 'export.snapshot')) delete p.snapshot;
-  const dd = await getDrilldown(tx, { ...p, kpi, bucket });
+  const rep = await getRenstraReport(tx, user, p, key);
+  const def = rep.def;
+  const scopeName = rep.scope.unit_name ?? 'Universitas';
   const wb = createWorkbook();
-  const rowCount = addKpiSheet(wb, kpi, dd);
+  let rowCount = 0;
+
+  // Sheet 1: Rekap
+  if (rep.rollup) {
+    const rows = rollupSheetRows(rep.rollup, `Total ${scopeName}`, rep.scopeValue);
+    const ws = addTableSheet(wb, `${key} Rekap`, rollupColumns(RENSTRA_VALUE_HEADER[def.unit]), rows);
+    rows.forEach((r, i) => {
+      if (r.level === 'Fakultas' || r.isTotal) ws.getRow(i + 2).font = { bold: true };
+    });
+    rowCount += rep.rollup.length;
+  } else {
+    const t = rep.overall!;
+    addTableSheet(wb, `${key} Rekap`, KPI_S4_OVERALL_COLUMNS, [
+      { desc: `${def.title} — ${scopeName}`, num: t.numerator, den: t.denominator, grace: t.grace_excluded, pct: t.pct },
+    ]);
+    rowCount += 1;
+  }
+
+  // Sheet 2: Data
+  if (def.kpi === '1.19.24') {
+    addTableSheet(wb, `${key} Data`, KPI_24_COLUMNS, rep.chainRows);
+    rowCount += rep.chainRows.length;
+  } else {
+    const cols = withFacultyColumn(def.kpi === '1.1' ? KPI_11_COLUMNS : KPI_S1_COLUMNS, rep.facultyOf);
+    addTableSheet(wb, `${key} Data`, cols, rep.activityRows);
+    rowCount += rep.activityRows.length;
+  }
+
+  // Sheet 3: Mahasiswa (personal data, logged)
+  const withStudents = def.kpi === '1.1' && user.role !== 'submitter' && user.role !== 'viewer' && can(user, 'export.participants');
+  if (withStudents) {
+    const ids = new Set(rep.activityRows.map((r) => r.activity_id));
+    const students = (await getKpiParticipantRows(tx, { ...p, unit: undefined })).filter(
+      (s) => ids.has(s.activity_id) && (!def.bucket || s.direction === def.bucket),
+    );
+    addTableSheet(wb, `${key} Mahasiswa`, KPI_PARTICIPANT_COLUMNS, students);
+    rowCount += students.length;
+  }
+
   addInfoSheet(wb, {
     kind: 'kpi-drilldown',
-    title: `Rincian ${KPI_LABEL[kpi]}`,
-    filters: [
-      ...periodFilters(dd.period, dd.scope.unit_name),
-      ['RENSTRA', kpi],
-      ['Kelompok', bucket ? (BUCKET_LABEL[bucket] ?? bucket) : 'Semua'],
-    ],
+    title: `RENSTRA ${renstraLabel(key)}`,
+    filters: periodFilters(rep.period, rep.scope.unit_name),
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
-    dataAsOf: dataAsOf(dd.period),
+    dataAsOf: dataAsOf(rep.period),
     rowCount,
+    position: 'last',
+    extra: [
+      ...(rep.rollup
+        ? ([
+            ['Nilai per unit', 'Fakultas = kegiatan unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program'],
+            ['Kegiatan bersama', 'Kegiatan dengan beberapa unit dihitung pada setiap unit yang terlibat; total lingkup dihitung sekali'],
+          ] as Array<[string, string]>)
+        : ([['Perhitungan', 'Satuan = rantai perpanjangan MoU/MoA; masa tenggang dikecualikan dari penyebut']] as Array<[string, string]>)),
+      ...(def.kpi === '1.1'
+        ? ([[`Sheet ${key} Mahasiswa`, withStudents ? 'Disertakan (data pribadi, dicatat)' : 'Tidak disertakan untuk peran Anda']] as Array<[string, string]>)
+        : []),
+    ],
   });
-  return { workbook: wb, periodLabel: dd.period.label, rowCount, containsPersonal: false, filters: { ...periodRecord(p), kpi, bucket: bucket ?? null } };
+  return {
+    workbook: wb,
+    periodLabel: `${key}-${rep.period.label}`,
+    rowCount,
+    containsPersonal: withStudents,
+    filters: { ...periodRecord(p), renstra: key },
+  };
 }
 
 // ---------------------------------------------------------------- chart
@@ -443,20 +508,7 @@ async function buildSnapshot({ tx, user, params }: ExportContext): Promise<Expor
     addTableSheet(
       wb,
       '1.1 Peserta',
-      [
-        { header: 'Kode Kegiatan', key: 'code', value: (r) => r.code },
-        { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
-        { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
-        { header: 'Bagian (PETRA/Inbound)', key: 'section', value: (r) => (r.section === 'inbound' ? 'Inbound' : 'PETRA') },
-        { header: 'NRP', key: 'nrp', value: (r) => r.nrp, format: 'text' },
-        { header: 'Nama', key: 'fn', value: (r) => r.full_name },
-        { header: 'Fakultas', key: 'fac', value: (r) => r.faculty_name },
-        { header: 'Prodi', key: 'prodi', value: (r) => r.prodi_name },
-        { header: 'Institusi Asal', key: 'home', value: (r) => r.home_institution },
-        { header: 'Negara Asal', key: 'homecc', value: (r) => r.home_country_code },
-        { header: 'Tanggal Mulai', key: 'start', value: (r) => r.start_date, format: 'date' },
-        { header: 'Semester', key: 'sem', value: (r) => r.semester_label },
-      ],
+      KPI_PARTICIPANT_COLUMNS,
       participants,
     );
     rowCount += participants.length;
@@ -524,7 +576,7 @@ async function buildRealization({ tx, user, params }: ExportContext): Promise<Ex
   addTableSheet(wb, 'Realisasi per Kerja Sama', REALIZATION_COLUMNS, rows);
   addInfoSheet(wb, {
     kind: 'realization-by-agreement',
-    title: 'Realisasi per Kerja Sama (1.19.24)',
+    title: 'Realisasi per Kerja Sama (1.19.S4)',
     filters: [...periodFilters(dd.period, dd.scope.unit_name), ['Status', status ? (CHAIN_STATUS_LABEL[status] ?? status) : 'Semua']],
     generatedBy: generatedBy(user),
     generatedAt: new Date(),
