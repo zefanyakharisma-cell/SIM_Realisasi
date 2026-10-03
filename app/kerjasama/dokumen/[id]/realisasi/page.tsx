@@ -90,7 +90,7 @@ export default async function RealisasiTabPage(props: { params: Promise<{ id: st
             grace.in_grace ? (
               <span className="inline-flex items-center gap-1" data-testid="grace-note">
                 <Hourglass className="h-4 w-4" aria-hidden="true" />
-                Dalam masa tenggang hingga {formatDate(grace.grace_until)} — belum dihitung dalam penyebut RENSTRA 1.19.24.
+                Dalam masa tenggang hingga {formatDate(grace.grace_until)} — belum dihitung dalam penyebut RENSTRA 1.19.S4.
               </span>
             ) : undefined
           }

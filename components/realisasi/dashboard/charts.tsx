@@ -260,7 +260,7 @@ export function DashboardCharts({
 
       <ChartCard
         chart="realization_by_unit"
-        description="RENSTRA 1.19.24 per unit: kerja sama terlaksana ÷ kerja sama aktif"
+        description="RENSTRA 1.19.S4 per unit: kerja sama terlaksana ÷ kerja sama aktif"
         exportHref={href('realization_by_unit')}
         table={{
           headers: ['Unit', 'Terlaksana', 'Kerja sama', 'Persentase'],

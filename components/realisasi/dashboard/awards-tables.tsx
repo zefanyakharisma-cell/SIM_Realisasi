@@ -1,5 +1,5 @@
 /**
- * International Awards tab (Revisi V.1): four leaderboards per submitting unit, ranked by total.
+ * International Awards tab (Revisi V.1): four leaderboards per Program Studi, ranked by total.
  * Server-safe; every number comes from realisasi.international_awards().
  */
 import { Trophy } from 'lucide-react';
@@ -73,7 +73,7 @@ function Leaderboard<T extends { unit_id: number; unit_name: string; total: numb
                   Rank
                 </th>
                 <th scope="col" className="px-2 py-2 font-medium">
-                  Unit
+                  Program Studi
                 </th>
                 {columns.map((c) => (
                   <th key={c.key} scope="col" className="px-2 py-2 text-right font-medium">
