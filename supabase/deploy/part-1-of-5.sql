@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 1 OF 5 (commit 86b945f).
+-- SIM Realisasi Supabase install, PART 1 OF 5 (commit 0b481cc).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -369,9 +369,10 @@ comment on table realisasi.document_overrides is
   'Realisasi-only overrides LEFT JOINed by kerjasama.documents (auto_renewed, terminated_at).';
 
 -- Views ---------------------------------------------------------------------------------------------------------
--- units: kind from jenis_unit / hierarchy. jenis 2 (Unit Pembantu) -> up. Academic units (jenis 1): a top-level
--- academic unit with academic grandchildren is the university itself -> up; one with academic children -> faculty;
--- a leaf under an academic parent -> prodi; a leaf without an academic parent -> faculty. ('program' is never produced.)
+-- units: kind from jenis_unit / hierarchy. jenis 2 (Unit Pembantu) -> up. Academic units (jenis 1) by depth below the
+-- faculty level: a top-level academic unit with academic grandchildren is the university itself -> up; an academic
+-- unit without an academic parent (below such a root, or under an Unit Pembantu) -> faculty; its academic children ->
+-- prodi; anything deeper (e.g. SBM -> Prodi Manajemen -> "Program Marketing Management") -> program.
 create view kerjasama.units as
 select u.id,
        u.nama::text as name,
@@ -381,14 +382,28 @@ select u.id,
          when u.id_parent_unit is null and exists (
                 select 1 from public.unit c join public.unit g on g.id_parent_unit = c.id
                  where c.id_parent_unit = u.id and c.id_jenis_unit = 1 and g.id_jenis_unit = 1) then 'up'
-         when exists (select 1 from public.unit c where c.id_parent_unit = u.id and c.id_jenis_unit = 1) then 'faculty'
-         when pu.id_jenis_unit = 1 then 'prodi'
+         when lv.parent_academic and lv.grandparent_academic then 'program'
+         when lv.parent_academic then 'prodi'
          else 'faculty'
        end as kind,
        coalesce(u.is_active, true) as is_active,
        (u.id_jenis_unit = 1) is true as is_academic   -- jenis_unit 1 = Unit Akademik (Revisi V.1: only these submit)
   from public.unit u
-  left join public.unit pu on pu.id = u.id_parent_unit;
+  left join public.unit pu on pu.id = u.id_parent_unit
+  left join public.unit gpu on gpu.id = pu.id_parent_unit
+  -- an academic ancestor counts as a level unless it is the academic university root (see the 'up' rule above)
+  cross join lateral (
+    select coalesce(pu.id_jenis_unit = 1 and not rt.pu_root, false) as parent_academic,
+           coalesce(gpu.id_jenis_unit = 1 and not rt.gpu_root, false) as grandparent_academic
+      from (select
+              (pu.id_parent_unit is null and exists (
+                 select 1 from public.unit c join public.unit g on g.id_parent_unit = c.id
+                  where c.id_parent_unit = pu.id and c.id_jenis_unit = 1 and g.id_jenis_unit = 1)) as pu_root,
+              (gpu.id_parent_unit is null and exists (
+                 select 1 from public.unit c join public.unit g on g.id_parent_unit = c.id
+                  where c.id_parent_unit = gpu.id and c.id_jenis_unit = 1 and g.id_jenis_unit = 1)) as gpu_root
+           ) rt
+  ) lv;
 
 -- agendas: SIMKS "Agenda Kerjasama" list, used by Realisasi as Jenis Kegiatan (Revisi V.1). The amendment agenda is a
 -- document-level concept, not an activity, so it is left out. Mobility/counting rules live in realisasi.agenda_rules.
