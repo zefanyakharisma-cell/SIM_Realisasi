@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getSessionUser, isDemoAuthEnabled, listDemoAccounts, type DemoAccount } from '@/lib/session';
 import { ROLE_LABEL, TRACK_LABEL } from '@/lib/realisasi/status';
 import { loginAs } from '@/lib/realisasi/actions/session';
+import { LoginDemoGuide } from '@/components/realisasi/guide/login-demo-guide';
 
 export const metadata: Metadata = { title: 'Masuk' };
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,12 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
           {demo ? 'Mockup — pilih akun demo untuk masuk. Tidak ada kata sandi.' : 'Masuk demo dinonaktifkan.'}
         </p>
       </div>
+
+      {demo ? (
+        <LoginDemoGuide
+          accounts={accounts.map((a) => ({ id: a.id, displayName: a.displayName, role: a.role, roleLabel: ROLE_LABEL[a.role], unitName: a.unitName }))}
+        />
+      ) : null}
 
       {demo ? (
         <Alert variant="warning" role="note" data-testid="demo-auth-notice">

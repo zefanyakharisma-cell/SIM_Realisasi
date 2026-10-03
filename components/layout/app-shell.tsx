@@ -7,6 +7,7 @@ import { buildNav } from '@/components/layout/nav';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { DemoTodayBanner } from '@/components/realisasi/demo-today-banner';
+import { AppDemoGuide } from '@/components/realisasi/guide/app-demo-guide';
 
 /** Authenticated application frame (server component): skip link, sidebar, top bar, banner, <main>. */
 export function AppShell({
@@ -44,6 +45,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <AppDemoGuide />
     </div>
   );
 }

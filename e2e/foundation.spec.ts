@@ -64,4 +64,24 @@ test.describe('foundation: login, shell, navigation per role', () => {
     await page.getByTestId('switch-account').click();
     await expect(page).toHaveURL(/\/login$/);
   });
+
+  test('Mode Demo: step-by-step guide on /login, Panduan sheet in the app', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.getByTestId('demo-guide')).toHaveCount(0);
+    await page.getByTestId('demo-mode-toggle').click();
+    await expect(page.getByTestId('guide-progress')).toHaveText(/Langkah 1 dari \d+/);
+    await page.getByTestId('guide-next').click();
+    await expect(page.getByTestId('guide-progress')).toHaveText(/Langkah 2 dari/);
+    // The choice and the current step survive a reload (per-browser preference).
+    await page.reload();
+    await expect(page.getByTestId('guide-progress')).toHaveText(/Langkah 2 dari/);
+    // Role chapters offer the matching demo accounts; sign in from the guide.
+    await page.getByTestId('guide-chapter-lapor-kegiatan').click();
+    await page.getByTestId('guide-accounts').getByRole('button', { name: /Fakultas Teknologi Industri/ }).click();
+    await page.waitForURL(/\/realisasi$/);
+    await page.getByTestId('demo-guide-open').click();
+    await expect(page.getByTestId('page-guide')).toContainText('Dashboard');
+    await page.getByTestId('demo-mode-toggle-app').click();
+    await expect(page.getByTestId('demo-guide-open')).toHaveCount(0);
+  });
 });

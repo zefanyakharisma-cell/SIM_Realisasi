@@ -23,6 +23,11 @@ npm run dev                           # http://localhost:3000 → pick a demo ac
 The login page is a demo role switcher (`DEMO_AUTH=1`, default). Demo "today" is 2026-10-01; IO Admin can
 time-travel in Pengaturan to demonstrate cutoffs, deadlines and reminders.
 
+Turn on **Mode Demo** on the login page for a step-by-step guide (concepts, roles, workflows per role, dashboard,
+reports, settings, ready-made demo scenarios) with sign-in shortcuts for the matching accounts. While it is on, a
+**Panduan** button in the app shows tips for the current page. The preference is stored per browser (localStorage);
+content lives in `lib/realisasi/guide/content.ts`.
+
 ## Tests
 
 | Command | What |
