@@ -6,9 +6,7 @@
 --   + 750 inbound exchange students: 25 per real SIMKS partner per intake 2024-2026 (50 for Kyoto Sangyo University),
 --     NRP X<1x><yy>8<nnn>, home institution = the partner's SIMKS name (R-17: every inbound student holds an NRP).
 
-drop table if exists pg_temp.h6_prodi;
-create temp table h6_prodi (prefix text, fcode text, fname text, prodi text, per_intake int, years int);
-insert into h6_prodi values
+with h6_prodi (prefix, fcode, fname, prodi, per_intake, years) as (values
   ('A11', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Teknik Sipil', 12, 4),
   ('A12', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Arsitektur', 16, 4),
   ('B11', 'B', 'Fakultas Teknologi Industri', 'Informatika', 20, 4),
@@ -27,9 +25,8 @@ insert into h6_prodi values
   ('B14', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 10, 4),
   ('C22', 'C', 'Fakultas Seni dan Desain', 'Desain Interior', 10, 4),
   ('E43', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Bahasa Mandarin', 6, 4),
-  ('G62', 'G', 'Fakultas Kedokteran Gigi', 'Kedokteran Gigi', 6, 4);
-
-with names as (
+  ('G62', 'G', 'Fakultas Kedokteran Gigi', 'Kedokteran Gigi', 6, 4)),
+names as (
   select array['Adrian','Agnes','Albert','Amanda','Andreas','Angela','Bryan','Calvin','Catherine','Christian','Clara',
                'Daniel','Debora','Edward','Elisabeth','Evelyn','Felix','Florencia','Gabriel','Gloria','Hans','Hana',
                'Ivan','Jessica','Jonathan','Josephine','Kevin','Kezia','Leonardo','Lidya','Matthew','Michelle','Nathan',
@@ -48,9 +45,7 @@ select p.prefix || right(y::text, 2) || '8' || lpad(i::text, 3, '0'),
   from h6_prodi p cross join generate_series(2020, 2026) y cross join generate_series(1, p.per_intake) i cross join names n
 on conflict (nrp) do nothing;
 
-drop table if exists pg_temp.h6_partner;
-create temp table h6_partner (idx int, name text, cc text, f text[], l text[], per_year int);
-insert into h6_partner values
+with h6_partner (idx, name, cc, f, l, per_year) as (values
   (11, 'Kyoto Sangyo University', 'JP', '{Haruto,Yui,Sota,Hina,Ren,Aoi,Yuto,Mio,Kaito,Sakura,Riku,Yuna}',
        '{Sato,Suzuki,Takahashi,Tanaka,Watanabe,Ito,Yamamoto,Nakamura,Kobayashi,Kato}', 50),
   (12, 'Yonsei University', 'KR', '{Min-jun,Seo-yeon,Ji-ho,Ha-eun,Do-yun,Ji-woo,Seo-jun,Su-ah,Ye-jun,Chae-won}',
@@ -68,13 +63,12 @@ insert into h6_partner values
   (18, 'Ludwig Maximilian University of Munich', 'DE', '{Lukas,Lea,Felix,Anna,Jonas,Lena,Leon,Marie,Paul,Sophie}',
        '{Müller,Schmidt,Schneider,Fischer,Weber,Meyer,Wagner,Becker,Hoffmann,Schulz}', 25),
   (19, 'University of Sydney', 'AU', '{Oliver,Charlotte,Jack,Olivia,William,Amelia,Noah,Isla,Thomas,Mia}',
-       '{Smith,Jones,Williams,Brown,Wilson,Taylor,Nguyen,Johnson,Martin,White}', 25);
-
+       '{Smith,Jones,Williams,Brown,Wilson,Taylor,Nguyen,Johnson,Martin,White}', 25))
 insert into mock_baak.students (nrp, full_name, faculty_code, faculty_name, prodi_name, category, home_institution,
                                 home_country_code, intake_year, status)
 select 'X' || p.idx || right(y::text, 2) || '8' || lpad(i::text, 3, '0'),
-       p.f[1 + abs(hashtext(p.name || y || i || 'f')) % cardinality(p.f)] || ' ' ||
-       p.l[1 + abs(hashtext(p.name || y || i || 'l')) % cardinality(p.l)],
+       (p.f::text[])[1 + abs(hashtext(p.name || y || i || 'f')) % cardinality(p.f::text[])] || ' ' ||
+       (p.l::text[])[1 + abs(hashtext(p.name || y || i || 'l')) % cardinality(p.l::text[])],
        'D', 'Fakultas Bisnis dan Ekonomi', 'Program Pertukaran (Inbound)', 'inbound_exchange', p.name, p.cc, y,
        case when y < 2026 then 'graduated' else 'active' end
   from h6_partner p cross join generate_series(2024, 2026) y cross join generate_series(1, p.per_year) i

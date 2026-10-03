@@ -3,7 +3,8 @@
 --   h_act       one kegiatan with units, kerja sama, SDGs, external persons, files, participants and history
 --   h_fill      add students (by prodi / partner, never across units on overlapping dates) up to a target size
 --   h_assert_no_conflicts, h_refreeze_stale, h_date_freeze_notifications   checks and snapshot upkeep
--- Re-including is harmless (create or replace; the temp mapping table is dropped and recreated).
+-- Re-including is harmless (create or replace). No temp tables: a temp table that outlives its transaction stalls
+-- Supabase's SQL API connection, so lookup data lives in functions.
 
 create or replace function pg_temp.h_aid(n int) returns uuid language sql immutable as $$
   select ('c5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
@@ -30,9 +31,8 @@ create or replace function pg_temp.h_creator(p_unit int) returns uuid language s
                            else 1 end) $$;
 
 -- which prodi a unit's outbound students come from (nearest mapped unit up the tree; a faculty takes all its prodi)
-drop table if exists pg_temp.h_unit_prodi;
-create temp table h_unit_prodi (unit_id int, prodi text);
-insert into h_unit_prodi values
+create or replace function pg_temp.h_unit_prodi() returns table(unit_id int, prodi text) language sql immutable as $$
+  select * from (values
   (4, 'Manajemen'), (4, 'Akuntansi'), (4, 'International Business Management'), (4, 'Hotel Management'),
   (5, 'Manajemen'), (6, 'Akuntansi'), (7, 'International Business Management'), (8, 'Hotel Management'),
   (48, 'Magister Manajemen'), (51, 'Magister Manajemen'),
@@ -44,14 +44,14 @@ insert into h_unit_prodi values
   (36, 'Pendidikan Guru Sekolah Dasar'), (73, 'Pendidikan Guru Sekolah Dasar'),
   (30, 'Kedokteran'), (76, 'Kedokteran'),
   (28, 'Teknik Mesin'), (69, 'Teknik Mesin'), (59, 'Desain Interior'), (60, 'Desain Interior'), (62, 'Desain Komunikasi Visual'),
-  (58, 'Bahasa Mandarin'), (34, 'Kedokteran Gigi'), (74, 'Kedokteran Gigi'), (29, 'Magister Manajemen');
+  (58, 'Bahasa Mandarin'), (34, 'Kedokteran Gigi'), (74, 'Kedokteran Gigi'), (29, 'Magister Manajemen')) v(unit_id, prodi) $$;
 
 create or replace function pg_temp.h_prodi_of(p_unit int) returns text[] language sql stable as $$
   with recursive up(id, parent_id, depth) as (
     select u.id, u.parent_id, 0 from kerjasama.units u where u.id = p_unit
     union all select u.id, u.parent_id, up.depth + 1 from kerjasama.units u join up on u.id = up.parent_id where up.depth < 5)
-  select array_agg(m.prodi) from h_unit_prodi m
-   where m.unit_id = (select up.id from up where exists (select 1 from h_unit_prodi x where x.unit_id = up.id)
+  select array_agg(m.prodi) from pg_temp.h_unit_prodi() m
+   where m.unit_id = (select up.id from up where exists (select 1 from pg_temp.h_unit_prodi() x where x.unit_id = up.id)
                        order by up.depth limit 1) $$;
 
 -- Add students to an activity's current participant set until it holds p_target counted students (+ staff up to
