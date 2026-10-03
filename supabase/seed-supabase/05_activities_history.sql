@@ -1,4 +1,4 @@
--- seed-supabase/05_activities_history (simks-partnership): 50 more kegiatan (RL-xxxx-0201 … 0250) spanning AY 2024/2025
+-- seed-supabase/05_activities_history (simks-partnership): 52 more kegiatan (RL-xxxx-0201 … 0252) spanning AY 2024/2025
 -- to today, on REAL SIMKS documents, written only into realisasi.*. Idempotent: an activity that exists is skipped.
 --
 -- * Adds AY 2024/2025 (id 3, semesters 5/6) to the calendar so that year's kegiatan get a period (R-09).
@@ -12,11 +12,10 @@
 --   drafts (one future, one ongoing, one abandoned), a post-freeze edit.
 -- * Students are taken from mock_baak with intake years that fit the dates, and no NRP is claimed by two units on
 --   overlapping dates (asserted at the end), so no unintended rule 2.1 conflicts appear.
--- * Snapshots: AY 2024/2025 is frozen like the scheduled job would have (2025-03-02, 2025-08-30). A live AY 2025/2026
---   snapshot that now misses seeded kegiatan is superseded by a system re-freeze at its as-of time (+1 s, so the new one is the latest).
+-- * Participant lists are filled to realistic sizes and snapshots are (re-)frozen by 06_participants.sql.
 -- Actors: submitters akun 3 (unit 4) and akun 4 (unit 5 and its prodi); every other unit's kegiatan was entered by
 -- KUI (akun 1, io_admin). Mobility verifiers akun 10 and 11.
--- Ids: activities c5000000-0000-4000-8000-0000000002NN, event groups f5000000-…, codes RL-<year created>-02NN.
+-- Ids: activities c5000000-0000-4000-8000-0000000002NN (201-252), event groups f5000000-…, codes RL-<year created>-02NN.
 
 insert into realisasi.academic_years (id, label, start_date, end_date) values (3, '2024/2025', '2024-08-01', '2025-07-31')
 on conflict (id) do update set label = excluded.label, start_date = excluded.start_date, end_date = excluded.end_date;
@@ -280,6 +279,19 @@ select pg_temp.h_act(214, 'Workshop Penulisan Akademik bersama Kyoto Sangyo Univ
   'Lokakarya penulisan artikel jurnal berbahasa Inggris untuk dosen dan mahasiswa pascasarjana.',
   null, p_files => '{ia}');
 
+-- inbound mobility in AY 2024/2025 (participants filled by 06_participants.sql)
+select pg_temp.h_act(251, 'Inbound Exchange Semester Genap 2025 dari Kyoto Sangyo University', 4, 2, 'inbound',
+  '2025-02-10', '2025-06-27', 'offline', 'Kampus PCU Siwalankerto', 'ID', 11, '{4,17}',
+  'Mahasiswa pertukaran Kyoto Sangyo University mengikuti satu semester perkuliahan berbahasa Inggris di SBM.',
+  pg_temp.h_wib('2025-07-03'), 'approved', pg_temp.h_wib('2025-07-10', '14:00'),
+  p_inb => '{X11258001}');
+
+select pg_temp.h_act(252, 'Inbound Summer Program Indonesian Hospitality and Culture 2025', 8, 23, 'inbound',
+  '2025-07-07', '2025-07-18', 'offline', 'Kampus PCU Siwalankerto dan Hotel Mitra Surabaya', 'ID', 11, '{4,8,17}',
+  'Program musim panas dua minggu bagi mahasiswa Kyoto Sangyo University: kelas hospitaliti, budaya Jawa Timur, dan praktik hotel.',
+  pg_temp.h_wib('2025-07-24'), 'approved', pg_temp.h_wib('2025-07-31', '14:00'),
+  p_inb => '{X11258002}', p_staff => '{PG214411}');
+
 -- late: reported after the Genap 2024/2025 freeze (late addition)
 select pg_temp.h_act(215, 'Riset Bersama Bahasa dan Identitas Diaspora Asia', 61, 4, 'outbound',
   '2025-05-05', '2025-07-31', 'online', 'Zoom Meeting', null, 11, '{4,10}',
@@ -501,7 +513,7 @@ select pg_temp.h_act(250, 'Academic Visit Delegasi LMU Munich ke PCU', 28, 27, '
   pg_temp.h_daysago(10), p_co => '{2}',
   p_ext => '[{"full_name":"Dr. Markus Hoffmann","institution":"Ludwig Maximilian University of Munich","country_code":"DE","role":"staff_visitor"},{"full_name":"Julia Becker, M.A.","institution":"Ludwig Maximilian University of Munich","country_code":"DE","role":"staff_visitor"}]');
 
-select setval('realisasi.activity_code_seq', greatest(250, (select last_value from realisasi.activity_code_seq)));
+select setval('realisasi.activity_code_seq', greatest(252, (select last_value from realisasi.activity_code_seq)));
 
 -- No NRP claimed by two units on overlapping dates through these kegiatan (rule 2.1 would open a conflict)
 do $$
@@ -512,53 +524,10 @@ begin
     join realisasi.activities o on o.id <> a.id and o.status <> 'draft' and o.submitter_unit_id <> a.submitter_unit_id
                                and o.start_date <= a.end_date and a.start_date <= o.end_date
     cross join lateral (select realisasi._claimed_nrps(a.id) as nrp) x
-   where a.id between pg_temp.h_aid(201) and pg_temp.h_aid(250) and a.status <> 'draft'
+   where a.id between pg_temp.h_aid(201) and pg_temp.h_aid(252) and a.status <> 'draft'
      and x.nrp in (select realisasi._claimed_nrps(o.id));
   if v is not null then raise exception 'seeded kegiatan claim students of another unit on overlapping dates: %', v; end if;
 end $$;
 
--- Snapshots ---------------------------------------------------------------------------------------------------------
--- AY 2024/2025 frozen like the scheduled job would have (system caller: frozen_by null)
-select realisasi.freeze_snapshot(3, 'ganjil_ytd', '2025-03-02 01:00+07')
- where not exists (select 1 from realisasi.kpi_snapshots where academic_year_id = 3 and kind = 'ganjil_ytd' and superseded_by is null);
-select realisasi.freeze_snapshot(3, 'genap_full_year', '2025-08-30 01:00+07')
- where not exists (select 1 from realisasi.kpi_snapshots where academic_year_id = 3 and kind = 'genap_full_year' and superseded_by is null);
-
--- A live system snapshot of a LATER period that was frozen before this history existed no longer matches what the
--- scheduled job would have frozen (missing kegiatan, different late-addition baseline): supersede it with a system
--- re-freeze at its as-of time (+1 s so _prev_snapshot picks it over the superseded one). Idempotent: after the re-freeze the item sets match. (On a fresh deploy 90_freeze
--- runs after this file, so nothing is stale here.)
-do $$
-declare s realisasi.kpi_snapshots;
-begin
-  for s in select k.* from realisasi.kpi_snapshots k
-            where k.superseded_by is null and k.frozen_by is null and k.academic_year_id <> 3
-            order by k.frozen_at
-  loop
-    if exists ((select distinct i.kpi_code, i.bucket, i.ref_type, i.ref_id
-                  from realisasi.kpi_items(s.window_start, s.window_end, s.cutoff_date, s.academic_year_id, s.frozen_at, null) i
-                except
-                select i.kpi_code, i.bucket, i.ref_type, i.ref_id from realisasi.kpi_snapshot_items i where i.snapshot_id = s.id)
-               union all
-               (select i.kpi_code, i.bucket, i.ref_type, i.ref_id from realisasi.kpi_snapshot_items i where i.snapshot_id = s.id
-                except
-                select distinct i.kpi_code, i.bucket, i.ref_type, i.ref_id
-                  from realisasi.kpi_items(s.window_start, s.window_end, s.cutoff_date, s.academic_year_id, s.frozen_at, null) i)) then
-      perform realisasi._freeze(s.academic_year_id, s.kind, s.frozen_at + interval '1 second', null,
-                                'Data historis kegiatan 2024–2026 ditambahkan (seed).', s.id);
-    end if;
-  end loop;
-end $$;
-
--- Date the seeded freezes' notifications (and outbox rows) at the snapshot's frozen_at and mark them read for io_admin,
--- as 90_freeze does, so the bell shows one notification per snapshot.
-update realisasi.notifications n
-   set created_at = k.frozen_at,
-       read_at = case when p.app_role = 'io_admin' then k.frozen_at + interval '1 day' end
-  from realisasi.kpi_snapshots k, kerjasama.profiles p
- where n.kind = 'snapshot_frozen' and n.link = '/realisasi/laporan?report=arsip&snapshot=' || k.id
-   and p.id = n.recipient_id and k.frozen_by is null and n.created_at is distinct from k.frozen_at;
-update realisasi.email_outbox o set created_at = k.frozen_at
-  from realisasi.kpi_snapshots k
- where k.frozen_by is null and o.body like '%/realisasi/laporan?report=arsip&snapshot=' || k.id
-   and o.created_at is distinct from k.frozen_at;
+-- Snapshots (freezing AY 2024/2025, re-freezing stale ones) are handled in 06_participants.sql, after the participant
+-- lists are complete.
