@@ -53,9 +53,11 @@ export function PeriodSelector({
   const [pending, startTransition] = useTransition();
   const go = (next: { ay?: number; period: Period; unit?: number | null }) =>
     startTransition(() => router.push(buildHref(basePath, preserve, next)));
-  const options = PERIOD_OPTIONS.filter((o) => o.value !== 'ytd' || ay === currentAyId);
+  // currentAyId is missing only from a database without the YTD rule yet: keep offering YTD everywhere then.
+  const isActiveAy = (id: number) => currentAyId == null || id === currentAyId;
+  const options = PERIOD_OPTIONS.filter((o) => o.value !== 'ytd' || isActiveAy(ay));
   const onAyChange = (nextAy: number) =>
-    go({ ay: nextAy, period: period === 'ytd' && nextAy !== currentAyId ? 'full' : period, unit });
+    go({ ay: nextAy, period: period === 'ytd' && !isActiveAy(nextAy) ? 'full' : period, unit });
 
   return (
     <div className={cn('flex flex-wrap items-end gap-3', pending && 'opacity-70')} aria-busy={pending}>
