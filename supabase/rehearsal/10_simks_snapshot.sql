@@ -17,6 +17,23 @@ insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (4, 'Sc
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (5, 'Prodi Manajemen', 4, 1) on conflict do nothing;
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (10, 'Biro Administrasi Umum dan Kepegawaian', 1, 2) on conflict do nothing;
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (19, 'Pusat Pengembangan Sistem Informasi', 1, 2) on conflict do nothing;
+-- units referenced by seed-supabase/05_activities_history.sql (live names/parents; parents before children)
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values
+  (6, 'Prodi Akuntansi', 4, 1), (7, 'International Business Management', 5, 1), (8, 'Hotel Management', 5, 1),
+  (20, 'Lembaga Penelitian dan Pengabdian kepada Masyarakat', 1, 2), (28, 'Fakultas Teknologi Industri', 1, 1),
+  (30, 'Fakultas Kedokteran', 1, 1), (32, 'Fakultas Humaniora dan Industri Kreatif', 1, 1),
+  (35, 'Fakultas Teknik Sipil dan Perencanaan', 1, 1), (36, 'Fakultas Keguruan dan Ilmu Pendidikan', 1, 1)
+on conflict do nothing;
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values
+  (40, 'International Digital Accounting and Fraud', 6, 1), (42, 'Program Marketing Management', 5, 1),
+  (48, 'Program Studi Magister Manajemen', 4, 1), (49, 'Digital Business Transformation', 5, 1),
+  (54, 'Program Studi Arsitektur', 35, 1), (55, 'Program Studi Teknik Sipil', 35, 1),
+  (57, 'Program Studi Ilmu Komunikasi', 32, 1), (59, 'Program Studi Desain Interior', 32, 1),
+  (61, 'Program Studi Sastra Inggris', 32, 1), (63, 'Program Studi Desain Komunikasi Visual', 32, 1),
+  (65, 'Program Studi Teknik Elektro', 28, 1), (67, 'Program Studi Teknik Industri', 28, 1),
+  (68, 'Program Studi Informatika', 28, 1), (73, 'Program Studi Pendidikan Guru Sekolah Dasar', 36, 1),
+  (76, 'Prodi Kedokteran', 30, 1)
+on conflict do nothing;
 insert into public.negara (id, kode, nama, is_domestic) values
   (1, 'IDN', 'Indonesia', true),
   (2, 'JPN', 'Jepang', false),
