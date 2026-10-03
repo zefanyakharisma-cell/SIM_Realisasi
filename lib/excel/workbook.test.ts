@@ -36,6 +36,25 @@ describe('excel workbook helpers', () => {
     expect(info.getCell('A4').value).toBe('Filter: Status');
   });
 
+  it("puts Info last when position is 'last' (Laporan per RENSTRA)", async () => {
+    const wb = createWorkbook();
+    addTableSheet(wb, '1.1 Rekap', [{ header: 'Unit', key: 'u', value: (r: { u: string }) => r.u }], [{ u: 'FTI' }]);
+    addTableSheet(wb, '1.1 Data', [{ header: 'Kode', key: 'c', value: (r: { c: string }) => r.c }], [{ c: 'RL-1' }]);
+    addInfoSheet(wb, {
+      kind: 'kpi-drilldown',
+      title: 'RENSTRA 1.1',
+      filters: [],
+      generatedBy: 'Tester',
+      generatedAt: new Date('2026-10-01T03:00:00Z'),
+      dataAsOf: 'live',
+      rowCount: 2,
+      position: 'last',
+    });
+    const back = new ExcelJS.Workbook();
+    await back.xlsx.load((await toBuffer(wb)) as unknown as ArrayBuffer);
+    expect(back.worksheets.map((w) => w.name)).toEqual(['1.1 Rekap', '1.1 Data', 'Info']);
+  });
+
   it('keeps calendar dates and shifts timestamps to WIB', () => {
     expect(toExcelDate('2026-09-14')!.toISOString()).toBe('2026-09-14T00:00:00.000Z');
     expect(toExcelDate('2026-09-13T20:00:00Z')!.toISOString()).toBe('2026-09-14T00:00:00.000Z');

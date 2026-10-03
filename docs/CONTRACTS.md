@@ -369,7 +369,7 @@ Notation: **Who** = roles allowed (else `AUTH_FORBIDDEN`). "unit editor" = `_is_
 - Validates: `name, type_id, start_date, end_date, mode, description, submitter_unit_id` present (`VALIDATION_REQUIRED` with `{"fields":[…]}`); `end_date >= start_date` (`END_BEFORE_START`); type active; each document valid for dates (`R04_AGREEMENT_NOT_VALID`). Does **not** check R-08/R-09 (submit does).
 - Effects: create → new `event_groups` row, activity (`submitted_at` null ⇒ draft), `activity_units` (submitter `is_submitter=true` + co-units), docs (`out_of_scope_warning` = submitter unit not in `document_scope_units`), sdgs, external persons (replace-all), log `('revision'…)` **not** written for drafts except one `system/create` log. Update in revision state → replace child sets, and write `_log(id,'revision','partnership','edit_detail', null, diff)` where diff = `{field: [old, new]}` over changed scalar fields and `document_ids`, `co_unit_ids`, `sdg_ids`, `external_persons` (as arrays).
 
-**`delete_draft(p_id uuid) returns void`** — Who: unit editor. `status='draft'` else `R15_NOT_DRAFT`. Hard-deletes the draft and all children incl. its `file_blobs` (R-15).
+**`delete_draft(p_id uuid) returns void`** — Who: the draft's creator (`created_by`, submitter) or io_admin (any draft); else `AUTH_FORBIDDEN`. `status='draft'` else `R15_NOT_DRAFT`. Hard-deletes the draft and all children incl. its `file_blobs` (R-15).
 
 **`ensure_participant_draft(p_activity uuid) returns jsonb`** → `{"version_id":"uuid","version":2,"created":true}`
 - Who/when (participant-edit permission, also used by `activity_detail.permissions.can_edit_participants`):
@@ -667,7 +667,7 @@ Row shapes by `p_kpi` (`rows` sorted by start date / chain start):
 
 // ActivityPermissions (booleans)
 { "can_edit_draft":        "unit editor && status=draft",
-  "can_delete_draft":      "unit editor && status=draft",
+  "can_delete_draft":      "(creator || io_admin) && status=draft",
   "can_edit_detail":       "unit editor && (status=draft || partnership_status=revision_requested)",
   "can_edit_files":        "same as can_edit_detail",
   "can_edit_participants": "participant-edit permission for the unit (see ensure_participant_draft), excluding the IO post-verification case",

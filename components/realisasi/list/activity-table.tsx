@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { DeleteDraftButton } from '@/components/realisasi/activity/delete-draft-button';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import { FlagPill, StatusBadge, TrackChips } from '@/components/realisasi/status-badge';
 import { Badge } from '@/components/ui/badge';
@@ -113,6 +114,8 @@ export interface ActivityTableProps {
   empty?: ReactNode;
   /** Enables the draft deadline flags (M-2). */
   deadline?: DeadlineContext;
+  /** Shows "Hapus draf" on drafts this viewer may delete (R-15: own drafts; IO Admin: all). */
+  viewer?: { id: string; isAdmin: boolean };
 }
 
 export const ACTIVITY_TABLE_COLUMNS = 10;
@@ -121,7 +124,8 @@ export const ACTIVITY_TABLE_COLUMNS = 10;
  * Kegiatan list table (Design §3.2): Kode · Nama · Jenis · Unit · Mitra · Tanggal · Semester ·
  * Status · Jalur (track chips) · Penanda. Server-safe (no hooks).
  */
-export function ActivityTable({ rows, filterRow, caption, empty, deadline }: ActivityTableProps) {
+export function ActivityTable({ rows, filterRow, caption, empty, deadline, viewer }: ActivityTableProps) {
+  const canDelete = (r: ActivityListRow) => r.status === 'draft' && !!viewer && (viewer.isAdmin || r.created_by === viewer.id);
   return (
     <div className="overflow-x-auto rounded-lg border bg-card" role="region" aria-label={caption} tabIndex={0}>
       <table className="w-full min-w-[1100px] text-sm" data-testid="activity-table">
@@ -171,7 +175,10 @@ export function ActivityTable({ rows, filterRow, caption, empty, deadline }: Act
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 align-top">{r.semester_label ?? '–'}</td>
               <td className="px-3 py-2.5 align-top">
-                <StatusBadge status={r.status} />
+                <div className="flex items-center gap-1">
+                  <StatusBadge status={r.status} />
+                  {canDelete(r) ? <DeleteDraftButton activityId={r.id} code={r.code} compact /> : null}
+                </div>
               </td>
               <td className="px-3 py-2.5 align-top">
                 {r.status === 'draft' ? (

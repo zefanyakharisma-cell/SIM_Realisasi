@@ -122,3 +122,17 @@ test('S-16: unit fixes a mobility revision and resubmits → back in the Mobilit
   await page.waitForURL(new RegExp(`/realisasi/kegiatan/${id}$`));
   await expect(page.getByTestId('status-badge').first()).toContainText('Dalam Verifikasi');
 });
+
+test('R-15: the creator and IO Admin can delete a draft from the list; others cannot', async ({ page }) => {
+  // S-23 is a draft created by ua-fsd
+  await loginAs(page, ACCOUNTS.uaFsd);
+  await page.goto('/realisasi/kegiatan');
+  await expect(page.getByTestId('delete-draft-RL-2026-0023')).toBeVisible();
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi/kegiatan');
+  await expect(page.getByTestId('delete-draft-RL-2026-0023')).toBeVisible();
+  await loginAs(page, ACCOUNTS.ioMobility);
+  await page.goto('/realisasi/kegiatan');
+  await expect(page.getByTestId('activity-table')).toBeVisible();
+  await expect(page.getByTestId('delete-draft-RL-2026-0023')).toHaveCount(0);
+});

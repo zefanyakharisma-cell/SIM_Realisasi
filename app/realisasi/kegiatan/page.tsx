@@ -100,6 +100,7 @@ export default async function KegiatanPage(props: { searchParams: Promise<Search
         filterRow={<ColumnFilterRow filters={filters} options={options} />}
         empty={empty}
         deadline={{ today, reminderDays }}
+        viewer={{ id: user.id, isAdmin: user.role === 'io_admin' }}
       />
     </div>
   );
