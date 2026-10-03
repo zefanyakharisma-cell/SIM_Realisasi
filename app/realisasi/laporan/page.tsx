@@ -73,7 +73,7 @@ interface ReportDef {
 
 const REPORTS: ReportDef[] = [
   { key: 'ringkasan', title: 'Ringkasan RENSTRA', description: 'Nilai indikator RENSTRA beserta rinciannya.', kind: 'kpi-summary', visible: () => true },
-  { key: 'kpi', title: 'Laporan per RENSTRA', description: 'Nilai tiap unit (Fakultas → Prodi → Program) dan data pendukungnya.', kind: 'kpi-drilldown', visible: () => true },
+  { key: 'kpi', title: 'Laporan per RENSTRA', description: 'Nilai tiap unit (Fakultas → Program Studi → Program) dan data pendukungnya.', kind: 'kpi-drilldown', visible: () => true },
   { key: 'kegiatan', title: 'Daftar kegiatan', description: 'Seluruh kegiatan sesuai filter.', kind: 'activities', visible: () => true },
   { key: 'peserta', title: 'Daftar peserta', description: 'Nama & NRP peserta (data pribadi, dicatat).', kind: 'participants', visible: (u) => can(u, 'export.participants') },
   { key: 'awards', title: 'International Awards', description: 'Peringkat unit: inbound, outbound, dan inisiatif internasional.', kind: 'awards', visible: () => true },

@@ -97,9 +97,9 @@ General:
 KPI 1.19.S8 and the Known Activities register (former R-48…R-54) are removed.
 
 ## 7. International Awards (dashboard tab, report and export)
-- **R-48** Ranked by **Program Studi** only (Fakultas, Program and UP units are never ranked), same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total. Student boards credit each student to their own Prodi; a student without a PETRA prodi (e.g. inbound exchange) goes to the submitting unit when it is a Prodi, else is not counted. A Fakultas scope shows its Prodis.
+- **R-48** Ranked by **Program Studi** only (Fakultas, Program and UP units are never ranked), same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total. Student boards credit each student to their own Program Studi; a student without a PETRA prodi (e.g. inbound exchange) goes to the submitting unit when it is a Program Studi, else is not counted. A Fakultas scope shows its Program Studi.
 - **R-49** Student boards — **Inbound** (inbound kegiatan, inbound students), **Outbound Dalam Negeri** (outbound, kegiatan country = ID, PETRA students), **Outbound Internasional** (outbound, country ≠ ID). Columns: Program Studi JD/DD, Student Exchange, Short/Summer Program, Kegiatan Internasional (<14 hari) = other mobility kegiatan lasting `end − start + 1 < 14` days; each student counts in one column.
-- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per submitting Prodi — inbound mobility, outbound mobility, other kegiatan — and the total.
+- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per submitting Program Studi — inbound mobility, outbound mobility, other kegiatan — and the total.
 
 ## 8. Semester freeze & snapshots
 - **R-55** Each semester has a cutoff date (default end + 30 days). On the cutoff the system freezes a snapshot: Ganjil → `ganjil_ytd`, Genap → `genap_full_year` (shown as Setahun).

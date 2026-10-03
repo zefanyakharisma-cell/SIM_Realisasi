@@ -271,7 +271,7 @@ async function buildParticipants({ tx, user, params }: ExportContext): Promise<E
     { header: 'NRP', key: 'nrp', value: (r) => r.nrp, format: 'text' },
     { header: 'Nama', key: 'fn', value: (r) => r.full_name },
     { header: 'Fakultas', key: 'fac', value: (r) => r.faculty_name },
-    { header: 'Prodi', key: 'prodi', value: (r) => r.prodi_name },
+    { header: 'Program Studi', key: 'prodi', value: (r) => r.prodi_name },
     { header: 'Institusi Asal', key: 'home', value: (r) => r.home_institution },
     { header: 'No. Mahasiswa Asal', key: 'homeno', value: (r) => r.home_student_number, format: 'text' },
     { header: 'Negara Asal', key: 'homecc', value: (r) => r.home_country_code },

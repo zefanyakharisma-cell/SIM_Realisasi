@@ -369,13 +369,13 @@ on conflict (nrp) do nothing;
 
 -- lecturers and heads of every Program Studi
 insert into mock_hr.employees (employee_id, full_name, unit_name, position, status) values
-  ('PG626211', 'Dr. Theresia Santoso, M.M.', 'Prodi Manajemen', 'Ketua Program Studi', 'active'),
-  ('PG670883', 'Dr. Stefani Setiawan, M.T.', 'Prodi Manajemen', 'Dosen', 'active'),
-  ('PG661938', 'Dr. Rafael Santoso, Ph.D.', 'Prodi Manajemen', 'Lektor Kepala', 'active'),
-  ('PG643269', 'Rachel Kusuma, M.Pd.', 'Prodi Manajemen', 'Lektor Kepala', 'active'),
-  ('PG641614', 'Lukas Lim, M.T.', 'Prodi Akuntansi', 'Ketua Program Studi', 'active'),
-  ('PG641995', 'Devina Wibowo, M.T.', 'Prodi Akuntansi', 'Dosen', 'active'),
-  ('PG508242', 'Dr. Evan Hidayat, M.Pd.', 'Prodi Akuntansi', 'Dosen', 'active'),
+  ('PG626211', 'Dr. Theresia Santoso, M.M.', 'Program Studi Manajemen', 'Ketua Program Studi', 'active'),
+  ('PG670883', 'Dr. Stefani Setiawan, M.T.', 'Program Studi Manajemen', 'Dosen', 'active'),
+  ('PG661938', 'Dr. Rafael Santoso, Ph.D.', 'Program Studi Manajemen', 'Lektor Kepala', 'active'),
+  ('PG643269', 'Rachel Kusuma, M.Pd.', 'Program Studi Manajemen', 'Lektor Kepala', 'active'),
+  ('PG641614', 'Lukas Lim, M.T.', 'Program Studi Akuntansi', 'Ketua Program Studi', 'active'),
+  ('PG641995', 'Devina Wibowo, M.T.', 'Program Studi Akuntansi', 'Dosen', 'active'),
+  ('PG508242', 'Dr. Evan Hidayat, M.Pd.', 'Program Studi Akuntansi', 'Dosen', 'active'),
   ('PG615640', 'Kevin Hartono, M.M.', 'Program Studi Magister Manajemen', 'Ketua Program Studi', 'active'),
   ('PG646584', 'Marcella Hermawan, M.Sc.', 'Program Studi Magister Manajemen', 'Dosen', 'active'),
   ('PG573119', 'Jessica Santoso, M.T.', 'Program Studi Doktor Ilmu Manajemen', 'Ketua Program Studi', 'active'),
@@ -421,8 +421,8 @@ insert into mock_hr.employees (employee_id, full_name, unit_name, position, stat
   ('PG526094', 'Dr. Rachel Siswanto, M.Ds.', 'Program Studi Pendidikan Guru Pendidikan Anak Usia Dini', 'Dosen', 'active'),
   ('PG655830', 'Agnes Hartono, M.M.', 'Program Studi Pendidikan Guru Sekolah Dasar', 'Ketua Program Studi', 'active'),
   ('PG616224', 'Ir. Grace Hermawan, M.M.', 'Program Studi Pendidikan Guru Sekolah Dasar', 'Dosen', 'active'),
-  ('PG505398', 'Ir. Grace Purnomo, M.T.', 'Prodi Kedokteran', 'Ketua Program Studi', 'active'),
-  ('PG615813', 'Ir. Daniel Wibowo, M.Ds.', 'Prodi Kedokteran', 'Dosen', 'active'),
+  ('PG505398', 'Ir. Grace Purnomo, M.T.', 'Program Studi Kedokteran', 'Ketua Program Studi', 'active'),
+  ('PG615813', 'Ir. Daniel Wibowo, M.Ds.', 'Program Studi Kedokteran', 'Dosen', 'active'),
   ('PG695869', 'Dr. Daniel Salim, M.M.', 'Program Studi Kedokteran Gigi', 'Ketua Program Studi', 'active'),
   ('PG612236', 'Dr. Rafael Budiman, M.Pd.', 'Program Studi Kedokteran Gigi', 'Lektor Kepala', 'active')
 on conflict (employee_id) do nothing;

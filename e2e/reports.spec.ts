@@ -16,7 +16,7 @@ async function downloadWorkbook(page: Page, trigger: () => Promise<void>): Promi
   return wb;
 }
 
-test('AT-01: the summer program claimed by FTI and Prodi Informatika counts once, for the unit Mobility kept', async ({ page }) => {
+test('AT-01: the summer program claimed by FTI and Program Studi Informatika counts once, for the unit Mobility kept', async ({ page }) => {
   // S-13 (FTI) kept all 12 students over S-14 (Informatika); 2 of them are also claimed by S-18 (open → counted nowhere).
   await loginAs(page, ACCOUNTS.uaFti);
   await page.goto('/realisasi?period=ytd');
@@ -69,7 +69,7 @@ test('International Awards tab: four leaderboards per Program Studi, exportable'
     await expect(page.getByTestId(`awards-${id}`)).toBeVisible();
   }
   const intl = page.getByTestId('awards-outbound-international').getByTestId('awards-row').first();
-  await expect(intl).toContainText('Prodi Informatika');
+  await expect(intl).toContainText('Program Studi Informatika');
   await expect(page.getByTestId('awards-outbound-international')).not.toContainText('Fakultas');
   await expect(page.getByTestId('period-genap')).toHaveAttribute('href', /tab=awards/);
 
@@ -94,13 +94,13 @@ test('AT-05: YTD 1.19.S4 card shows grace count and drill-down lists doc 901', a
   await expect(page.locator('table')).toContainText('Masa tenggang');
 });
 
-test('Revisi V.2: Laporan per RENSTRA rolls Prodi into Fakultas and exports Rekap → Data → Info', async ({ page }) => {
+test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and exports Rekap → Data → Info', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   for (const renstra of ['1.1', '1.1.a', '1.1.b', '1.19.S1']) {
     await page.goto(`/realisasi/laporan?report=kpi&period=ytd&renstra=${renstra}`);
     await expect(page.getByTestId('renstra-title')).toContainText(renstra);
     const rows = page.getByTestId('rollup-row');
-    // seed: FTI (10) → Prodi Informatika (11), Prodi Teknik Elektro (12); every academic unit is listed
+    // seed: FTI (10) → Program Studi Informatika (11), Program Studi Teknik Elektro (12); every academic unit is listed
     await expect(rows).toHaveCount(7);
     const total = async (id: number) => Number(await rows.and(page.locator(`[data-unit-id="${id}"]`)).getAttribute('data-total'));
     const own10 = Number((await rows.and(page.locator('[data-unit-id="10"]')).locator('td').nth(2).textContent())!.replace(/\D/g, '') || 0);

@@ -45,8 +45,8 @@ SBM, FTI, FTSP, FHIK, FKIP, FK, FKG = (
     "Fakultas Humaniora dan Industri Kreatif", "Fakultas Keguruan dan Ilmu Pendidikan", "Fakultas Kedokteran",
     "Fakultas Kedokteran Gigi")
 PRODI = [
-    Prodi(5, "Prodi Manajemen", "Manajemen", SBM, "D31", 12, "bisnis"),
-    Prodi(6, "Prodi Akuntansi", "Akuntansi", SBM, "D32", 8, "akuntansi"),
+    Prodi(5, "Program Studi Manajemen", "Manajemen", SBM, "D31", 12, "bisnis"),
+    Prodi(6, "Program Studi Akuntansi", "Akuntansi", SBM, "D32", 8, "akuntansi"),
     Prodi(48, "Program Studi Magister Manajemen", "Magister Manajemen", SBM, "H71", 3, "bisnis"),
     Prodi(51, "Program Studi Doktor Ilmu Manajemen", "Doktor Ilmu Manajemen", SBM, "H72", 1, "bisnis"),
     Prodi(54, "Program Studi Arsitektur", "Arsitektur", FTSP, "A12", 5, "arsitektur"),
@@ -66,7 +66,7 @@ PRODI = [
     Prodi(70, "Program Studi Magister Teknik Industri", "Magister Teknik Industri", FTI, "B15", 1, "industri"),
     Prodi(72, "Program Studi Pendidikan Guru Pendidikan Anak Usia Dini", "Pendidikan Guru Pendidikan Anak Usia Dini", FKIP, "F52", 2, "pendidikan"),
     Prodi(73, "Program Studi Pendidikan Guru Sekolah Dasar", "Pendidikan Guru Sekolah Dasar", FKIP, "F51", 3, "pendidikan"),
-    Prodi(76, "Prodi Kedokteran", "Kedokteran", FK, "G61", 3, "kesehatan"),
+    Prodi(76, "Program Studi Kedokteran", "Kedokteran", FK, "G61", 3, "kesehatan"),
     Prodi(74, "Program Studi Kedokteran Gigi", "Kedokteran Gigi", FKG, "G62", 2, "kesehatan"),
 ]
 PRODI_BY_ID = {p.id: p for p in PRODI}

@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 1 OF 5 (commit fb2a4bc).
+-- SIM Realisasi Supabase install, PART 1 OF 5 (commit ce646eb).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -375,7 +375,8 @@ comment on table realisasi.document_overrides is
 -- prodi; anything deeper (e.g. SBM -> Prodi Manajemen -> "Program Marketing Management") -> program.
 create view kerjasama.units as
 select u.id,
-       u.nama::text as name,
+       -- display form: SIMKS short names "Prodi X" read as "Program Studi X" (SIMKS itself unchanged)
+       regexp_replace(u.nama::text, '^\s*Prodi\s+', 'Program Studi ', 'i') as name,
        u.id_parent_unit as parent_id,
        case
          when u.id_jenis_unit is distinct from 1 then 'up'

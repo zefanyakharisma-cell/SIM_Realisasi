@@ -39,7 +39,7 @@ select pg_temp.ok((select bool_and(c -> 'a' -> 'bundle' ->> 'href' like '/api/fi
                      from jsonb_array_elements(realisasi.conflict_list()) c), 'both sides link their mobility bundle PDF');
 select pg_temp.eq((realisasi.conflict_list() -> 0 ->> 'student_name'), 'Cindy Liem', 'student name from BAAK');
 select pg_temp.eq((select jsonb_agg(distinct c -> 'b' ->> 'unit_name') from jsonb_array_elements(realisasi.conflict_list()) c),
-                  '["Prodi Informatika"]'::jsonb, 'unit names on both sides');
+                  '["Program Studi Informatika"]'::jsonb, 'unit names on both sides');
 select pg_temp.eq((realisasi.activity_detail(pg_temp.aid(18)) #>> '{flags,conflicts_open}')::int, 2, 'activity_detail flags open conflicts');
 select pg_temp.eq(jsonb_array_length(realisasi.activity_detail(pg_temp.aid(18)) -> 'conflicts'), 2, 'activity_detail lists the conflicts');
 select pg_temp.throws($$select realisasi.conflict_list(null, 'bogus')$$, 'VALIDATION_INVALID', 'status filter validated');

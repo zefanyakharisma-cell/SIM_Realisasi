@@ -108,7 +108,7 @@ export function ParticipantTable({ version, highlight, removedRows }: Participan
         title="Mahasiswa PETRA"
         count={internal.length}
         testId="participants-internal"
-        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Prodi']}
+        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Program Studi']}
       >
         {internal.map(({ row, change }, i) => (
           <tr key={`${row.nrp}-${change ?? 'x'}`} className={cn('border-t', change && CHANGE_ROW_CLASS[change])}>
