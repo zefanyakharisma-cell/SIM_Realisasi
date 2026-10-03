@@ -31,7 +31,7 @@ TABLES = [
         ("id", "int", "PK", False, "SIMKS unit.id."),
         ("name", "text", "", False, "Unit name."),
         ("parent_id", "int", "", True, "Parent unit."),
-        ("kind", "text", "", False, "up | faculty | prodi, derived from jenis_unit and hierarchy."),
+        ("kind", "text", "", False, "up | faculty | prodi | program, by depth below the faculty level (Revisi V.2). Drives the per-unit RENSTRA roll-up and Awards by Program Studi."),
         ("is_active", "boolean", "", False, "Active in SIMKS."),
         ("is_academic", "boolean", "", False, "jenis_unit = Unit Akademik."),
     ]),
@@ -101,7 +101,7 @@ TABLES = [
     ("realisasi.activity_documents", "activity", 1, "The one agreement a kegiatan implements (R-03). Stores the original document; the current one is resolved via the chain.", [
         ("activity_id", "uuid", "PK FK UQ", False, "Kegiatan (unique: one agreement per kegiatan)."),
         ("original_document_id", "int", "PK LFK", False, "Document picked at submission."),
-        ("chain_id", "int", "", False, "Root of the renewal chain; RENSTRA 1.19.24 counts chains (R-42)."),
+        ("chain_id", "int", "", False, "Root of the renewal chain; RENSTRA 1.19.S4 (code 1.19.24) counts chains (R-42)."),
         ("out_of_scope_warning", "boolean", "", False, "Submitting unit not in Lingkup Kerja Sama (R-05)."),
     ]),
     ("realisasi.document_overrides", "simks", 1, "Realisasi-only document facts SIMKS lacks, joined into kerjasama.documents.", [
@@ -168,7 +168,7 @@ TABLES = [
         ("sks_recognized", "numeric(4,1)", "", True, "SKS diakui; mobility only."),
         ("description", "text", "", False, "Deskripsi."),
         ("submitter_unit_id", "int", "LFK", False, "Submitting academic unit."),
-        ("created_by", "uuid", "LFK", False, "Account that created it."),
+        ("created_by", "uuid", "LFK", False, "Account that created it; only this account or IO Admin may delete the draft (R-15)."),
         ("submitted_at", "timestamptz", "", True, "First Ajukan."),
         ("verified_at", "timestamptz", "", True, "First time verified; never changed by later edits (R-28)."),
         ("status", "activity_status", "", False, "draft | in_verification | revision_requested | verified."),
@@ -215,7 +215,7 @@ TABLES = [
     ]),
     ("realisasi.kpi_snapshot_items", "calendar", 2, "Records behind each snapshot number, for drill-down and export.", [
         ("snapshot_id", "uuid", "PK FK", False, "Snapshot."),
-        ("kpi_code", "text", "PK", False, "1.1, 1.19.S1, 1.19.24, awards…"),
+        ("kpi_code", "text", "PK", False, "1.1, 1.19.S1, 1.19.24 (shown as 1.19.S4 since Revisi V.2), awards…"),
         ("bucket", "text", "PK", False, "Split such as inbound/outbound, numerator/denominator."),
         ("ref_type", "text", "PK", False, "activity | student | chain …"),
         ("ref_id", "text", "PK", False, "Id of the contributing record."),
@@ -408,7 +408,7 @@ ENUMS = [
 ]
 
 VIEWS = [
-    ("realisasi.v_chains", "Renewal chains: every document with its chain root, used for RENSTRA 1.19.24 (R-42)."),
+    ("realisasi.v_chains", "Renewal chains: every document with its chain root, used for RENSTRA 1.19.S4 (R-42)."),
     ("realisasi.v_activity_documents", "Activity → original and current document through the chain (R-03)."),
     ("realisasi.v_activity_list", "Flattened activity list behind every list screen and the Excel export."),
 ]

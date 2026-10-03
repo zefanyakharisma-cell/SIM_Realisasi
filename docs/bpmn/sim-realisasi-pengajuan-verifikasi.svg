@@ -64,6 +64,14 @@
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10" font-weight="normal" fill="#6A7785" text-anchor="start"><tspan x="701.0" y="971.5">Cek NRP / NIP</tspan></text>
 <path d="M3074.0 773.0 L3074.0 80.0" fill="none" stroke="#6A7785" stroke-width="1.2" stroke-dasharray="6 4" marker-start="url(#mstart)" marker-end="url(#marr)"/>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10" font-weight="normal" fill="#6A7785" text-anchor="start"><tspan x="3081.0" y="103.2">Tab Realisasi &amp; flag tanpa</tspan><tspan x="3081.0" y="115.8">realisasi</tspan></text>
+<path d="M309.0 856.0 L414.0 837.0" stroke="#6A7785" stroke-width="1.1" stroke-dasharray="2 3" fill="none"/>
+<rect x="209.0" y="856.0" width="200" height="58" fill="#FFFDF2" stroke="none"/>
+<path d="M223.0 856.0 H209.0 V914.0 H223.0" fill="none" stroke="#6A7785" stroke-width="1.3"/>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10" font-weight="normal" fill="#3D4A57" text-anchor="start"><tspan x="217.0" y="869.8">Draf boleh dihapus hanya oleh</tspan><tspan x="217.0" y="882.2">pembuatnya atau IO Admin; kegiatan</tspan><tspan x="217.0" y="894.8">yang sudah diajukan tidak pernah</tspan><tspan x="217.0" y="907.2">dihapus (R-15)</tspan></text>
+<path d="M3074.0 856.0 L3074.0 837.0" stroke="#6A7785" stroke-width="1.1" stroke-dasharray="2 3" fill="none"/>
+<rect x="2974.0" y="856.0" width="200" height="58" fill="#FFFDF2" stroke="none"/>
+<path d="M2988.0 856.0 H2974.0 V914.0 H2988.0" fill="none" stroke="#6A7785" stroke-width="1.3"/>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10" font-weight="normal" fill="#3D4A57" text-anchor="start"><tspan x="2982.0" y="869.8">Dihitung per unit: Fakultas =</tspan><tspan x="2982.0" y="882.2">kegiatan sendiri + Program Studi +</tspan><tspan x="2982.0" y="894.8">Program. Awards hanya memeringkat</tspan><tspan x="2982.0" y="907.2">Program Studi (R-48)</tspan></text>
 <circle cx="134" cy="265" r="16" fill="#EAF6DD" stroke="#4C9A0F" stroke-width="1.6" filter="url(#shadow)"/>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="134.0" y="298.7">Kegiatan kerja sama</tspan><tspan x="134.0" y="311.7">selesai dilaksanakan</tspan></text>
 <rect x="214.0" y="233.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
@@ -134,7 +142,7 @@
 <path d="M2934 782.0 L2957.0 805 L2934 828.0 L2911.0 805 z" fill="url(#gGw)" stroke="#A8870B" stroke-width="1.4" filter="url(#shadow)"/>
 <rect x="3014.0" y="773.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
 <g><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(0 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(45 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(90 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(135 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(180 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(225 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(270 3028.2 786.0)" fill="#2A6EA6"/><rect x="3027.0" y="779.0" width="2.4" height="4" transform="rotate(315 3028.2 786.0)" fill="#2A6EA6"/><circle cx="3028.2" cy="786.0" r="4.6" fill="#FFFFFF" stroke="#2A6EA6" stroke-width="1.2"/><circle cx="3028.2" cy="786.0" r="1.7" fill="#2A6EA6"/></g>
-<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="3077.0" y="808.2">Hitung ke RENSTRA &amp;</tspan><tspan x="3077.0" y="821.2">International Awards</tspan></text>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="3077.0" y="801.7">Hitung ke RENSTRA</tspan><tspan x="3077.0" y="814.7">per unit &amp;</tspan><tspan x="3077.0" y="827.7">International Awards</tspan></text>
 <circle cx="3214" cy="805" r="16" fill="#FCE3E0" stroke="#C0262C" stroke-width="3.4" filter="url(#shadow)"/>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="3214.0" y="838.7">Kegiatan</tspan><tspan x="3214.0" y="851.7">terverifikasi &amp;</tspan><tspan x="3214.0" y="864.7">terhitung</tspan></text>
 </svg>

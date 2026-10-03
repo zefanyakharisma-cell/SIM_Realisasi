@@ -153,7 +153,7 @@
       <bpmn:incoming>Flow_29</bpmn:incoming>
       <bpmn:outgoing>Flow_30</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:serviceTask id="t_count" name="Hitung ke RENSTRA &amp; International Awards">
+    <bpmn:serviceTask id="t_count" name="Hitung ke RENSTRA per unit &amp; International Awards">
       <bpmn:incoming>Flow_30</bpmn:incoming>
       <bpmn:outgoing>Flow_31</bpmn:outgoing>
     </bpmn:serviceTask>
@@ -191,6 +191,10 @@
     <bpmn:sequenceFlow id="Flow_29" sourceRef="t_verified" targetRef="g_m3" />
     <bpmn:sequenceFlow id="Flow_30" sourceRef="g_m3" targetRef="t_count" />
     <bpmn:sequenceFlow id="Flow_31" sourceRef="t_count" targetRef="end" />
+    <bpmn:textAnnotation id="note_draft"><bpmn:text>Draf boleh dihapus hanya oleh pembuatnya atau IO Admin; kegiatan yang sudah diajukan tidak pernah dihapus (R-15)</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="note_draft_assoc" sourceRef="note_draft" targetRef="t_draft" />
+    <bpmn:textAnnotation id="note_count"><bpmn:text>Dihitung per unit: Fakultas = kegiatan sendiri + Program Studi + Program. Awards hanya memeringkat Program Studi (R-48)</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="note_count_assoc" sourceRef="note_count" targetRef="t_count" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_Process_sim_realisasi_pengajuan_verifikasi" name="Pengajuan &amp; Verifikasi Kegiatan">
     <bpmndi:BPMNPlane id="Plane_Process_sim_realisasi_pengajuan_verifikasi" bpmnElement="Collab_Process_sim_realisasi_pengajuan_verifikasi">
@@ -258,6 +262,10 @@
       <bpmndi:BPMNEdge id="Flow_29_di" bpmnElement="Flow_29"><di:waypoint x="2854" y="805" /><di:waypoint x="2911" y="805" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_30_di" bpmnElement="Flow_30"><di:waypoint x="2957" y="805" /><di:waypoint x="3014" y="805" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_31_di" bpmnElement="Flow_31"><di:waypoint x="3134" y="805" /><di:waypoint x="3198" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="note_draft_di" bpmnElement="note_draft"><dc:Bounds x="209" y="856" width="200" height="58" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="note_draft_assoc_di" bpmnElement="note_draft_assoc"><di:waypoint x="309" y="856" /><di:waypoint x="414" y="837" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="note_count_di" bpmnElement="note_count"><dc:Bounds x="2974" y="856" width="200" height="58" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="note_count_assoc_di" bpmnElement="note_count_assoc"><di:waypoint x="3074" y="856" /><di:waypoint x="3074" y="837" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="mf_docs_di" bpmnElement="mf_docs"><di:waypoint x="274" y="80" /><di:waypoint x="274" y="233" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="mf_lookup_di" bpmnElement="mf_lookup"><di:waypoint x="694" y="837" /><di:waypoint x="694" y="990" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="mf_realisasi_di" bpmnElement="mf_realisasi"><di:waypoint x="3074" y="773" /><di:waypoint x="3074" y="80" /></bpmndi:BPMNEdge>

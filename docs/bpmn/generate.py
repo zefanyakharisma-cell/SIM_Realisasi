@@ -96,6 +96,21 @@ class MsgFlow:
 
 
 @dataclass
+class Note:
+    """Text annotation placed in a lane cell, linked to a node by a dotted association."""
+    id: str
+    text: str
+    lane: str
+    col: float
+    row: str
+    node: str
+    w: float = 170
+    h: float = 52
+    x: float = 0
+    y: float = 0
+
+
+@dataclass
 class Process:
     key: str
     title: str
@@ -106,6 +121,7 @@ class Process:
     cols: int
     ext: list[ExtPool] = field(default_factory=list)
     msgs: list[MsgFlow] = field(default_factory=list)
+    notes: list[Note] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- process 1
@@ -142,7 +158,7 @@ def process_submission() -> Process:
         Node("t_approve", "task", "Setujui versi peserta", M, 18),
         Node("t_verified", "task", "Status Terverifikasi; catat verified_at; notifikasi unit", S, 19, task_type="send"),
         Node("g_m3", "gateway", "", S, 20),
-        Node("t_count", "task", "Hitung ke RENSTRA & International Awards", S, 21, task_type="service"),
+        Node("t_count", "task", "Hitung ke RENSTRA per unit & International Awards", S, 21, task_type="service"),
         Node("end", "end", "Kegiatan terverifikasi & terhitung", S, 22),
     ]
     f = [
@@ -187,8 +203,14 @@ def process_submission() -> Process:
         MsgFlow("mf_lookup", "t_lookup", "pool_baak", True, "Cek NRP / NIP"),
         MsgFlow("mf_realisasi", "t_count", "pool_simks", True, "Tab Realisasi & flag tanpa realisasi"),
     ]
+    notes = [
+        Note("note_draft", "Draf boleh dihapus hanya oleh pembuatnya atau IO Admin; kegiatan yang sudah diajukan tidak pernah dihapus (R-15)",
+             S, 1.25, "B", "t_draft", w=200, h=58),
+        Note("note_count", "Dihitung per unit: Fakultas = kegiatan sendiri + Program Studi + Program. Awards hanya memeringkat Program Studi (R-48)",
+             S, 21.0, "B", "t_count", w=200, h=58),
+    ]
     return Process("sim-realisasi-pengajuan-verifikasi", "Pengajuan & Verifikasi Kegiatan",
-                   "SIM Realisasi: Pengajuan & Verifikasi Kegiatan", lanes, n, f, 23, ext, msgs)
+                   "SIM Realisasi: Pengajuan & Verifikasi Kegiatan", lanes, n, f, 23, ext, msgs, notes)
 
 
 # ---------------------------------------------------------------- process 2
@@ -211,7 +233,7 @@ def process_semester() -> Process:
         Node("e_unit", "end", "Pengingat ditindaklanjuti", U, 4),
         # B. semester cutoff & freeze (R-55..R-59)
         Node("s_cutoff", "start", "Tanggal cutoff semester", S, 0, "B", event="timer", event_text="cutoff_date"),
-        Node("t_calc", "task", "Hitung RENSTRA 1.1, 1.19.S1, 1.19.24 & International Awards", S, 1, "B", task_type="service"),
+        Node("t_calc", "task", "Hitung RENSTRA 1.1, 1.19.S1, 1.19.S4 & International Awards", S, 1, "B", task_type="service"),
         Node("t_freeze", "task", "Bekukan snapshot (nilai, ID kontributor, pengaturan)", S, 2, "B", task_type="service"),
         Node("t_notify", "task", "Notifikasi snapshot beku ke IO Admin & pimpinan", S, 3, "B", task_type="send"),
         Node("t_check", "task", "Tinjau snapshot", A, 4),
@@ -219,8 +241,8 @@ def process_semester() -> Process:
         Node("t_reason", "task", "Bekukan ulang dengan alasan wajib", A, 6, "A"),
         Node("t_supersede", "task", "Simpan snapshot baru; snapshot lama = superseded", S, 7, "B", task_type="service"),
         Node("g_m", "gateway", "", A, 8),
-        Node("t_export", "task", "Unduh workbook Excel (snapshot, RENSTRA, Awards)", A, 9),
-        Node("t_dash", "task", "Tinjau dashboard RENSTRA & drill-down", V, 10),
+        Node("t_export", "task", "Unduh Excel per RENSTRA (tabel per unit, data kegiatan, mahasiswa)", A, 9),
+        Node("t_dash", "task", "Tinjau dashboard & laporan RENSTRA per unit", V, 10),
         Node("e_report", "end", "Laporan semester tersedia", V, 11),
         # C. late additions / post-freeze edits (R-31, R-57)
         Node("s_late", "start", "Kegiatan diverifikasi / diubah bertanggal di periode beku", S, 5, "A",
@@ -252,8 +274,12 @@ def process_semester() -> Process:
         Flow("t_flag", "t_next"),
         Flow("t_next", "e_late"),
     ]
+    notes = [
+        Note("note_period", "Periode: Ganjil, Genap, Setahun (kumulatif), YTD. YTD hanya untuk TA aktif dan tidak pernah dibekukan (R-37)",
+             V, 7.2, "M", "t_dash", w=230, h=58),
+    ]
     return Process("sim-realisasi-tutup-semester", "Pengingat, Tutup Semester & Pelaporan",
-                   "SIM Realisasi: Pengingat, Tutup Semester & Pelaporan", lanes, n, f, 12)
+                   "SIM Realisasi: Pengingat, Tutup Semester & Pelaporan", lanes, n, f, 12, notes=notes)
 
 
 # ---------------------------------------------------------------- layout
@@ -280,6 +306,9 @@ def layout(p: Process):
     for nd in p.nodes:
         lx, ly, _, _ = lanes[nd.lane]
         nd.x, nd.y = cx(nd.col), ly + ROW_Y[nd.row]
+    for nt in p.notes:
+        lx, ly, _, _ = lanes[nt.lane]
+        nt.x, nt.y = cx(nt.col), ly + ROW_Y[nt.row]
     return pools, lanes, POOL_X + width + 20, y + 20
 
 
@@ -314,6 +343,18 @@ def msg_waypoints(m: MsgFlow, nodes, pools):
     else:
         a, b = (nd.x, py), nd.side("bottom")
     return [b, a] if m.to_pool else [a, b]
+
+
+def note_link(nt: Note, nodes):
+    """Dotted association from the annotation's nearest edge to the node."""
+    nd = nodes[nt.node]
+    if nd.y + nd.h / 2 <= nt.y - nt.h / 2:  # node above the note
+        return [(nt.x, nt.y - nt.h / 2), nd.side("bottom")]
+    if nd.y - nd.h / 2 >= nt.y + nt.h / 2:
+        return [(nt.x, nt.y + nt.h / 2), nd.side("top")]
+    if nd.x < nt.x:
+        return [(nt.x - nt.w / 2, nt.y), nd.side("right")]
+    return [(nt.x + nt.w / 2, nt.y), nd.side("left")]
 
 
 # ---------------------------------------------------------------- BPMN XML
@@ -380,6 +421,9 @@ def to_bpmn(p: Process) -> str:
     for fid, fl in flows:
         name = f' name="{esc(fl.name)}"' if fl.name else ""
         w(f'    <bpmn:sequenceFlow id="{fid}"{name} sourceRef="{fl.src}" targetRef="{fl.tgt}" />')
+    for nt in p.notes:
+        w(f'    <bpmn:textAnnotation id="{nt.id}"><bpmn:text>{esc(nt.text)}</bpmn:text></bpmn:textAnnotation>')
+        w(f'    <bpmn:association id="{nt.id}_assoc" sourceRef="{nt.id}" targetRef="{nt.node}" />')
     w('  </bpmn:process>')
 
     w(f'  <bpmndi:BPMNDiagram id="Diagram_{pid}" name="{esc(p.title)}">')
@@ -403,6 +447,11 @@ def to_bpmn(p: Process) -> str:
     for fid, fl in flows:
         pts = "".join(f'<di:waypoint x="{x:.0f}" y="{y:.0f}" />' for x, y in waypoints(fl, nodes))
         w(f'      <bpmndi:BPMNEdge id="{fid}_di" bpmnElement="{fid}">{pts}</bpmndi:BPMNEdge>')
+    for nt in p.notes:
+        w(f'      <bpmndi:BPMNShape id="{nt.id}_di" bpmnElement="{nt.id}">'
+          f'{bounds(nt.x - nt.w / 2, nt.y - nt.h / 2, nt.w, nt.h)}</bpmndi:BPMNShape>')
+        pts = "".join(f'<di:waypoint x="{x:.0f}" y="{y:.0f}" />' for x, y in note_link(nt, nodes))
+        w(f'      <bpmndi:BPMNEdge id="{nt.id}_assoc_di" bpmnElement="{nt.id}_assoc">{pts}</bpmndi:BPMNEdge>')
     for m in p.msgs:
         pts = "".join(f'<di:waypoint x="{x:.0f}" y="{y:.0f}" />' for x, y in msg_waypoints(m, nodes, pools))
         w(f'      <bpmndi:BPMNEdge id="{m.id}_di" bpmnElement="{m.id}">{pts}</bpmndi:BPMNEdge>')
@@ -535,6 +584,16 @@ def to_svg(p: Process) -> str:
         nd = nodes[m.node]
         my = midy if abs(pts[0][1] - pts[1][1]) < 140 else (pools[m.pool][1] + (pools[m.pool][3] + 26 if pools[m.pool][1] < nd.y else -22))
         a(text_block(pts[0][0] + 7, my, wrap(m.name, 30), 10, "normal", "start", C["msg"]))
+
+    # text annotations (Bizagi: open bracket + dotted association)
+    for nt in p.notes:
+        (x1, y1), (x2, y2) = note_link(nt, nodes)
+        a(f'<path d="M{x1:.1f} {y1:.1f} L{x2:.1f} {y2:.1f}" stroke="{C["msg"]}" stroke-width="1.1" stroke-dasharray="2 3" fill="none"/>')
+        l, t, r, b = nt.x - nt.w / 2, nt.y - nt.h / 2, nt.x + nt.w / 2, nt.y + nt.h / 2
+        a(f'<rect x="{l}" y="{t}" width="{nt.w}" height="{nt.h}" fill="#FFFDF2" stroke="none"/>')
+        a(f'<path d="M{l+14} {t} H{l} V{b} H{l+14}" fill="none" stroke="{C["msg"]}" stroke-width="1.3"/>')
+        lines = wrap(nt.text, int(nt.w / 5.6))
+        a(text_block(l + 8, nt.y, lines, 10, "normal", "start", "#3D4A57"))
 
     # nodes
     for nd in p.nodes:

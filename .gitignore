@@ -12,3 +12,6 @@ coverage/
 .env*.local
 !.env.example
 tsconfig.tsbuildinfo
+
+# Python bytecode (docs generators)
+__pycache__/

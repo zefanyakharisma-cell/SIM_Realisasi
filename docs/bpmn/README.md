@@ -24,7 +24,7 @@ collapsed pools **SIM Kerjasama** and **BAAK & HR**.
 | # | Lane | Step | Rule |
 |---|---|---|---|
 | 1 | Unit | Kegiatan selesai → isi Detail & pilih satu Kerja Sama (dokumen berlaku pada tanggal kegiatan, dari SIM Kerjasama) | R-03, R-04, R-08 |
-| 2 | Sistem | Simpan draf; turunkan semester/TA dari Tanggal Mulai; batas pelaporan = Tanggal Selesai + 30 hari | R-07, R-09, R-10 |
+| 2 | Sistem | Simpan draf; turunkan semester/TA dari Tanggal Mulai; batas pelaporan = Tanggal Selesai + 30 hari. Draf hanya boleh dihapus pembuatnya atau IO Admin | R-07, R-09, R-10, R-15 |
 | 3 | Unit | Gateway *Kegiatan mobilitas?* (dari aturan Jenis Kegiatan / Agenda) | R-07a, R-11 |
 | 4a | Unit | Tidak: unggah IA & IR (PDF) + bukti opsional | R-13 |
 | 4b | Unit → Sistem | Ya: isi peserta (NRP, NIP, inbound) → lookup ke BAAK & HR; ID tak dikenal kembali ke unit | R-12, R-16–R-19, R-22 |
@@ -35,7 +35,7 @@ collapsed pools **SIM Kerjasama** and **BAAK & HR**.
 | 8 | Mobilitas | Tinjau peserta & PDF; bila ada duplikat, pilih kegiatan yang mempertahankan mahasiswa (persetujuan terblokir selama konflik terbuka) | R-27a, R-34 |
 | 9 | Mobilitas → Unit | Tidak sesuai: minta revisi (satu catatan wajib) → unit memperbaiki & mengajukan ulang (versi peserta n+1) → kembali ke langkah 7 | R-21, R-24, R-26, R-27 |
 | 10 | Mobilitas → Sistem | Sesuai: setujui versi peserta → **Terverifikasi**, `verified_at`, notifikasi unit | R-21, R-25, R-28 |
-| 11 | Sistem | Hitung ke RENSTRA & International Awards; kirim ringkasan ke tab Realisasi SIM Kerjasama | R-36–R-50 |
+| 11 | Sistem | Hitung ke RENSTRA per unit (Fakultas = kegiatan sendiri + Program Studi + Program) & International Awards (hanya Program Studi); kirim ringkasan ke tab Realisasi SIM Kerjasama | R-36–R-50 |
 
 Tidak ada penolakan: kiriman yang salah selalu kembali sebagai revisi (R-26).
 
@@ -45,9 +45,9 @@ Lanes **Unit Akademik**, **SIM Realisasi (Sistem)**, **IO Admin**, **Pimpinan (V
 
 - **Setiap hari (timer):** cek draf menjelang batas pelaporan (H-7, H, lalu mingguan) dan revisi tertunda ≥ 7 hari →
   kirim pengingat in-app + email outbox → unit melengkapi/mengajukan (R-61, R-62).
-- **Tanggal cutoff semester (timer, akhir semester + 30 hari):** hitung RENSTRA 1.1, 1.19.S1, 1.19.24 & Awards →
+- **Tanggal cutoff semester (timer, akhir semester + 30 hari):** hitung RENSTRA 1.1, 1.19.S1, 1.19.S4 & Awards →
   bekukan snapshot (nilai, ID kontributor, pengaturan) → notifikasi → IO Admin meninjau; bila perlu, bekukan ulang
-  dengan alasan wajib (snapshot lama menjadi `superseded`) → unduh workbook Excel → pimpinan meninjau dashboard
-  & drill-down (R-55–R-59).
+  dengan alasan wajib (snapshot lama menjadi `superseded`) → unduh Excel per RENSTRA → pimpinan meninjau dashboard
+  & laporan per unit; YTD hanya untuk TA aktif (R-37, R-55–R-59).
 - **Kegiatan diverifikasi/diubah bertanggal di periode beku (conditional):** tandai *Tambahan Susulan* /
   *Perubahan Pasca-Beku*, tampilkan di YTD dan laporan snapshot berikutnya; snapshot lama tidak berubah (R-31, R-57).

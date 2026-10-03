@@ -68,7 +68,7 @@
       <bpmn:outgoing>Flow_7</bpmn:outgoing>
       <bpmn:timerEventDefinition id="s_cutoff_def"><bpmn:timeDate xsi:type="bpmn:tFormalExpression">cutoff_date</bpmn:timeDate></bpmn:timerEventDefinition>
     </bpmn:startEvent>
-    <bpmn:serviceTask id="t_calc" name="Hitung RENSTRA 1.1, 1.19.S1, 1.19.24 &amp; International Awards">
+    <bpmn:serviceTask id="t_calc" name="Hitung RENSTRA 1.1, 1.19.S1, 1.19.S4 &amp; International Awards">
       <bpmn:incoming>Flow_7</bpmn:incoming>
       <bpmn:outgoing>Flow_8</bpmn:outgoing>
     </bpmn:serviceTask>
@@ -102,11 +102,11 @@
       <bpmn:incoming>Flow_15</bpmn:incoming>
       <bpmn:outgoing>Flow_16</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:userTask id="t_export" name="Unduh workbook Excel (snapshot, RENSTRA, Awards)">
+    <bpmn:userTask id="t_export" name="Unduh Excel per RENSTRA (tabel per unit, data kegiatan, mahasiswa)">
       <bpmn:incoming>Flow_16</bpmn:incoming>
       <bpmn:outgoing>Flow_17</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:userTask id="t_dash" name="Tinjau dashboard RENSTRA &amp; drill-down">
+    <bpmn:userTask id="t_dash" name="Tinjau dashboard &amp; laporan RENSTRA per unit">
       <bpmn:incoming>Flow_17</bpmn:incoming>
       <bpmn:outgoing>Flow_18</bpmn:outgoing>
     </bpmn:userTask>
@@ -149,6 +149,8 @@
     <bpmn:sequenceFlow id="Flow_19" sourceRef="s_late" targetRef="t_flag" />
     <bpmn:sequenceFlow id="Flow_20" sourceRef="t_flag" targetRef="t_next" />
     <bpmn:sequenceFlow id="Flow_21" sourceRef="t_next" targetRef="e_late" />
+    <bpmn:textAnnotation id="note_period"><bpmn:text>Periode: Ganjil, Genap, Setahun (kumulatif), YTD. YTD hanya untuk TA aktif dan tidak pernah dibekukan (R-37)</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="note_period_assoc" sourceRef="note_period" targetRef="t_dash" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_Process_sim_realisasi_tutup_semester" name="Pengingat, Tutup Semester &amp; Pelaporan">
     <bpmndi:BPMNPlane id="Plane_Process_sim_realisasi_tutup_semester" bpmnElement="Collab_Process_sim_realisasi_tutup_semester">
@@ -201,6 +203,8 @@
       <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19"><di:waypoint x="850" y="345" /><di:waypoint x="914" y="345" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_20_di" bpmnElement="Flow_20"><di:waypoint x="1034" y="345" /><di:waypoint x="1054" y="345" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21"><di:waypoint x="1174" y="345" /><di:waypoint x="1238" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="note_period_di" bpmnElement="note_period"><dc:Bounds x="1027" y="936" width="230" height="58" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="note_period_assoc_di" bpmnElement="note_period_assoc"><di:waypoint x="1257" y="965" /><di:waypoint x="1474" y="965" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>

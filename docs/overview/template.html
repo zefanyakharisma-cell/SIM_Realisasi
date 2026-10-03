@@ -1,0 +1,668 @@
+<title>SIM Realisasi Project Brief</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky section rail on wide screens (top bar on phones); reading column for prose; diagrams break out into
+   their own scrollers. Serif display for section titles, Plex Sans body, JetBrains Mono for identifiers. */
+:root{
+  --bg:#F2F4F6; --surface:#FFFFFF; --sheet:#FBFCFD; --fg:#17212B; --muted:#596777; --line:#D3DAE2; --grid:#E6EBF0;
+  --accent:#1F6FB2; --accent-soft:#E2EEF8; --ok:#2E7D4F; --warn:#A86A12; --warn-soft:#FBF1DF;
+  --d-simks:#6E7B8A; --d-activity:#1F6FB2; --d-participant:#1B8A6B; --d-calendar:#B7791F; --d-ops:#7A5BA6;
+  --d-simks-bg:#EEF1F4; --d-activity-bg:#E4EFF9; --d-participant-bg:#E2F3ED; --d-calendar-bg:#FBF0DC; --d-ops-bg:#EFE9F7;
+  --canvas:#FFFFFF;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10151B; --surface:#17202A; --sheet:#131A22; --fg:#E3E9EF; --muted:#98A6B5; --line:#2A3541; --grid:#1C252F;
+  --accent:#6FB0E8; --accent-soft:#16293B; --ok:#5CC28A; --warn:#E0A94E; --warn-soft:#2E2414;
+  --d-simks:#93A1B0; --d-activity:#6FB0E8; --d-participant:#5CC7A3; --d-calendar:#E0A94E; --d-ops:#B39AD9;
+  --d-simks-bg:#202932; --d-activity-bg:#16293B; --d-participant-bg:#132D26; --d-calendar-bg:#2E2414; --d-ops-bg:#251E33;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151B; --surface:#17202A; --sheet:#131A22; --fg:#E3E9EF; --muted:#98A6B5; --line:#2A3541; --grid:#1C252F;
+  --accent:#6FB0E8; --accent-soft:#16293B; --ok:#5CC28A; --warn:#E0A94E; --warn-soft:#2E2414;
+  --d-simks:#93A1B0; --d-activity:#6FB0E8; --d-participant:#5CC7A3; --d-calendar:#E0A94E; --d-ops:#B39AD9;
+  --d-simks-bg:#202932; --d-activity-bg:#16293B; --d-participant-bg:#132D26; --d-calendar-bg:#2E2414; --d-ops-bg:#251E33;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15.5px;line-height:1.6}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.84em}
+.shell{max-width:1320px;margin:0 auto;padding-inline:20px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px}
+nav.rail{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;padding-block:32px;display:grid;gap:18px;max-height:100vh;overflow:auto}
+.brand{font-family:var(--serif);font-weight:600;font-size:18px;line-height:1.25}
+.brand small{display:block;font-family:var(--sans);font-weight:400;font-size:12.5px;color:var(--muted);margin-top:4px}
+.rail ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:s}
+.rail li a{display:flex;gap:10px;padding:6px 10px;border-radius:6px;color:var(--fg);text-decoration:none;font-size:14px}
+.rail li a::before{counter-increment:s;content:counter(s);color:var(--muted);font-variant-numeric:tabular-nums;width:1.2em}
+.rail li a:hover,.rail li a.on{background:var(--accent-soft)}
+.aud{display:grid;gap:6px}
+.aud .lbl{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{font:inherit;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+main{padding-block:32px 80px;display:grid;gap:64px;min-width:0}
+section{display:grid;gap:18px;min-width:0;scroll-margin-top:16px}
+.prose{max-width:76ch;display:grid;gap:12px}
+.narrow{max-width:76ch}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{font-size:11px;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor;text-transform:none}
+.tag.dir{color:var(--ok)} .tag.dev{color:var(--d-ops)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,4.6vw,44px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--serif);font-weight:600;font-size:clamp(23px,3vw,29px);line-height:1.2;margin:0;text-wrap:balance}
+h3{font-size:17px;margin:0;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.lede{font-size:17.5px;color:var(--muted);max-width:66ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.facts div{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.facts b{font-size:24px;font-variant-numeric:tabular-nums;font-family:var(--serif);font-weight:600}
+.facts span{font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:grid;gap:8px;align-content:start;min-width:0}
+.card h3{font-size:16px}
+ul.tight{margin:0;padding-left:20px;display:grid;gap:6px}
+.callout{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 16px;border-radius:0 8px 8px 0;max-width:80ch}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl table{min-width:680px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sheet)}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums;color:var(--muted);width:3em}
+td.nowrap{white-space:nowrap}
+.rule{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap}
+.yes{color:var(--ok);font-weight:600} .no{color:var(--muted)}
+.canvas{background:var(--canvas);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+.canvas svg{display:block;height:auto}
+.canvas.b1 svg{width:2700px} .canvas.b2 svg{width:1550px}
+.hint{font-size:12.5px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.d-simks.dot{background:var(--d-simks)} .d-activity.dot{background:var(--d-activity)} .d-participant.dot{background:var(--d-participant)}
+.d-calendar.dot{background:var(--d-calendar)} .d-ops.dot{background:var(--d-ops)}
+/* KPI definition rows */
+.kpi{display:grid;grid-template-columns:120px minmax(0,1fr);gap:4px 18px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.kpi .code{font-family:var(--mono);font-weight:600;font-size:15px;color:var(--accent)}
+.kpi .body{display:grid;gap:6px;min-width:0}
+.kpi .formula{font-family:var(--mono);font-size:13px;background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:pre}
+@media (max-width:640px){.kpi{grid-template-columns:1fr}}
+/* period strip */
+.periods{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.periods .card b{font-family:var(--mono);font-size:13px;color:var(--accent)}
+/* architecture diagram */
+#arch{display:block;width:100%;min-width:900px;height:auto}
+#arch .bx{fill:var(--surface);stroke:var(--line);stroke-width:1.3}
+#arch .bx.db{fill:var(--sheet);stroke:var(--muted);stroke-dasharray:6 4}
+#arch .bx.rl{stroke:var(--d-activity);stroke-width:1.6} #arch .bx.ks{stroke:var(--d-simks)} #arch .bx.pb{stroke:var(--d-simks);fill:var(--d-simks-bg)}
+#arch .bx.mk{stroke:var(--d-ops)} #arch .bx.nx{stroke:var(--d-participant)}
+#arch text{font-family:var(--sans);font-size:12.5px;fill:var(--fg)}
+#arch .t{font-weight:600;font-size:14px} #arch .s{fill:var(--muted);font-size:11.5px} #arch .m{font-family:var(--mono);font-size:11px}
+#arch .ar{stroke:var(--fg);stroke-width:1.4;fill:none;marker-end:url(#archArr)} #arch .ar.ro{stroke-dasharray:5 4}
+#arch .ah{fill:var(--fg)}
+/* ERD (shared classes with docs/erd) */
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:82vh;
+  background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:18px 18px}
+.sheet svg{display:block}
+#erd .box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+#erd .ent.view .box{stroke-dasharray:5 3}
+#erd .hdr{stroke:none}
+#erd .d-simks .hdr{fill:var(--d-simks-bg)} #erd .d-activity .hdr{fill:var(--d-activity-bg)} #erd .d-participant .hdr{fill:var(--d-participant-bg)}
+#erd .d-calendar .hdr{fill:var(--d-calendar-bg)} #erd .d-ops .hdr{fill:var(--d-ops-bg)}
+#erd .d-simks .box{stroke:var(--d-simks)} #erd .d-activity .box{stroke:var(--d-activity)} #erd .d-participant .box{stroke:var(--d-participant)}
+#erd .d-calendar .box{stroke:var(--d-calendar)} #erd .d-ops .box{stroke:var(--d-ops)}
+#erd text{font-family:var(--mono);font-size:11px;fill:var(--fg)}
+#erd .tn{font-weight:600;font-size:12.5px}
+#erd .sc{fill:var(--muted);font-size:10px;font-family:var(--sans)}
+#erd .ct{fill:var(--muted);font-size:10.5px}
+#erd .cn.pk{font-weight:600}
+#erd .kb{font-size:8.5px;font-weight:600;font-family:var(--sans)}
+#erd .kpk{fill:var(--d-calendar)} #erd .kfk{fill:var(--d-activity)} #erd .klfk{fill:var(--d-simks)} #erd .kuq{fill:var(--d-participant)}
+#erd .ln{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-linejoin:round}
+#erd .mk{fill:none;stroke:var(--muted);stroke-width:1.2}
+#erd .lfk .ln{stroke-dasharray:5 4}
+#erd .rel.hot .ln,#erd .rel.hot .mk{stroke:var(--accent);stroke-width:2.2}
+#erd.focus .rel:not(.hot){opacity:.18}
+#erd.focus .ent:not(.hot){opacity:.35}
+#erd .ent{cursor:pointer}
+#erd .ent:focus-visible .box{stroke-width:3}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+.controls input{flex:1 1 240px;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.controls input:focus-visible,.chip:focus-visible,.seg button:focus-visible,.rail a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chip{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.dict{display:grid;gap:16px;max-height:900px;overflow:auto;padding-right:4px}
+.tbl-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:10px;scroll-margin-top:16px;min-width:0}
+.tbl-card:target{box-shadow:0 0 0 2px var(--accent)}
+.tbl-card header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.tbl-card h3{font-family:var(--mono);font-size:15px}
+.tbl-card .schema{color:var(--muted);font-weight:400}
+.tbl-card .dom{font-size:12px;color:var(--muted);margin-left:auto}
+.scroll{overflow-x:auto}
+.tbl-card table{min-width:720px;font-size:13.5px}
+.tbl-card th{background:transparent}
+.c-name{white-space:nowrap} .c-type{white-space:nowrap;color:var(--muted)} .c-null{color:var(--muted);width:3.5em}
+.c-key{white-space:nowrap;width:7em}
+.k{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:3px;border:1px solid}
+.k-pk{color:var(--d-calendar);border-color:var(--d-calendar)} .k-fk{color:var(--d-activity);border-color:var(--d-activity)}
+.k-lfk{color:var(--d-simks);border-color:var(--d-simks);border-style:dashed} .k-uq{color:var(--d-participant);border-color:var(--d-participant)}
+a.ref{font-family:var(--mono);font-size:12px;text-decoration:none;white-space:nowrap}
+.empty{padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+details summary{cursor:pointer;font-weight:600}
+details[open] summary{margin-bottom:10px}
+pre.cmd{font-family:var(--mono);font-size:13px;background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:0}
+.timeline{display:grid;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.timeline div{position:relative;padding:0 0 16px 20px;display:grid;gap:4px}
+.timeline div::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.timeline b{font-size:14px}
+body[data-aud="director"] [data-aud="dev"]{display:none}
+body[data-aud="dev"] [data-aud="dir"]{display:none}
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr);gap:0}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);
+    grid-auto-flow:column;grid-auto-columns:max-content;align-items:center;overflow-x:auto;max-height:none}
+  .brand{display:none}
+  .rail ol{grid-auto-flow:column}
+  .rail li a{white-space:nowrap}
+  main{padding-block:24px 64px}
+}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+<div class="shell">
+<nav class="rail" aria-label="Sections">
+  <div class="brand">SIM Realisasi<small>Project brief · 3 Oct 2026</small></div>
+  <div class="aud">
+    <span class="lbl">Show</span>
+    <div class="seg" role="group" aria-label="Audience">
+      <button type="button" data-set="all" aria-pressed="true">Everything</button>
+      <button type="button" data-set="director" aria-pressed="false">Director</button>
+      <button type="button" data-set="dev" aria-pressed="false">Programmer</button>
+    </div>
+  </div>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#people">Users &amp; access</a></li>
+    <li><a href="#process">Business process</a></li>
+    <li><a href="#renstra">RENSTRA &amp; Awards</a></li>
+    <li><a href="#data">Data model</a></li>
+    <li data-aud="dev"><a href="#tech">Architecture</a></li>
+    <li data-aud="dev"><a href="#build">Build, test, deploy</a></li>
+    <li><a href="#status">Status &amp; decisions</a></li>
+  </ol>
+</nav>
+
+<main>
+<!-- 1 OVERVIEW ------------------------------------------------------------------------------------------- -->
+<section id="overview">
+  <div class="eyebrow">Kantor Urusan Internasional · Petra Christian University <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h1>SIM Realisasi Project Brief</h1>
+  <p class="lede">SIM Realisasi records every activity that carries out one of PCU's MoUs and MoAs, has IO verify the mobility ones, and turns the verified data into the university's RENSTRA indicators and the International Awards rankings, with frozen semester reports that never change after the fact.</p>
+  <div class="facts" aria-label="Live demo figures">
+    <div><b>133</b><span>kegiatan in the live demo (AY 2025/2026 and 2026/2027)</span></div>
+    <div><b>297</b><span>RENSTRA 1.1 students, Setahun 2025/2026 (Ganjil 165 · Genap 132)</span></div>
+    <div><b>40</b><span>RENSTRA 1.1 students, YTD 2026/2027</span></div>
+    <div><b>5</b><span>indicators reported: 1.1, 1.1.a, 1.1.b, 1.19.S1, 1.19.S4</span></div>
+  </div>
+  <p class="hint">Figures from the import into the SIM Kerjasama Supabase project on 3 Oct 2026. The data is a demo set generated over the real SIM Kerjasama agreements and units, not real activities yet.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>The problem it solves</h3>
+      <p>IO currently learns about realizations from scattered reports, emails and spreadsheets. Counting inbound and outbound students, international activities and the share of agreements actually used means manual reconciliation every semester, and last semester's numbers can shift when late reports arrive.</p>
+    </div>
+    <div class="card">
+      <h3>What changes with the system</h3>
+      <ul class="tight">
+        <li>Each academic unit reports its own activities on one page, with the IA, IR and participant list attached.</li>
+        <li>Student numbers are checked against BAAK; no student is counted twice across units.</li>
+        <li>Numbers are computed by the database from verified data only, and each semester is frozen on its cutoff date.</li>
+        <li>Every list and report downloads as Excel, and every number drills down to the activities behind it.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="prose">
+    <h3>Core ideas</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="nowrap"><b>Kegiatan</b> (activity)</td><td>One realization event of one agreement, documented by exactly one Implementation Arrangement (IA) and one Implementation Report (IR). A multi-round programme submits one kegiatan per round.</td></tr>
+        <tr><td class="nowrap"><b>Kerja sama</b></td><td>The single MoU/MoA from SIM Kerjasama the kegiatan implements, chosen from documents valid on the kegiatan dates, archived ones included.</td></tr>
+        <tr><td class="nowrap"><b>Renewal chain</b></td><td>An agreement plus all its renewals. Realization of agreements (1.19.S4) counts chains, so a renewal mid-year is counted once.</td></tr>
+        <tr><td class="nowrap"><b>Jenis Kegiatan</b></td><td>The Agenda Kerjasama list from SIM Kerjasama. IO decides per agenda whether it is a mobility kegiatan (JD/DD, Student Exchange, Short/Summer, other) and whether it counts for 1.19.S1.</td></tr>
+        <tr><td class="nowrap"><b>Mobility kegiatan</b></td><td>Needs a participant list and one PDF with transcripts, poster and documentation; verified by the IO Mobility team. Every other kegiatan is recorded as verified on submit.</td></tr>
+        <tr><td class="nowrap"><b>Snapshot</b></td><td>The frozen indicator values of a semester, with the IDs of every record behind them and the settings used.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- 2 PEOPLE ----------------------------------------------------------------------------------------------- -->
+<section id="people">
+  <div class="eyebrow">Who uses it <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h2>Users and access</h2>
+  <p class="narrow muted">Accounts come from SIM Kerjasama (one login for both systems). Realisasi keeps its own role per account, so SIMKS roles stay untouched. Only <b>Unit Akademik</b> (Fakultas, Program Studi, Program) submit kegiatan.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Action</th><th>Unit (submitter)</th><th>IO staff · Mobility</th><th>IO Admin</th><th>Pimpinan (viewer)</th></tr></thead>
+    <tbody>
+      <tr><td>Create, submit and revise kegiatan</td><td class="yes">own unit</td><td class="no">—</td><td class="yes">on behalf of a unit</td><td class="no">—</td></tr>
+      <tr><td>Delete a draft</td><td class="yes">only drafts they created</td><td class="no">—</td><td class="yes">any draft</td><td class="no">—</td></tr>
+      <tr><td>See kegiatan</td><td>own + co-unit</td><td>all</td><td>all</td><td>verified only</td></tr>
+      <tr><td>See participant names and the mobility PDF</td><td>own</td><td class="yes">yes</td><td class="yes">yes</td><td class="no">no</td></tr>
+      <tr><td>Verify mobility, decide duplicate students</td><td class="no">—</td><td class="yes">yes</td><td class="yes">yes</td><td class="no">—</td></tr>
+      <tr><td>Edit a verified kegiatan (logged)</td><td class="no">—</td><td>participants</td><td class="yes">everything</td><td class="no">—</td></tr>
+      <tr><td>Settings, calendar, Jenis Kegiatan rules, freeze</td><td class="no">—</td><td class="no">—</td><td class="yes">yes</td><td class="no">—</td></tr>
+      <tr><td>Dashboard, Awards, non-personal Excel</td><td>own unit</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      <tr><td>Excel with student data (logged)</td><td>own unit</td><td class="yes">yes</td><td class="yes">yes</td><td class="no">no</td></tr>
+    </tbody>
+  </table></div>
+  <p class="hint">Enforced in the database (row-level security and permission checks inside every SQL function), not only hidden in the UI. Personal data handling follows UU PDP 27/2022: every export with student data is logged.</p>
+</section>
+
+<!-- 3 PROCESS ---------------------------------------------------------------------------------------------- -->
+<section id="process">
+  <div class="eyebrow">BPMN 2.0 · Bizagi notation <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h2>Business process</h2>
+  <p class="narrow muted">Two process models. The first follows one kegiatan from the unit to the numbers; the second covers what the system does on its own schedule. Both are available as <code>.bpmn</code> files that open in Bizagi Modeler (File → Import → BPMN).</p>
+
+  <h3>1 · Pengajuan &amp; Verifikasi Kegiatan</h3>
+  <div class="canvas b1">%%BPMN1%%</div>
+  <p class="hint">Scroll sideways to follow the flow. Nothing is ever rejected: a wrong submission always comes back to the unit as a revision.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Lane</th><th>Step</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td class="nowrap">Unit</td><td>Once the activity has ended, fill in the Detail and pick one Kerja Sama valid on the activity dates. A warning appears if the unit is outside the agreement's scope; it does not block.</td><td class="rule">R-03 R-04 R-05 R-08</td></tr>
+      <tr><td class="n">2</td><td class="nowrap">Sistem</td><td>Save the draft. Semester and academic year come from the start date; the reporting deadline is the end date + 30 days. A draft can be deleted only by the account that created it, or by IO Admin.</td><td class="rule">R-07 R-09 R-10 R-15</td></tr>
+      <tr><td class="n">3</td><td class="nowrap">Unit</td><td><em>Kegiatan mobilitas?</em> is decided by the Jenis Kegiatan rule IO configured.</td><td class="rule">R-07a R-11</td></tr>
+      <tr><td class="n">4a</td><td class="nowrap">Unit</td><td>Not mobility: upload the IA and IR (PDF) and optional evidence.</td><td class="rule">R-13</td></tr>
+      <tr><td class="n">4b</td><td class="nowrap">Unit → Sistem</td><td>Mobility: enter student numbers (NRP), employee IDs and inbound students. Each is looked up in BAAK or HR; unknown numbers block submission.</td><td class="rule">R-12 R-16–R-19 R-22</td></tr>
+      <tr><td class="n">4c</td><td class="nowrap">Unit</td><td>Upload the IA, IR and one PDF that combines transcripts, poster and documentation.</td><td class="rule">R-11</td></tr>
+      <tr><td class="n">5</td><td class="nowrap">Unit → Sistem</td><td>Ajukan. The system checks every required field and flags the kegiatan <em>Terlambat</em> when past the deadline (it is still accepted).</td><td class="rule">R-07 R-10</td></tr>
+      <tr><td class="n">6</td><td class="nowrap">Sistem</td><td>Not mobility: verified immediately.</td><td class="rule">R-11 R-25</td></tr>
+      <tr><td class="n">7</td><td class="nowrap">Sistem</td><td>Mobility: waits for the Mobility team; the system checks whether another unit claims the same student on overlapping dates and notifies the team.</td><td class="rule">R-33</td></tr>
+      <tr><td class="n">8</td><td class="nowrap">Mobilitas</td><td>Review participants and the PDF. For each duplicate student, choose which kegiatan keeps them. Approval stays blocked until every duplicate is decided.</td><td class="rule">R-27a R-34</td></tr>
+      <tr><td class="n">9</td><td class="nowrap">Mobilitas → Unit</td><td>Not in order: request a revision with one note. The unit corrects it and resubmits a new participant version; older versions stay readable.</td><td class="rule">R-21 R-26 R-27</td></tr>
+      <tr><td class="n">10</td><td class="nowrap">Mobilitas → Sistem</td><td>In order: approve the participant version. The kegiatan becomes Terverifikasi and the unit is notified.</td><td class="rule">R-25 R-28</td></tr>
+      <tr><td class="n">11</td><td class="nowrap">Sistem</td><td>Counted into RENSTRA per unit (Fakultas includes its Program Studi and Programs) and into International Awards (Program Studi only). The agreement's Realisasi tab in SIM Kerjasama updates.</td><td class="rule">R-36–R-50</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>2 · Pengingat, Tutup Semester &amp; Pelaporan</h3>
+  <div class="canvas b2">%%BPMN2%%</div>
+  <div class="grid2">
+    <div class="card"><h3>Every day</h3><p>Reminders for drafts near their reporting deadline (7 days before, on the day, then weekly) and for revisions left untouched 7 days. In-app plus email outbox.</p><span class="rule">R-61 R-62</span></div>
+    <div class="card"><h3>On each semester cutoff</h3><p>Semester end + 30 days: compute every indicator and the Awards, freeze them with the IDs behind each number, notify IO Admin and leadership. IO Admin can re-freeze with a written reason; the old snapshot stays, marked superseded.</p><span class="rule">R-55–R-59</span></div>
+    <div class="card"><h3>Late data</h3><p>A kegiatan verified or edited after a freeze but dated inside the frozen window is shown as Tambahan Susulan or Perubahan Pasca-Beku in YTD and the next report. Frozen numbers never change.</p><span class="rule">R-31 R-57</span></div>
+  </div>
+</section>
+
+<!-- 4 RENSTRA ------------------------------------------------------------------------------------------------ -->
+<section id="renstra">
+  <div class="eyebrow">Shown as "RENSTRA" in the app <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h2>RENSTRA indicators and International Awards</h2>
+  <p class="narrow muted">Only verified kegiatan count, and the date that matters is the start date. Since Revisi V.2 every count is reported per unit: a Fakultas shows its own kegiatan plus the total of its Program Studi, and a Program Studi includes its Programs.</p>
+
+  <div class="kpi"><div class="code">1.1</div><div class="body">
+    <h3>Jumlah mahasiswa Inbound &amp; Outbound</h3>
+    <p>Students per kegiatan, from the approved participant list of verified mobility kegiatan. Outbound kegiatan count PETRA students; inbound kegiatan count inbound students. Split into <b>1.1.a Inbound</b> and <b>1.1.b Outbound</b>.</p>
+    <div class="formula">count of (NRP, kegiatan) pairs
+  same student, two kegiatan of one unit        → 2   (rule 2.2)
+  same student, two units, overlapping dates     → 1, for the kegiatan Mobility kept (rule 2.1)
+  student with an undecided duplicate            → 0 until decided</div>
+    <span class="rule">R-38 R-39 R-40</span>
+  </div></div>
+  <div class="kpi"><div class="code">1.19.S1</div><div class="body">
+    <h3>Kegiatan internasional berkolaborasi dengan mitra</h3>
+    <p>Verified kegiatan whose Jenis counts for S1 and whose agreement has at least one foreign partner. The domestic count is shown alongside for reference.</p>
+    <span class="rule">R-41</span>
+  </div></div>
+  <div class="kpi"><div class="code">1.19.S4</div><div class="body">
+    <h3>Persen terlaksana MoU &amp; MoA</h3>
+    <p>Share of agreements (renewal chains) used at least once in the academic year. Reported as one overall percentage, with All, International and Domestic splits. Internally still coded <code>1.19.24</code>.</p>
+    <div class="formula">numerator   = chains with ≥ 1 verified IA dated from AY start to the cutoff
+denominator = chains active in that window
+              − chains whose first start is within 6 months of the cutoff (grace period, listed separately)
+              + auto-renewed chains always included
+An MoA signed under an MoU is not a realization of the MoU.</div>
+    <span class="rule">R-42–R-47</span>
+  </div></div>
+
+  <h3>Period cut-offs</h3>
+  <div class="periods">
+    <div class="card"><b>Ganjil</b><p>Ganjil start → end. Read from its frozen snapshot once frozen.</p></div>
+    <div class="card"><b>Genap</b><p>Genap start → end, computed as of the full-year freeze so it never drifts.</p></div>
+    <div class="card"><b>Setahun (kumulatif)</b><p>Academic-year start → end. Read from the full-year snapshot.</p></div>
+    <div class="card"><b>YTD</b><p>Academic-year start → today. Never frozen, and offered only for the active academic year; other years fall back to Setahun.</p></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>International Awards</h3>
+      <p>Ranks <b>Program Studi only</b> (Fakultas, Programs and support units are never ranked), using the same verified kegiatan, periods and duplicate rules as 1.1. Each student is credited to their own Prodi; an inbound student goes to the submitting unit when it is a Prodi.</p>
+      <ul class="tight">
+        <li><b>Inbound</b>, <b>Outbound Dalam Negeri</b>, <b>Outbound Internasional</b> boards, with columns JD/DD, Student Exchange, Short/Summer, and Kegiatan Internasional under 14 days.</li>
+        <li><b>Inisiatif Internasional</b>: verified international kegiatan per submitting Prodi.</li>
+      </ul>
+      <span class="rule">R-48 R-49 R-50</span>
+    </div>
+    <div class="card">
+      <h3>Reports and Excel</h3>
+      <p>Laporan &amp; Ekspor offers one report per indicator. The page preview and the Excel file come from the same query, so they always match.</p>
+      <ul class="tight">
+        <li>Sheet 1: the per-unit table (or the overall percentage for 1.19.S4).</li>
+        <li>Sheet 2: the kegiatan or agreements behind it, with a Fakultas column.</li>
+        <li>Sheet 3 (1.1 family): the students, only for roles allowed to see them; logged as personal data.</li>
+        <li>Info sheet: filters, period, who exported and when.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5 DATA ---------------------------------------------------------------------------------------------------- -->
+<section id="data">
+  <div class="eyebrow">PostgreSQL · schemas realisasi, kerjasama, mock_baak, mock_hr <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h2>Data model</h2>
+  <p class="narrow muted"><b>%%N_TABLES%%</b> tables and views, <b>%%N_COLS%%</b> columns, <b>%%N_RELS%%</b> relationships, <b>%%N_ENUMS%%</b> enum types. Grey dashed boxes are read-only views over SIM Kerjasama; SIM Realisasi never writes SIM Kerjasama tables. Dashed lines are references the SQL functions check because a view cannot be a foreign-key target.</p>
+  <div class="legend">
+    <span><span class="dot d-simks"></span>SIM Kerjasama views</span>
+    <span><span class="dot d-activity"></span>Kegiatan</span>
+    <span><span class="dot d-participant"></span>Peserta &amp; verifikasi</span>
+    <span><span class="dot d-calendar"></span>Kalender, konfigurasi &amp; RENSTRA</span>
+    <span><span class="dot d-ops"></span>Operasional &amp; mock</span>
+    <span><svg width="44" height="14" aria-hidden="true"><path d="M2 7 H42" stroke="currentColor" stroke-width="1.3"/></svg>foreign key</span>
+    <span><svg width="44" height="14" aria-hidden="true"><path d="M2 7 H42" stroke="currentColor" stroke-width="1.3" stroke-dasharray="5 4"/></svg>logical reference</span>
+  </div>
+  <div class="sheet">%%ERD%%</div>
+  <p class="hint">Hover or focus a table to trace its relationships; click it to open its entry below. Columns that record who did something (created_by, actor_id, reviewed_by…) all point at <code>kerjasama.profiles.id</code>; those lines are left out for readability.</p>
+
+  <div class="grid2" data-aud="dir">
+    <div class="card"><h3>What the data guarantees</h3>
+      <ul class="tight">
+        <li>One kegiatan, one agreement, one current IA and IR.</li>
+        <li>Only one approved participant list per kegiatan; earlier versions are kept.</li>
+        <li>A duplicate student is either open or decided for exactly one of the two kegiatan.</li>
+        <li>One live snapshot per year and period; re-freezing keeps the old one.</li>
+        <li>Nothing submitted is ever deleted; every change is in the Update Log.</li>
+      </ul>
+    </div>
+    <div class="card"><h3>Where the data comes from</h3>
+      <ul class="tight">
+        <li>Units, agreements, partners, countries and accounts: SIM Kerjasama, read live.</li>
+        <li>Student and employee names: BAAK and HR (mocked until PSI provides access).</li>
+        <li>Kegiatan, participants, files, verification and snapshots: entered in SIM Realisasi.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Data dictionary</h3>
+  <p class="muted">Key badges: <span class="k k-pk">PK</span> primary key, <span class="k k-fk">FK</span> foreign key, <span class="k k-lfk">FK*</span> logical reference, <span class="k k-uq">UQ</span> part of a unique constraint.</p>
+  <div class="controls">
+    <input id="q" type="search" aria-label="Search the data dictionary" placeholder="Search tables, columns, rules (e.g. nrp, verified_at, R-33)" autocomplete="off">
+    %%CHIPS%%
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="dict" id="dict">%%DICT%%</div>
+  <p class="empty" id="empty" hidden>No table matches. Clear the search or the group filter.</p>
+
+  <details data-aud="dev"><summary>Enum types (schema realisasi)</summary>
+    <div class="tbl"><table><thead><tr><th>Type</th><th>Values</th><th>Meaning</th></tr></thead><tbody>%%ENUMS%%</tbody></table></div>
+  </details>
+  <details data-aud="dev"><summary>Views and rules enforced by the schema</summary>
+    <ul class="tight">
+      %%VIEWS%%
+      <li>Unique index <code>one_agreement_per_activity</code> on activity_documents (R-03).</li>
+      <li>Partial unique index <code>one_current_ia_ir</code>: one current IA, IR and mobility PDF per kegiatan.</li>
+      <li>Partial unique indexes: one approved, one draft and one pending participant version per kegiatan (R-21).</li>
+      <li>participant_conflicts: <code>activity_a &lt; activity_b</code>; <code>kept_activity_id</code> set exactly when resolved and one of the pair (R-33, R-34).</li>
+      <li>Partial unique index <code>one_live_snapshot</code> where <code>superseded_by is null</code> (R-58).</li>
+      <li>file_blobs: 10 MB limit, path must start with its bucket.</li>
+    </ul>
+  </details>
+</section>
+
+<!-- 6 TECH ------------------------------------------------------------------------------------------------------ -->
+<section id="tech" data-aud="dev">
+  <div class="eyebrow">For programmers <span class="tag dev">Programmer</span></div>
+  <h2>Architecture</h2>
+  <div class="prose">
+    <p>One database, two systems. SIM Realisasi is deployed into the SIM Kerjasama Supabase project (<code>simks-partnership</code>, Postgres 17) in its own schemas. Business rules live in SQL so the screens, the Excel files and the frozen snapshots can never disagree. The Next.js app is a thin, role-aware UI over SQL functions.</p>
+  </div>
+  <div class="tbl" style="background:var(--sheet)">
+    <svg id="arch" viewBox="0 0 980 360" role="img" aria-label="System architecture: browser, Next.js server, and the shared Postgres database with realisasi, kerjasama, mock and SIM Kerjasama schemas">
+      <defs><marker id="archArr" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" class="ah"/></marker></defs>
+      <rect class="bx" x="20" y="120" width="150" height="120" rx="8"/>
+      <text x="36" y="148" class="t">Browser</text>
+      <text x="36" y="170" class="s">Unit, IO, Admin,</text><text x="36" y="186" class="s">Pimpinan</text>
+      <text x="36" y="212" class="s">Bahasa Indonesia UI</text>
+
+      <rect class="bx nx" x="220" y="50" width="230" height="260" rx="8"/>
+      <text x="236" y="78" class="t">Next.js 15 (App Router)</text>
+      <text x="236" y="102" class="m">app/realisasi/*  pages</text>
+      <text x="236" y="122" class="m">lib/realisasi/actions</text>
+      <text x="236" y="142" class="m">/api/export/[kind]  exceljs</text>
+      <text x="236" y="162" class="m">/api/lookup/*  rate-limited</text>
+      <text x="236" y="182" class="m">/api/upload, /api/files</text>
+      <text x="236" y="210" class="s">lib/db.ts withUser():</text>
+      <text x="236" y="226" class="s">SET ROLE authenticated +</text>
+      <text x="236" y="242" class="s">request.jwt.claims per transaction</text>
+      <text x="236" y="272" class="s">Demo login = role switcher</text>
+      <text x="236" y="288" class="s">(DEMO_AUTH=1)</text>
+
+      <rect class="bx db" x="490" y="16" width="470" height="330" rx="10"/>
+      <text x="506" y="38" class="s">Supabase project simks-partnership · one Postgres database</text>
+
+      <rect class="bx rl" x="506" y="52" width="210" height="280" rx="8"/>
+      <text x="522" y="78" class="t">realisasi</text>
+      <text x="522" y="100" class="s">29 tables + 3 views</text>
+      <text x="522" y="118" class="s">165 SQL functions (RPCs)</text>
+      <text x="522" y="136" class="s">security definer, RLS on</text>
+      <text x="522" y="154" class="s">every table</text>
+      <text x="522" y="180" class="m">submit_activity</text>
+      <text x="522" y="196" class="m">mobility_approve</text>
+      <text x="522" y="212" class="m">resolve_conflict</text>
+      <text x="522" y="228" class="m">compute_kpis</text>
+      <text x="522" y="244" class="m">freeze_snapshot</text>
+      <text x="522" y="270" class="s">pg_cron 01:00 WIB:</text>
+      <text x="522" y="286" class="m">run_daily_jobs()</text>
+
+      <rect class="bx ks" x="740" y="52" width="204" height="84" rx="8"/>
+      <text x="756" y="76" class="t">kerjasama</text>
+      <text x="756" y="96" class="s">8 read-only adapter views</text>
+      <text x="756" y="112" class="s">units, documents, partners,</text>
+      <text x="756" y="127" class="s">countries, agendas, profiles…</text>
+
+      <rect class="bx pb" x="740" y="164" width="204" height="84" rx="8"/>
+      <text x="756" y="188" class="t">public (SIM Kerjasama)</text>
+      <text x="756" y="208" class="s">unit, dokumen_kerja_sama,</text>
+      <text x="756" y="223" class="s">partner, akun… never written</text>
+      <text x="756" y="238" class="s">by Realisasi</text>
+
+      <rect class="bx mk" x="740" y="268" width="204" height="64" rx="8"/>
+      <text x="756" y="292" class="t">mock_baak · mock_hr</text>
+      <text x="756" y="312" class="s">student / employee registries</text>
+
+      <path class="ar" d="M170 180 H218"/>
+      <path class="ar" d="M450 180 H504"/>
+      <text x="456" y="170" class="s">SQL</text>
+      <path class="ar ro" d="M716 94 H738"/>
+      <path class="ar ro" d="M842 136 V162"/>
+      <text x="850" y="153" class="s">owner-rights read</text>
+      <path class="ar ro" d="M716 300 H738"/>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>Stack</h3>
+      <ul class="tight">
+        <li>Next.js 15 App Router, TypeScript, Tailwind, Radix/shadcn components, Recharts</li>
+        <li>react-hook-form + zod, schemas shared by client and server</li>
+        <li>postgres.js over <code>DATABASE_URL</code> (works on plain Postgres 16 and Supabase)</li>
+        <li>exceljs for every export, streamed from route handlers</li>
+        <li>pg_trgm, pgcrypto, pg_cron</li>
+      </ul>
+    </div>
+    <div class="card"><h3>Principles to keep</h3>
+      <ul class="tight">
+        <li>Overall status is derived in SQL, never set by the app.</li>
+        <li>Never write SIM Kerjasama tables or create objects in <code>public</code>; a test enforces it.</li>
+        <li>BAAK/HR only behind <code>lookup_students</code> / <code>lookup_employees</code>: production swaps the function body, nothing else.</li>
+        <li>Frozen means frozen: corrections create a superseding snapshot with a reason.</li>
+        <li>Page preview and Excel share one read model per report.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Where things live</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Area</th><th>Screens (app/)</th><th>SQL (supabase/migrations)</th></tr></thead>
+    <tbody>
+      <tr><td>Kegiatan &amp; submission</td><td><code>realisasi/kegiatan</code>, <code>kegiatan/baru</code>, <code>kegiatan/[id]</code> (edit, revisi, peserta-edit)</td><td class="m"><code>0007</code> save_activity_draft, delete_draft, save_participants, submission_checklist, submit_activity, documents_valid_between, lookup_students/employees</td></tr>
+      <tr><td>Files</td><td><code>api/upload</code>, <code>api/files</code></td><td><code>0008</code> storage_put/get, register_activity_file, add_evidence_link, remove_activity_file</td></tr>
+      <tr><td>Verification</td><td><code>realisasi/verifikasi/mobilitas</code></td><td><code>0009</code> mobility_approve, mobility_request_revision, edit_verified_activity, commit_participant_edit · <code>0010</code> conflict_list, resolve_conflict</td></tr>
+      <tr><td>Dashboard &amp; reports</td><td><code>realisasi</code> (Capaian Renstra, International Awards), <code>realisasi/laporan</code>, <code>api/export/[kind]</code></td><td><code>0012</code> compute_kpis, kpi_1_1, kpi_1_19_s1, kpi_1_19_24 · <code>0014</code> dashboard, kpi_drilldown, international_awards, period_info</td></tr>
+      <tr><td>Snapshots</td><td>Laporan → Arsip</td><td><code>0013</code> freeze_snapshot, refreeze_snapshot, snapshot_late_additions, snapshot_post_freeze_changes</td></tr>
+      <tr><td>Settings</td><td><code>realisasi/pengaturan</code></td><td><code>0011</code> update_settings, upsert_academic_year/semester, set_agenda_rule, log_export</td></tr>
+      <tr><td>SIM Kerjasama tab</td><td><code>kerjasama/dokumen/[id]/realisasi</code>, <code>/evaluasi</code></td><td><code>0014</code> agreement_realization, agreement_flags</td></tr>
+      <tr><td>Jobs &amp; security</td><td>—</td><td><code>0005</code> triggers · <code>0006</code> RLS · <code>0015</code> run_daily_jobs · <code>0016</code> grants · <code>0017</code> pg_cron</td></tr>
+    </tbody>
+  </table></div>
+  <p class="hint">Interface details for every RPC (arguments, errors, permissions) are in <code>docs/CONTRACTS.md</code>. Behaviour is defined by <code>docs/spec/Rules.md</code>, which wins over the other spec documents.</p>
+</section>
+
+<!-- 7 BUILD ------------------------------------------------------------------------------------------------------- -->
+<section id="build" data-aud="dev">
+  <div class="eyebrow">For programmers <span class="tag dev">Programmer</span></div>
+  <h2>Build, test, deploy</h2>
+  <div class="grid2">
+    <div class="card"><h3>Run locally</h3>
+<pre class="cmd">npm install
+cp .env.example .env.local
+npm run db:reset   # SIMKS-shaped stub + migrations + seed
+npm run dev        # http://localhost:3000</pre>
+      <p class="muted">Node 22, Postgres 16 with pg_trgm and pgcrypto. Demo "today" is 2026-10-01; IO Admin can time-travel in Pengaturan to show cutoffs and reminders.</p>
+    </div>
+    <div class="card"><h3>Tests</h3>
+      <ul class="tight">
+        <li><code>npm run test:db</code>: 17 SQL suites covering the status machine, validation, every indicator, snapshots, RLS and access, jobs, duplicates, the SIMKS adapter, performance and Awards.</li>
+        <li><code>npm test</code>: 15 Vitest files (unit roll-up, workbook, status, formats…).</li>
+        <li><code>npm run test:e2e</code>: 6 Playwright journeys (submit, autosave, verify, reports, security).</li>
+        <li><code>npm run typecheck</code> · <code>npm run lint</code></li>
+      </ul>
+    </div>
+    <div class="card"><h3>Deploy to Supabase</h3>
+      <p><code>scripts/db-deploy-supabase.sh</code> (<code>--dry-run</code>, <code>--check</code>, <code>--seed-only</code>, <code>--reset-realisasi</code>), or paste the five files in <code>supabase/deploy/</code> into the SQL Editor. Each run ends with a fingerprint to compare:</p>
+<pre class="cmd">functions 165 44dfa2b2cc108735a8a41beb212bea65
+columns   311 2d5642106c6972cb2891cd93b0e3bd35
+policies   24 8945131cda9b8642deb73b5364f39d2e</pre>
+    </div>
+    <div class="card"><h3>Documents to read first</h3>
+      <ul class="tight">
+        <li><code>docs/spec/Rules.md</code>: behaviour (Revisi V.1 and V.2)</li>
+        <li><code>docs/CONTRACTS.md</code>: SQL and TypeScript interfaces</li>
+        <li><code>docs/SUPABASE_INTEGRATION.md</code>: adapter mapping and live status</li>
+        <li><code>docs/bpmn/</code>, <code>docs/erd/</code>, <code>docs/overview/</code>: the sources of this page</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 8 STATUS ------------------------------------------------------------------------------------------------------ -->
+<section id="status">
+  <div class="eyebrow">Where the project stands <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
+  <h2>Status and decisions</h2>
+  <div class="timeline">
+    <div><b>Mockup v1.0 · 1 Oct 2026</b><span class="muted">Full working prototype on dummy data: submission, two verification tracks, Known Activities, four indicators, freezes, Excel.</span></div>
+    <div><b>Revisi V.1</b><span class="muted">One-page form; Jenis Kegiatan from SIM Kerjasama's Agenda list; Inbound/Outbound per kegiatan; one agreement per kegiatan; Mobility the only verification track; duplicate students decided in Verifikasi Mobilitas; no SLA, no Known Activities or 1.19.S8; four period cut-offs; International Awards; academic units only.</span></div>
+    <div><b>Deployed into simks-partnership · 1–3 Oct 2026</b><span class="muted">Runs beside SIM Kerjasama through read-only views over its real units, agreements and accounts.</span></div>
+    <div><b>Revisi V.2 · 3 Oct 2026</b><span class="muted">Reports per RENSTRA with a per-unit table (Fakultas → Program Studi → Program); 1.19.24 shown as 1.19.S4; Excel with table, data and student sheets; Awards rank Program Studi only; drafts deletable only by their creator or IO Admin; YTD only for the active academic year; 120 demo kegiatan imported.</span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card" data-aud="dir">
+      <h3>Decisions needed from IO</h3>
+      <ol class="tight">
+        <li>How BAAK and HR data will be connected (API, database view or scheduled file) and who at PSI owns it.</li>
+        <li>The official mobility category and 1.19.S1 flag for each Jenis Kegiatan (Agenda).</li>
+        <li>Official 2026/2027 semester cutoff dates.</li>
+        <li>Whether outbound students need a transcript snapshot at activity time.</li>
+        <li>Go-live date: history starts at go-live; earlier spreadsheets are not imported.</li>
+      </ol>
+    </div>
+    <div class="card" data-aud="dev">
+      <h3>Technical follow-ups</h3>
+      <ol class="tight">
+        <li>Run the Awards speed-up part of <code>supabase/deploy/patch-2026-10-03-units-awards.sql</code> once in the SQL Editor (it contains TRUNCATE/DROP); until then live Awards give the same results, only slower.</li>
+        <li>Replace the demo role switcher with Supabase Auth sessions shared with SIM Kerjasama.</li>
+        <li>Swap <code>lookup_students</code> / <code>lookup_employees</code> to the real BAAK/HR source; move files from <code>file_blobs</code> to Supabase Storage.</li>
+        <li>PRD, Architecture and Schema in <code>docs/spec</code> still describe v1.0 (two tracks, SLA, 1.19.S8). Rules.md is current; update the others before handover.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="callout"><b>Before production:</b> the live data is generated demo data. Remove it with the Realisasi reset before real units start reporting, so the first frozen semester contains real kegiatan only.</div>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+  // audience switch
+  var segBtns=[].slice.call(document.querySelectorAll('.seg button'));
+  function setAud(v){
+    if(v==='all')document.body.removeAttribute('data-aud');else document.body.setAttribute('data-aud',v);
+    segBtns.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.set===v))});
+    try{localStorage.setItem('brief-aud',v)}catch(e){}
+  }
+  segBtns.forEach(function(b){b.addEventListener('click',function(){setAud(b.dataset.set)})});
+  try{var saved=localStorage.getItem('brief-aud');if(saved)setAud(saved)}catch(e){}
+
+  // section highlight in the rail
+  var links=[].slice.call(document.querySelectorAll('.rail ol a'));
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id)})}})},{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main > section').forEach(function(s){io.observe(s)});
+  }
+
+  // ERD focus
+  var erd=document.getElementById('erd');
+  var rels=[].slice.call(erd.querySelectorAll('.rel')), ents=[].slice.call(erd.querySelectorAll('.ent'));
+  function focus(t){
+    erd.classList.add('focus'); var linked={}; linked[t]=1;
+    rels.forEach(function(r){var on=r.dataset.a===t||r.dataset.b===t;r.classList.toggle('hot',on);if(on){linked[r.dataset.a]=1;linked[r.dataset.b]=1;}});
+    ents.forEach(function(e){e.classList.toggle('hot',!!linked[e.dataset.t])});
+  }
+  function clear(){erd.classList.remove('focus');rels.forEach(function(r){r.classList.remove('hot')});ents.forEach(function(e){e.classList.remove('hot')})}
+  ents.forEach(function(e){
+    e.addEventListener('mouseenter',function(){focus(e.dataset.t)});
+    e.addEventListener('mouseleave',clear);
+    e.addEventListener('focus',function(){focus(e.dataset.t)});
+    e.addEventListener('blur',clear);
+    e.addEventListener('click',function(ev){
+      ev.preventDefault(); q.value=''; active=null;
+      chips.forEach(function(c){c.setAttribute('aria-pressed','false')}); apply();
+      var card=document.getElementById('t-'+e.dataset.t);
+      if(card){card.scrollIntoView({block:'start'}); history.replaceState(null,'','#t-'+e.dataset.t);}
+    });
+  });
+
+  // dictionary filter
+  var cards=[].slice.call(document.querySelectorAll('.tbl-card')), chips=[].slice.call(document.querySelectorAll('.chip'));
+  var q=document.getElementById('q'), active=null;
+  function apply(){
+    var term=q.value.trim().toLowerCase(), shown=0;
+    cards.forEach(function(c){var ok=(!active||c.dataset.dom===active)&&(!term||c.dataset.search.indexOf(term)>-1);c.hidden=!ok;if(ok)shown++;});
+    document.getElementById('count').textContent=shown+' of '+cards.length+' tables';
+    document.getElementById('empty').hidden=shown>0;
+  }
+  q.addEventListener('input',apply);
+  chips.forEach(function(ch){ch.addEventListener('click',function(){
+    active=active===ch.dataset.dom?null:ch.dataset.dom;
+    chips.forEach(function(c){c.setAttribute('aria-pressed',String(c.dataset.dom===active))}); apply();
+  })});
+  apply();
+})();
+</script>
