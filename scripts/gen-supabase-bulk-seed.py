@@ -594,6 +594,14 @@ claim.n = victim.n
 for s in victim.internal + victim.inbound:
     s.busy.remove((victim.start, victim.end))
 ay2[ay2.index(victim)] = claim
+# codes follow creation order, like the app's sequence: renumber each year by submission (drafts last, by end date)
+def created_key(k: Keg):
+    return (k.submitted is None, k.submitted or at(k.end), k.n)
+
+
+for base, year in ((101, ay1), (201, ay2)):
+    for i, k in enumerate(sorted(year, key=created_key)):
+        k.n = base + i
 kegiatan = sorted(ay1, key=lambda k: k.n) + sorted(ay2, key=lambda k: k.n)
 assert len(ay1) == 100 and len(ay2) == 20, (len(ay1), len(ay2))
 for k in kegiatan:

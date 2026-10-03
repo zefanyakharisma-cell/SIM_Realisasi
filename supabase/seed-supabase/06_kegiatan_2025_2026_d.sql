@@ -119,79 +119,76 @@ begin
   end if;
 end $f$;
 
--- 161: Program Studi Teknik Mesin
-select pg_temp.keg(161, 'Studi Ekskursi Teknik Mesin ke Kyoto Sangyo University, Kyoto', 69, 24, 'outbound', '2026-05-31', '2026-06-03', 'offline', 'Kyoto Sangyo University, Kyoto', 'JP', 11, '{4,12}', pg_temp.wib('2026-06-23', '16:00'), 'approved', pg_temp.wib('2026-07-10', '12:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(161, 'approved', '{B14256589,B14248838,B14238223,B14236733,B14256141,B14257666,B14258081,B14237695,B14248236,B14238838}', '{}', '{PG603179}', pg_temp.wib('2026-06-23', '16:00'), pg_temp.wib('2026-07-10', '12:00'));
+-- 161: Program Studi Teknik Elektro
+select pg_temp.keg(161, 'Pengembangan Kurikulum Internet of Things bersama Astra', 65, 11, 'outbound', '2026-04-13', '2026-05-14', 'offline', 'PT Astra International Tbk', 'ID', 12, '{13,17}', pg_temp.wib('2026-05-16', '08:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dra. Sri Wahyuni, M.Si.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "other"}, {"full_name": "Dr. Ayu Lestari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "staff_visitor"}]'::jsonb);
 
--- 162: Program Studi Teknik Mesin
-select pg_temp.keg(162, 'Magang Internasional Teknik Mesin di University of Amsterdam', 69, 21, 'outbound', '2026-03-02', '2026-04-12', 'offline', 'University of Amsterdam', 'NL', 17, '{7}', pg_temp.wib('2026-04-28', '11:30'), 'approved', pg_temp.wib('2026-05-14', '13:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(162, 'approved', '{B14256141,B14237695,B14248258,B14257666}', '{}', '{PG603179}', pg_temp.wib('2026-04-28', '11:30'), pg_temp.wib('2026-05-14', '13:30'));
+-- 162: Program Studi Ilmu Komunikasi
+select pg_temp.keg(162, 'Study Abroad Komunikasi Krisis di Kyoto Sangyo University', 57, 20, 'outbound', '2026-02-16', '2026-05-16', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{4,16}', pg_temp.wib('2026-05-25', '14:15'), 'approved', pg_temp.wib('2026-05-30', '13:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(162, 'approved', '{E42257788}', '{}', '{}', pg_temp.wib('2026-05-25', '14:15'), pg_temp.wib('2026-05-30', '13:00'));
 
--- 163: Prodi Kedokteran
-select pg_temp.keg(163, 'Magang Internasional Kedokteran di University of Amsterdam', 76, 21, 'outbound', '2026-03-30', '2026-05-12', 'offline', 'University of Amsterdam', 'NL', 17, '{4,6,17}', pg_temp.wib('2026-06-02', '14:15'), 'approved', pg_temp.wib('2026-06-13', '16:30'), '{ia,ir}', null, '[{"full_name": "Prof. Pieter van Dijk", "institution": "University of Amsterdam", "country_code": "NL", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(163, 'approved', '{G61257371,G61228465}', '{}', '{}', pg_temp.wib('2026-06-02', '14:15'), pg_temp.wib('2026-06-13', '16:30'));
+-- 163: Prodi Manajemen
+select pg_temp.keg(163, 'Academic Visit Manajemen ke PT Astra International Tbk', 5, 27, 'outbound', '2026-05-11', '2026-05-12', 'offline', 'PT Astra International Tbk', 'ID', 12, '{8,9}', pg_temp.wib('2026-06-01', '12:15'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "staff_visitor"}]'::jsonb);
 
--- 164: Prodi Manajemen
-select pg_temp.keg(164, 'Studi Ekskursi Manajemen ke Yogyakarta', 5, 24, 'outbound', '2026-06-07', '2026-06-09', 'offline', 'Yogyakarta', 'ID', 12, '{4,9,17}', pg_temp.wib('2026-06-19', '16:00'), 'approved', pg_temp.wib('2026-07-07', '14:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(164, 'approved', '{D31237873,D31248101,D31256312,D31237888,D31247028,D31236101,D31228283,D31248402,D31258883,D31227308}', '{}', '{PG661938}', pg_temp.wib('2026-06-19', '16:00'), pg_temp.wib('2026-07-07', '14:00'));
+-- 164: Program Studi Desain Interior
+select pg_temp.keg(164, 'Cultural Exchange (Inbound) NTU – Ilustrasi dan Narasi Visual', 59, 29, 'inbound', '2026-05-11', '2026-05-18', 'offline', 'Gedung P PCU', 'ID', 15, '{4,9,12}', pg_temp.wib('2026-06-02', '12:00'), 'approved', pg_temp.wib('2026-06-20', '10:00'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(164, 'approved', '{}', '{X04260314,X03250319,X03250315,X04260318,X04260322}', '{PG600979}', pg_temp.wib('2026-06-02', '12:00'), pg_temp.wib('2026-06-20', '10:00'));
 
--- 165: Program Studi Desain Komunikasi Visual
-select pg_temp.keg(165, 'MBKM Pertukaran Mahasiswa Desain Komunikasi Visual di PT Unilever Indonesia Tbk', 63, 38, 'outbound', '2026-03-02', '2026-06-15', 'offline', 'PT Unilever Indonesia Tbk', 'ID', 21, '{4,11,12}', pg_temp.wib('2026-08-06', '12:45'), 'approved', pg_temp.wib('2026-08-15', '10:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(165, 'approved', '{C21236671,C21247016,C21236260}', '{}', '{PG526649,PG657693}', pg_temp.wib('2026-08-06', '12:45'), pg_temp.wib('2026-08-15', '10:00'));
+-- 165: Prodi Kedokteran
+select pg_temp.keg(165, 'Magang Internasional Kedokteran di University of Amsterdam', 76, 21, 'outbound', '2026-03-30', '2026-05-12', 'offline', 'University of Amsterdam', 'NL', 17, '{4,6,17}', pg_temp.wib('2026-06-02', '14:15'), 'approved', pg_temp.wib('2026-06-13', '16:30'), '{ia,ir}', null, '[{"full_name": "Prof. Pieter van Dijk", "institution": "University of Amsterdam", "country_code": "NL", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(165, 'approved', '{G61257371,G61228465}', '{}', '{}', pg_temp.wib('2026-06-02', '14:15'), pg_temp.wib('2026-06-13', '16:30'));
 
--- 166: Program Studi Magister Teknik Sipil
-select pg_temp.keg(166, 'Magang Industri Magister Teknik Sipil di PT Astra International Tbk', 56, 21, 'outbound', '2026-04-20', '2026-05-31', 'offline', 'PT Astra International Tbk', 'ID', 23, '{11}', pg_temp.wib('2026-06-15', '10:30'), 'approved', pg_temp.wib('2026-06-30', '15:30'), '{ia,ir}', null, '[{"full_name": "Hendro Saputro, S.E., M.M.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(166, 'approved', '{A14248811,A14246094,A14247655,A14257290,A14248809,A14248433}', '{}', '{}', pg_temp.wib('2026-06-15', '10:30'), pg_temp.wib('2026-06-30', '15:30'));
+-- 166: Program Studi Pendidikan Guru Sekolah Dasar
+select pg_temp.keg(166, 'Workshop Pendidikan Inklusif bersama Astra', 73, 35, 'inbound', '2026-05-30', '2026-05-31', 'offline', 'Gedung Q PCU', 'ID', 23, '{4,5,17}', pg_temp.wib('2026-06-02', '15:00'), null, null, '{ia,ir}', null, '[{"full_name": "Hendro Saputro, S.E., M.M.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}]'::jsonb);
 
--- 167: Prodi Akuntansi
-select pg_temp.keg(167, 'Magang Industri Akuntansi di PT Unilever Indonesia Tbk', 6, 21, 'outbound', '2026-04-13', '2026-06-03', 'offline', 'PT Unilever Indonesia Tbk', 'ID', 21, '{16}', pg_temp.wib('2026-06-17', '09:30'), 'approved', pg_temp.wib('2026-07-05', '12:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(167, 'approved', '{D32227188,D32248005,D32227795,D32257463,D32237743}', '{}', '{PG641614}', pg_temp.wib('2026-06-17', '09:30'), pg_temp.wib('2026-07-05', '12:30'));
+-- 167: Program Studi Bahasa Mandarin
+select pg_temp.keg(167, 'Studi Ekskursi Bahasa Mandarin ke Bandung', 58, 24, 'outbound', '2026-05-21', '2026-05-24', 'offline', 'Bandung', 'ID', 28, '{4,17}', pg_temp.wib('2026-06-03', '12:15'), 'approved', pg_temp.wib('2026-06-16', '12:00'), '{ia,ir}', null, '[{"full_name": "Prof. Bambang Wicaksono", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(167, 'approved', '{E43237395,E43236934,E43257300,E43248713,E43228663,E43238216,E43258937,E43246366,E43237289,E43247625}', '{}', '{PG616473,PG663932}', pg_temp.wib('2026-06-03', '12:15'), pg_temp.wib('2026-06-16', '12:00'));
 
--- 168: Program Studi Bahasa Mandarin
-select pg_temp.keg(168, 'Studi Ekskursi Bahasa Mandarin ke Bandung', 58, 24, 'outbound', '2026-05-21', '2026-05-24', 'offline', 'Bandung', 'ID', 28, '{4,17}', pg_temp.wib('2026-06-03', '12:15'), 'approved', pg_temp.wib('2026-06-16', '12:00'), '{ia,ir}', null, '[{"full_name": "Prof. Bambang Wicaksono", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(168, 'approved', '{E43237395,E43236934,E43257300,E43248713,E43228663,E43238216,E43258937,E43246366,E43237289,E43247625}', '{}', '{PG616473,PG663932}', pg_temp.wib('2026-06-03', '12:15'), pg_temp.wib('2026-06-16', '12:00'));
+-- 168: Program Studi Arsitektur
+select pg_temp.keg(168, 'Studi Ekskursi Arsitektur ke National University of Singapore, Singapura', 54, 24, 'outbound', '2026-04-20', '2026-04-24', 'offline', 'National University of Singapore, Singapura', 'SG', 19, '{9}', pg_temp.wib('2026-06-03', '12:30'), 'approved', pg_temp.wib('2026-06-19', '14:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(168, 'approved', '{A12238117,A12248128,A12248183,A12256710,A12246197,A12226528,A12247377,A12256772,A12248533,A12236715,A12238779}', '{}', '{PG536355}', pg_temp.wib('2026-06-03', '12:30'), pg_temp.wib('2026-06-19', '14:00'));
 
--- 169: Program Studi Teknik Elektro
-select pg_temp.keg(169, 'Magang Industri Teknik Elektro di PT Astra International Tbk', 65, 21, 'outbound', '2026-06-01', '2026-06-30', 'offline', 'PT Astra International Tbk', 'ID', 23, '{9,17}', pg_temp.wib('2026-07-09', '14:30'), 'approved', pg_temp.wib('2026-07-16', '16:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(169, 'approved', '{B12237202,B12236482,B12247079,B12248934,B12247442}', '{}', '{PG616609,PG578721}', pg_temp.wib('2026-07-09', '14:30'), pg_temp.wib('2026-07-16', '16:00'));
+-- 169: Prodi Akuntansi
+select pg_temp.keg(169, 'Magang Internasional Akuntansi di Chulalongkorn University', 6, 21, 'outbound', '2026-04-20', '2026-05-30', 'offline', 'Chulalongkorn University', 'TH', 29, '{4,16,17}', pg_temp.wib('2026-06-03', '15:00'), 'revision_requested', pg_temp.wib('2026-06-12', '11:30'), '{ia,ir}', 'Mohon lengkapi daftar dosen pendamping sesuai surat tugas.', '[]'::jsonb);
+select pg_temp.peserta(169, 'revision_requested', '{D32226377,D32258446,D32247516,D32237015}', '{}', '{PG508242,PG641614}', pg_temp.wib('2026-06-03', '15:00'), pg_temp.wib('2026-06-12', '11:30'));
 
--- 170: Program Studi Bahasa Mandarin
-select pg_temp.keg(170, 'Short Program (Inbound) Kyoto Sangyo – Linguistik Terapan', 58, 23, 'inbound', '2026-05-18', '2026-05-29', 'offline', 'Kampus PCU Siwalankerto', 'ID', 11, '{4,10}', pg_temp.wib('2026-06-11', '15:30'), 'approved', pg_temp.wib('2026-06-24', '13:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(170, 'approved', '{}', '{X04260308,X04260310,X04260312,X04260304}', '{PG663932,PG616473}', pg_temp.wib('2026-06-11', '15:30'), pg_temp.wib('2026-06-24', '13:00'));
+-- 170: Program Studi Teknik Elektro
+select pg_temp.keg(170, 'Cultural Exchange Kendali Cerdas di University of Amsterdam', 65, 29, 'outbound', '2026-05-18', '2026-05-22', 'offline', 'University of Amsterdam', 'NL', 32, '{4,7,9}', pg_temp.wib('2026-06-06', '13:00'), 'approved', pg_temp.wib('2026-06-14', '11:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(170, 'approved', '{B12257643,B12248967,B12236482,B12247379,B12256522,B12248934,B12237202,B12257098,B12238289}', '{}', '{PG546039,PG578721}', pg_temp.wib('2026-06-06', '13:00'), pg_temp.wib('2026-06-14', '11:00'));
 
--- 171: Prodi Kedokteran
-select pg_temp.keg(171, 'Cultural Exchange (Inbound) NTU – Telemedisin', 76, 29, 'inbound', '2026-03-23', '2026-03-30', 'offline', 'Gedung Q PCU', 'ID', 15, '{4}', pg_temp.wib('2026-04-06', '09:30'), 'approved', pg_temp.wib('2026-04-17', '14:30'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(171, 'approved', '{}', '{X03250313,X04260316,X04260320,X03250317}', '{PG615813,PG505398}', pg_temp.wib('2026-04-06', '09:30'), pg_temp.wib('2026-04-17', '14:30'));
+-- 171: Program Studi Teknik Elektro
+select pg_temp.keg(171, 'Cultural Exchange (Inbound) Yonsei – Elektronika Daya', 65, 29, 'inbound', '2026-05-25', '2026-05-29', 'offline', 'Gedung Q PCU', 'ID', 31, '{4,7,13}', pg_temp.wib('2026-06-08', '09:00'), 'approved', pg_temp.wib('2026-06-18', '11:30'), '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(171, 'approved', '{}', '{X03250355,X04260356,X03250353,X04260352,X03250357}', '{PG546039,PG578721}', pg_temp.wib('2026-06-08', '09:00'), pg_temp.wib('2026-06-18', '11:30'));
 
--- 172: Program Studi Arsitektur
-select pg_temp.keg(172, 'Cultural Exchange (Inbound) Kyoto Sangyo – Desain Kota Pesisir', 54, 29, 'inbound', '2026-02-02', '2026-02-10', 'offline', 'Gedung P PCU', 'ID', 11, '{4,11,13}', pg_temp.wib('2026-02-14', '10:30'), 'approved', pg_temp.wib('2026-02-19', '14:30'), '{ia,ir}', null, '[{"full_name": "Dr. Hiroshi Kato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(172, 'approved', '{}', '{X03250303,X03250307,X04260310,X04260306,X03250309}', '{PG635480,PG539055}', pg_temp.wib('2026-02-14', '10:30'), pg_temp.wib('2026-02-19', '14:30'));
+-- 172: Program Studi Bahasa Mandarin
+select pg_temp.keg(172, 'Short Program (Inbound) Kyoto Sangyo – Linguistik Terapan', 58, 23, 'inbound', '2026-05-18', '2026-05-29', 'offline', 'Kampus PCU Siwalankerto', 'ID', 11, '{4,10}', pg_temp.wib('2026-06-11', '15:30'), 'approved', pg_temp.wib('2026-06-24', '13:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(172, 'approved', '{}', '{X04260308,X04260310,X04260312,X04260304}', '{PG663932,PG616473}', pg_temp.wib('2026-06-11', '15:30'), pg_temp.wib('2026-06-24', '13:00'));
 
--- 173: Prodi Manajemen
-select pg_temp.keg(173, 'Academic Exchange (Inbound) Chulalongkorn – Manajemen Rantai Pasok', 5, 28, 'inbound', '2026-02-23', '2026-06-03', 'offline', 'Gedung P PCU', 'ID', 29, '{4,12}', pg_temp.wib('2026-06-23', '14:30'), 'approved', pg_temp.wib('2026-07-08', '16:00'), '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(173, 'approved', '{}', '{X04260344,X04260346,X04260342}', '{}', pg_temp.wib('2026-06-23', '14:30'), pg_temp.wib('2026-07-08', '16:00'));
+-- 173: Program Studi Magister Manajemen
+select pg_temp.keg(173, 'Riset Bersama Bisnis Keluarga dengan PT Unilever Indonesia Tbk', 48, 4, 'outbound', '2026-04-06', '2026-06-09', 'hybrid', 'PT Unilever Indonesia Tbk', 'ID', 21, '{4,12,17}', pg_temp.wib('2026-06-13', '10:00'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "PT Unilever Indonesia Tbk", "country_code": "ID", "role": "researcher"}, {"full_name": "Ir. Yudi Hartanto", "institution": "PT Unilever Indonesia Tbk", "country_code": "ID", "role": "researcher"}]'::jsonb);
 
--- 174: Program Studi Desain Interior
-select pg_temp.keg(174, 'Cultural Exchange (Inbound) NTU – Ilustrasi dan Narasi Visual', 59, 29, 'inbound', '2026-05-11', '2026-05-18', 'offline', 'Gedung P PCU', 'ID', 15, '{4,9,12}', pg_temp.wib('2026-06-02', '12:00'), 'approved', pg_temp.wib('2026-06-20', '10:00'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(174, 'approved', '{}', '{X04260314,X03250319,X03250315,X04260318,X04260322}', '{PG600979}', pg_temp.wib('2026-06-02', '12:00'), pg_temp.wib('2026-06-20', '10:00'));
+-- 174: Program Studi Magister Arsitektur
+select pg_temp.keg(174, 'Seminar Internasional Arsitektur Tropis bersama Astra', 53, 10, 'inbound', '2026-05-26', '2026-05-26', 'offline', 'Kampus PCU Siwalankerto', 'ID', 23, '{4,13}', pg_temp.wib('2026-06-14', '08:15'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Bambang Wicaksono", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}]'::jsonb);
 
--- 175: Program Studi Teknik Elektro
-select pg_temp.keg(175, 'Cultural Exchange (Inbound) Yonsei – Elektronika Daya', 65, 29, 'inbound', '2026-05-25', '2026-05-29', 'offline', 'Gedung Q PCU', 'ID', 31, '{4,7,13}', pg_temp.wib('2026-06-08', '09:00'), 'approved', pg_temp.wib('2026-06-18', '11:30'), '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(175, 'approved', '{}', '{X03250355,X04260356,X03250353,X04260352,X03250357}', '{PG546039,PG578721}', pg_temp.wib('2026-06-08', '09:00'), pg_temp.wib('2026-06-18', '11:30'));
+-- 175: Program Studi Magister Teknik Sipil
+select pg_temp.keg(175, 'Magang Industri Magister Teknik Sipil di PT Astra International Tbk', 56, 21, 'outbound', '2026-04-20', '2026-05-31', 'offline', 'PT Astra International Tbk', 'ID', 23, '{11}', pg_temp.wib('2026-06-15', '10:30'), 'approved', pg_temp.wib('2026-06-30', '15:30'), '{ia,ir}', null, '[{"full_name": "Hendro Saputro, S.E., M.M.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(175, 'approved', '{A14248811,A14246094,A14247655,A14257290,A14248809,A14248433}', '{}', '{}', pg_temp.wib('2026-06-15', '10:30'), pg_temp.wib('2026-06-30', '15:30'));
 
--- 176: Prodi Manajemen
-select pg_temp.keg(176, 'Cultural Exchange (Inbound) Chulalongkorn – Kewirausahaan Digital', 5, 29, 'inbound', '2026-05-18', '2026-05-25', 'offline', 'Gedung Q PCU', 'ID', 25, '{4,9,17}', pg_temp.wib('2026-07-19', '10:00'), 'approved', pg_temp.wib('2026-07-25', '16:30'), '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(176, 'approved', '{}', '{X03250347,X04260348,X03250343}', '{PG643269,PG661938}', pg_temp.wib('2026-07-19', '10:00'), pg_temp.wib('2026-07-25', '16:30'));
+-- 176: Prodi Akuntansi
+select pg_temp.keg(176, 'Magang Industri Akuntansi di PT Unilever Indonesia Tbk', 6, 21, 'outbound', '2026-04-13', '2026-06-03', 'offline', 'PT Unilever Indonesia Tbk', 'ID', 21, '{16}', pg_temp.wib('2026-06-17', '09:30'), 'approved', pg_temp.wib('2026-07-05', '12:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(176, 'approved', '{D32227188,D32248005,D32227795,D32257463,D32237743}', '{}', '{PG641614}', pg_temp.wib('2026-06-17', '09:30'), pg_temp.wib('2026-07-05', '12:30'));
 
--- 177: Program Studi Teknik Sipil
-select pg_temp.keg(177, 'Academic Exchange (Inbound) Kyoto Sangyo – Manajemen Konstruksi', 55, 28, 'inbound', '2026-03-16', '2026-06-14', 'offline', 'Ruang Seminar Gedung W PCU', 'ID', 11, '{6,11}', pg_temp.wib('2026-06-27', '11:00'), 'approved', pg_temp.wib('2026-07-08', '14:00'), '{ia,ir}', null, '[{"full_name": "Prof. Kenji Watanabe", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(177, 'approved', '{}', '{X03250311,X04260306,X03250301,X03250307}', '{}', pg_temp.wib('2026-06-27', '11:00'), pg_temp.wib('2026-07-08', '14:00'));
+-- 177: Prodi Manajemen
+select pg_temp.keg(177, 'Kuliah Bersama Manajemen SDM Global dengan NUS', 5, 34, 'inbound', '2026-06-12', '2026-06-13', 'hybrid', 'Gedung Q PCU', 'ID', 19, '{4,9,12,17}', pg_temp.wib('2026-06-17', '09:45'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Tan Wee Kiat", "institution": "National University of Singapore", "country_code": "SG", "role": "visiting_lecturer"}]'::jsonb);
 
 -- 178: Prodi Manajemen
-select pg_temp.keg(178, 'Seminar Internasional Manajemen Rantai Pasok bersama UGM', 5, 10, 'inbound', '2026-02-10', '2026-02-10', 'online', 'Zoom Meeting', null, 28, '{8,12}', pg_temp.wib('2026-02-19', '14:45'), null, null, '{ia,ir}', null, '[{"full_name": "Hendro Saputro, S.E., M.M.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}, {"full_name": "Dra. Sri Wahyuni, M.Si.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}]'::jsonb);
+select pg_temp.keg(178, 'Studi Ekskursi Manajemen ke Yogyakarta', 5, 24, 'outbound', '2026-06-07', '2026-06-09', 'offline', 'Yogyakarta', 'ID', 12, '{4,9,17}', pg_temp.wib('2026-06-19', '16:00'), 'approved', pg_temp.wib('2026-07-07', '14:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(178, 'approved', '{D31237873,D31248101,D31256312,D31237888,D31247028,D31236101,D31228283,D31248402,D31258883,D31227308}', '{}', '{PG661938}', pg_temp.wib('2026-06-19', '16:00'), pg_temp.wib('2026-07-07', '14:00'));
 
--- 179: Program Studi Desain Interior
-select pg_temp.keg(179, 'Staff Exchange Dosen Desain Interior ke PT Unilever Indonesia Tbk', 59, 3, 'outbound', '2026-06-01', '2026-06-13', 'hybrid', 'PT Unilever Indonesia Tbk', 'ID', 21, '{4,12}', pg_temp.wib('2026-07-24', '09:45'), null, null, '{ia,ir}', null, '[{"full_name": "Dra. Sri Wahyuni, M.Si.", "institution": "PT Unilever Indonesia Tbk", "country_code": "ID", "role": "staff_visitor"}, {"full_name": "Prof. Bambang Wicaksono", "institution": "PT Unilever Indonesia Tbk", "country_code": "ID", "role": "other"}]'::jsonb);
+-- 179: Prodi Manajemen
+select pg_temp.keg(179, 'Academic Exchange (Inbound) Chulalongkorn – Manajemen Rantai Pasok', 5, 28, 'inbound', '2026-02-23', '2026-06-03', 'offline', 'Gedung P PCU', 'ID', 29, '{4,12}', pg_temp.wib('2026-06-23', '14:30'), 'approved', pg_temp.wib('2026-07-08', '16:00'), '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(179, 'approved', '{}', '{X04260344,X04260346,X04260342}', '{}', pg_temp.wib('2026-06-23', '14:30'), pg_temp.wib('2026-07-08', '16:00'));
 
--- 180: Program Studi Magister Arsitektur
-select pg_temp.keg(180, 'Seminar Internasional Arsitektur Tropis bersama Astra', 53, 10, 'inbound', '2026-05-26', '2026-05-26', 'offline', 'Kampus PCU Siwalankerto', 'ID', 23, '{4,13}', pg_temp.wib('2026-06-14', '08:15'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Bambang Wicaksono", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}]'::jsonb);
+-- 180: Program Studi Teknik Mesin
+select pg_temp.keg(180, 'Studi Ekskursi Teknik Mesin ke Kyoto Sangyo University, Kyoto', 69, 24, 'outbound', '2026-05-31', '2026-06-03', 'offline', 'Kyoto Sangyo University, Kyoto', 'JP', 11, '{4,12}', pg_temp.wib('2026-06-23', '16:00'), 'approved', pg_temp.wib('2026-07-10', '12:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(180, 'approved', '{B14256589,B14248838,B14238223,B14236733,B14256141,B14257666,B14258081,B14237695,B14248236,B14238838}', '{}', '{PG603179}', pg_temp.wib('2026-06-23', '16:00'), pg_temp.wib('2026-07-10', '12:00'));

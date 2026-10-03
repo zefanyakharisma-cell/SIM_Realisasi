@@ -119,76 +119,69 @@ begin
   end if;
 end $f$;
 
--- 141: Prodi Akuntansi
-select pg_temp.keg(141, 'Pengembangan Kurikulum Akuntansi Forensik bersama Yonsei', 6, 11, 'outbound', '2025-12-29', '2026-01-21', 'online', 'Zoom Meeting', null, 31, '{16,17}', pg_temp.wib('2026-02-09', '12:00'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "staff_visitor"}]'::jsonb);
+-- 141: Program Studi Informatika
+select pg_temp.keg(141, 'Short Program Keamanan Siber di Chulalongkorn University', 68, 23, 'outbound', '2025-12-29', '2026-01-18', 'offline', 'Chulalongkorn University', 'TH', 29, '{9}', pg_temp.wib('2026-02-04', '09:00'), 'approved', pg_temp.wib('2026-02-15', '11:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(141, 'approved', '{B11248139,B11236858,B11247339,B11238162,B11237976,B11238934}', '{}', '{PG557816}', pg_temp.wib('2026-02-04', '09:00'), pg_temp.wib('2026-02-15', '11:30'));
 
 -- 142: Program Studi Arsitektur
-select pg_temp.keg(142, 'Kuliah Bersama Hunian Terjangkau dengan Chulalongkorn', 54, 34, 'inbound', '2025-10-30', '2025-10-31', 'hybrid', 'Ruang Seminar Gedung W PCU', 'ID', 29, '{4,11,17}', pg_temp.wib('2025-12-25', '14:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ploy Charoenkul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "visiting_lecturer"}]'::jsonb);
+select pg_temp.keg(142, 'Pengembangan Kurikulum Desain Kota Pesisir bersama Astra', 54, 11, 'outbound', '2026-01-05', '2026-01-25', 'online', 'Zoom Meeting', null, 12, '{4,9,13}', pg_temp.wib('2026-02-07', '15:00'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Rina Kartikasari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "other"}]'::jsonb);
 
--- 143: Prodi Akuntansi
-select pg_temp.keg(143, 'Workshop Akuntansi Forensik bersama Astra', 6, 35, 'inbound', '2026-01-05', '2026-01-06', 'offline', 'Gedung Q PCU', 'ID', 12, '{8}', pg_temp.wib('2026-01-13', '16:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}, {"full_name": "Prof. Bambang Wicaksono", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}, {"full_name": "Dr. Rina Kartikasari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}]'::jsonb);
+-- 143: Program Studi Informatika
+select pg_temp.keg(143, 'Workshop Rekayasa Perangkat Lunak bersama Chulalongkorn', 68, 35, 'inbound', '2026-01-27', '2026-01-29', 'offline', 'Auditorium Radius Prawiro PCU', 'ID', 29, '{4,9,17}', pg_temp.wib('2026-02-08', '13:15'), null, null, '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}, {"full_name": "Dr. Ploy Charoenkul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}, {"full_name": "Prof. Somchai Thongchai", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}]'::jsonb);
 
--- 144: Program Studi Magister Manajemen
-select pg_temp.keg(144, 'Staff Exchange Dosen Magister Manajemen ke Chulalongkorn University', 48, 3, 'outbound', '2025-12-22', '2026-01-02', 'hybrid', 'Chulalongkorn University', 'TH', 29, '{4,9}', pg_temp.wib('2026-01-14', '12:15'), null, null, '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other"}, {"full_name": "Prof. Somchai Thongchai", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other"}]'::jsonb);
+-- 144: Prodi Akuntansi
+select pg_temp.keg(144, 'Pengembangan Kurikulum Akuntansi Forensik bersama Yonsei', 6, 11, 'outbound', '2025-12-29', '2026-01-21', 'online', 'Zoom Meeting', null, 31, '{16,17}', pg_temp.wib('2026-02-09', '12:00'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "staff_visitor"}]'::jsonb);
 
--- 145: Program Studi Kedokteran Gigi
-select pg_temp.keg(145, 'Academic Visit Kedokteran Gigi ke Universitas Gadjah Mada', 74, 27, 'outbound', '2025-12-03', '2025-12-04', 'hybrid', 'Universitas Gadjah Mada', 'ID', 28, '{3,6}', pg_temp.wib('2025-12-06', '13:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "staff_visitor"}]'::jsonb);
+-- 145: Program Studi Pendidikan Guru Pendidikan Anak Usia Dini
+select pg_temp.keg(145, 'Kuliah Bersama Pendidikan Inklusif dengan Yonsei', 72, 34, 'inbound', '2026-02-04', '2026-02-04', 'hybrid', 'Gedung T PCU', 'ID', 31, '{10,17}', pg_temp.wib('2026-02-11', '10:15'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Lee Dong-hoon", "institution": "Yonsei University", "country_code": "KR", "role": "visiting_lecturer"}]'::jsonb);
 
--- 146: Program Studi Informatika
-select pg_temp.keg(146, 'Staff Exchange Dosen Informatika ke National Taiwan University', 68, 3, 'outbound', '2025-10-20', '2025-10-28', 'offline', 'National Taiwan University', 'TW', 30, '{4}', pg_temp.wib('2025-11-02', '12:45'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Wang Mei-Ling", "institution": "National Taiwan University", "country_code": "TW", "role": "other"}]'::jsonb);
+-- 146: Prodi Manajemen
+select pg_temp.keg(146, 'Pengabdian Masyarakat Strategi Bisnis Asia bersama UGM', 5, 40, 'outbound', '2026-01-22', '2026-01-25', 'hybrid', 'Kampung Batik Jetis', 'ID', 28, '{4,8,17}', pg_temp.wib('2026-02-13', '13:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "staff_visitor"}]'::jsonb);
 
 -- 147: Program Studi Arsitektur
-select pg_temp.keg(147, 'Double Degree Arsitektur Tropis di University of Amsterdam', 54, 17, 'outbound', '2026-02-02', '2026-07-21', 'offline', 'University of Amsterdam', 'NL', 32, '{11}', pg_temp.wib('2026-08-28', '10:00'), 'approved', pg_temp.wib('2026-09-10', '14:00'), '{ia,ir}', null, '[{"full_name": "Dr. Anouk Smit", "institution": "University of Amsterdam", "country_code": "NL", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(147, 'approved', '{A12247634}', '{}', '{PG539055}', pg_temp.wib('2026-08-28', '10:00'), pg_temp.wib('2026-09-10', '14:00'));
+select pg_temp.keg(147, 'Cultural Exchange (Inbound) Kyoto Sangyo – Desain Kota Pesisir', 54, 29, 'inbound', '2026-02-02', '2026-02-10', 'offline', 'Gedung P PCU', 'ID', 11, '{4,11,13}', pg_temp.wib('2026-02-14', '10:30'), 'approved', pg_temp.wib('2026-02-19', '14:30'), '{ia,ir}', null, '[{"full_name": "Dr. Hiroshi Kato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(147, 'approved', '{}', '{X03250303,X03250307,X04260310,X04260306,X03250309}', '{PG635480,PG539055}', pg_temp.wib('2026-02-14', '10:30'), pg_temp.wib('2026-02-19', '14:30'));
 
--- 148: Program Studi Teknik Elektro
-select pg_temp.keg(148, 'Cultural Exchange Kendali Cerdas di University of Amsterdam', 65, 29, 'outbound', '2026-05-18', '2026-05-22', 'offline', 'University of Amsterdam', 'NL', 32, '{4,7,9}', pg_temp.wib('2026-06-06', '13:00'), 'approved', pg_temp.wib('2026-06-14', '11:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(148, 'approved', '{B12257643,B12248967,B12236482,B12247379,B12256522,B12248934,B12237202,B12257098,B12238289}', '{}', '{PG546039,PG578721}', pg_temp.wib('2026-06-06', '13:00'), pg_temp.wib('2026-06-14', '11:00'));
+-- 148: Prodi Manajemen
+select pg_temp.keg(148, 'Student Exchange Bisnis Keluarga di National Taiwan University', 5, 2, 'outbound', '2025-10-20', '2026-01-28', 'offline', 'National Taiwan University', 'TW', 30, '{4,8}', pg_temp.wib('2026-02-18', '14:00'), 'approved', pg_temp.wib('2026-02-28', '09:30'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(148, 'approved', '{D31258938,D31256420}', '{}', '{PG643269}', pg_temp.wib('2026-02-18', '14:00'), pg_temp.wib('2026-02-28', '09:30'));
 
--- 149: Program Studi Ilmu Komunikasi
-select pg_temp.keg(149, 'Study Abroad Komunikasi Krisis di Kyoto Sangyo University', 57, 20, 'outbound', '2026-02-16', '2026-05-16', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{4,16}', pg_temp.wib('2026-05-25', '14:15'), 'approved', pg_temp.wib('2026-05-30', '13:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(149, 'approved', '{E42257788}', '{}', '{}', pg_temp.wib('2026-05-25', '14:15'), pg_temp.wib('2026-05-30', '13:00'));
+-- 149: Prodi Manajemen
+select pg_temp.keg(149, 'Seminar Internasional Manajemen Rantai Pasok bersama UGM', 5, 10, 'inbound', '2026-02-10', '2026-02-10', 'online', 'Zoom Meeting', null, 28, '{8,12}', pg_temp.wib('2026-02-19', '14:45'), null, null, '{ia,ir}', null, '[{"full_name": "Hendro Saputro, S.E., M.M.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}, {"full_name": "Dra. Sri Wahyuni, M.Si.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}]'::jsonb);
 
--- 150: Program Studi Desain Interior
-select pg_temp.keg(150, 'Magang Internasional Desain Interior di Yonsei University', 59, 21, 'outbound', '2026-02-09', '2026-03-27', 'offline', 'Yonsei University', 'KR', 31, '{4,9,12}', pg_temp.wib('2026-04-14', '13:15'), 'approved', pg_temp.wib('2026-04-27', '12:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(150, 'approved', '{C22246629,C22246153}', '{}', '{PG600979,PG559617}', pg_temp.wib('2026-04-14', '13:15'), pg_temp.wib('2026-04-27', '12:00'));
+-- 150: Program Studi Magister Teknik Sipil
+select pg_temp.keg(150, 'Staff Exchange Dosen Magister Teknik Sipil ke PT Astra International Tbk', 56, 3, 'outbound', '2026-02-16', '2026-02-20', 'offline', 'PT Astra International Tbk', 'ID', 12, '{6}', pg_temp.wib('2026-02-27', '15:00'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "staff_visitor"}, {"full_name": "Prof. Bambang Wicaksono", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "other"}]'::jsonb);
 
--- 151: Program Studi Ilmu Komunikasi
-select pg_temp.keg(151, 'Credit Transfer Komunikasi Krisis di Yonsei University', 57, 33, 'outbound', '2026-03-09', '2026-06-17', 'offline', 'Yonsei University, Seoul', 'KR', 31, '{4,16}', pg_temp.wib('2026-08-25', '10:00'), 'approved', pg_temp.wib('2026-09-12', '14:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(151, 'approved', '{E42226484,E42248653,E42236808,E42227216}', '{}', '{PG501042}', pg_temp.wib('2026-08-25', '10:00'), pg_temp.wib('2026-09-12', '14:00'));
+-- 151: Prodi Akuntansi
+select pg_temp.keg(151, 'Kuliah Tamu Perpajakan Internasional dari Chulalongkorn University', 6, 15, 'inbound', '2026-02-14', '2026-02-15', 'online', 'Zoom Meeting', null, 29, '{4,8,16,17}', pg_temp.wib('2026-03-02', '10:00'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Somchai Thongchai", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}]'::jsonb);
 
--- 152: Program Studi Teknik Mesin
-select pg_temp.keg(152, 'Magang Internasional Teknik Mesin di National Taiwan University', 69, 21, 'outbound', '2026-06-01', '2026-07-02', 'offline', 'National Taiwan University', 'TW', 30, '{7,12,17}', pg_temp.wib('2026-08-24', '10:00'), 'approved', pg_temp.wib('2026-09-12', '14:00'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(152, 'approved', '{B14258346,B14248258}', '{}', '{PG549679}', pg_temp.wib('2026-08-24', '10:00'), pg_temp.wib('2026-09-12', '14:00'));
+-- 152: Program Studi Arsitektur
+select pg_temp.keg(152, 'Kuliah Tamu Konservasi Bangunan Bersejarah dari National University of Singapore', 54, 15, 'inbound', '2026-03-05', '2026-03-06', 'offline', 'Gedung Q PCU', 'ID', 19, '{4,11,17}', pg_temp.wib('2026-03-26', '13:00'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Rajesh Kumar", "institution": "National University of Singapore", "country_code": "SG", "role": "speaker"}]'::jsonb);
 
--- 153: Prodi Akuntansi
-select pg_temp.keg(153, 'Credit Transfer Akuntansi Forensik di Yonsei University', 6, 33, 'outbound', '2026-03-16', '2026-06-27', 'offline', 'Yonsei University', 'KR', 31, '{4,16,17}', pg_temp.wib('2026-07-01', '10:45'), 'approved', pg_temp.wib('2026-07-19', '11:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(153, 'approved', '{D32247773,D32257260,D32236037,D32228656}', '{}', '{}', pg_temp.wib('2026-07-01', '10:45'), pg_temp.wib('2026-07-19', '11:30'));
+-- 153: Program Studi Teknik Mesin
+select pg_temp.keg(153, 'Kuliah Bersama Manufaktur Aditif dengan Chulalongkorn', 69, 34, 'inbound', '2026-03-21', '2026-03-21', 'offline', 'Gedung P PCU', 'ID', 29, '{4,7,12}', pg_temp.wib('2026-03-30', '13:15'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ploy Charoenkul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "visiting_lecturer"}]'::jsonb);
 
--- 154: Program Studi Pendidikan Guru Sekolah Dasar
-select pg_temp.keg(154, 'Immersion Program Literasi Dasar di National University of Singapore', 73, 22, 'outbound', '2026-06-15', '2026-06-26', 'offline', 'National University of Singapore', 'SG', 19, '{4,5}', pg_temp.wib('2026-07-07', '09:00'), 'approved', pg_temp.wib('2026-07-10', '13:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(154, 'approved', '{F51247118,F51247545,F51258597,F51246124,F51257495,F51236440,F51247336,F51238236,F51256322}', '{}', '{PG616224,PG655830}', pg_temp.wib('2026-07-07', '09:00'), pg_temp.wib('2026-07-10', '13:00'));
+-- 154: Prodi Kedokteran
+select pg_temp.keg(154, 'Cultural Exchange (Inbound) NTU – Telemedisin', 76, 29, 'inbound', '2026-03-23', '2026-03-30', 'offline', 'Gedung Q PCU', 'ID', 15, '{4}', pg_temp.wib('2026-04-06', '09:30'), 'approved', pg_temp.wib('2026-04-17', '14:30'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(154, 'approved', '{}', '{X03250313,X04260316,X04260320,X03250317}', '{PG615813,PG505398}', pg_temp.wib('2026-04-06', '09:30'), pg_temp.wib('2026-04-17', '14:30'));
 
--- 155: Program Studi Arsitektur
-select pg_temp.keg(155, 'Magang Internasional Arsitektur di National University of Singapore', 54, 21, 'outbound', '2026-03-09', '2026-04-13', 'offline', 'National University of Singapore', 'SG', 19, '{9,11}', pg_temp.wib('2026-05-02', '09:30'), 'approved', pg_temp.wib('2026-05-05', '16:00'), '{ia,ir}', null, '[{"full_name": "Prof. Tan Wee Kiat", "institution": "National University of Singapore", "country_code": "SG", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(155, 'approved', '{A12247377,A12227569}', '{}', '{PG635480,PG539055}', pg_temp.wib('2026-05-02', '09:30'), pg_temp.wib('2026-05-05', '16:00'));
+-- 155: Program Studi Ilmu Komunikasi
+select pg_temp.keg(155, 'Staff Exchange Dosen Ilmu Komunikasi ke University of Amsterdam', 57, 3, 'outbound', '2026-03-23', '2026-03-28', 'hybrid', 'University of Amsterdam', 'NL', 17, '{5,16}', pg_temp.wib('2026-04-09', '10:15'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Bram Janssen", "institution": "University of Amsterdam", "country_code": "NL", "role": "other"}, {"full_name": "Dr. Anouk Smit", "institution": "University of Amsterdam", "country_code": "NL", "role": "other"}]'::jsonb);
 
--- 156: Program Studi Arsitektur
-select pg_temp.keg(156, 'Studi Ekskursi Arsitektur ke National University of Singapore, Singapura', 54, 24, 'outbound', '2026-04-20', '2026-04-24', 'offline', 'National University of Singapore, Singapura', 'SG', 19, '{9}', pg_temp.wib('2026-06-03', '12:30'), 'approved', pg_temp.wib('2026-06-19', '14:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(156, 'approved', '{A12238117,A12248128,A12248183,A12256710,A12246197,A12226528,A12247377,A12256772,A12248533,A12236715,A12238779}', '{}', '{PG536355}', pg_temp.wib('2026-06-03', '12:30'), pg_temp.wib('2026-06-19', '14:00'));
+-- 156: Program Studi Desain Interior
+select pg_temp.keg(156, 'Magang Internasional Desain Interior di Yonsei University', 59, 21, 'outbound', '2026-02-09', '2026-03-27', 'offline', 'Yonsei University', 'KR', 31, '{4,9,12}', pg_temp.wib('2026-04-14', '13:15'), 'approved', pg_temp.wib('2026-04-27', '12:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(156, 'approved', '{C22246629,C22246153}', '{}', '{PG600979,PG559617}', pg_temp.wib('2026-04-14', '13:15'), pg_temp.wib('2026-04-27', '12:00'));
 
--- 157: Prodi Kedokteran
-select pg_temp.keg(157, 'Credit Transfer Kesehatan Masyarakat di University of Amsterdam', 76, 33, 'outbound', '2026-03-30', '2026-07-19', 'offline', 'University of Amsterdam, Amsterdam', 'NL', 17, '{6}', pg_temp.wib('2026-07-25', '15:30'), 'approved', pg_temp.wib('2026-08-03', '10:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(157, 'approved', '{G61246171,G61236074}', '{}', '{PG505398,PG615813}', pg_temp.wib('2026-07-25', '15:30'), pg_temp.wib('2026-08-03', '10:00'));
+-- 157: Program Studi Informatika
+select pg_temp.keg(157, 'Academic Visit Informatika ke PT Astra International Tbk', 68, 27, 'outbound', '2026-04-17', '2026-04-17', 'offline', 'PT Astra International Tbk', 'ID', 23, '{4,9}', pg_temp.wib('2026-04-20', '14:15'), null, null, '{ia,ir}', null, '[{"full_name": "Ir. Dimas Prakoso, M.T.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "other"}, {"full_name": "Hendro Saputro, S.E., M.M.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "other"}]'::jsonb);
 
--- 158: Program Studi Informatika
-select pg_temp.keg(158, 'Student Exchange Kecerdasan Buatan di National Taiwan University', 68, 2, 'outbound', '2026-03-02', '2026-06-20', 'offline', 'National Taiwan University, Taipei', 'TW', 15, '{4,8}', pg_temp.wib('2026-06-28', '13:45'), 'revision_requested', pg_temp.wib('2026-07-04', '13:30'), '{ia,ir}', 'Dua NRP tidak sesuai surat tugas; mohon perbarui data peserta.', '[]'::jsonb);
-select pg_temp.peserta(158, 'revision_requested', '{B11247302,B11258007,B11257605,B11236858}', '{}', '{PG591795}', pg_temp.wib('2026-06-28', '13:45'), pg_temp.wib('2026-07-04', '13:30'));
+-- 158: Program Studi Arsitektur
+select pg_temp.keg(158, 'Kuliah Bersama Konservasi Bangunan Bersejarah dengan Astra', 54, 34, 'inbound', '2026-04-06', '2026-04-07', 'hybrid', 'Gedung P PCU', 'ID', 12, '{4,13}', pg_temp.wib('2026-04-25', '14:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dewi Anggraini, S.T., M.B.A.", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "visiting_lecturer"}]'::jsonb);
 
--- 159: Program Studi Teknik Sipil
-select pg_temp.keg(159, 'Credit Transfer Manajemen Konstruksi di National Taiwan University', 55, 33, 'outbound', '2026-02-23', '2026-06-22', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{4,6,9,17}', pg_temp.wib('2026-07-03', '08:30'), 'approved', pg_temp.wib('2026-07-15', '10:30'), '{ia,ir}', null, '[{"full_name": "Prof. Chen Yu-Ting", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(159, 'approved', '{A11246886,A11236394}', '{}', '{}', pg_temp.wib('2026-07-03', '08:30'), pg_temp.wib('2026-07-15', '10:30'));
+-- 159: Program Studi Teknik Mesin
+select pg_temp.keg(159, 'Magang Internasional Teknik Mesin di University of Amsterdam', 69, 21, 'outbound', '2026-03-02', '2026-04-12', 'offline', 'University of Amsterdam', 'NL', 17, '{7}', pg_temp.wib('2026-04-28', '11:30'), 'approved', pg_temp.wib('2026-05-14', '13:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(159, 'approved', '{B14256141,B14237695,B14248258,B14257666}', '{}', '{PG603179}', pg_temp.wib('2026-04-28', '11:30'), pg_temp.wib('2026-05-14', '13:30'));
 
--- 160: Prodi Akuntansi
-select pg_temp.keg(160, 'Magang Internasional Akuntansi di Chulalongkorn University', 6, 21, 'outbound', '2026-04-20', '2026-05-30', 'offline', 'Chulalongkorn University', 'TH', 29, '{4,16,17}', pg_temp.wib('2026-06-03', '15:00'), 'revision_requested', pg_temp.wib('2026-06-12', '11:30'), '{ia,ir}', 'Mohon lengkapi daftar dosen pendamping sesuai surat tugas.', '[]'::jsonb);
-select pg_temp.peserta(160, 'revision_requested', '{D32226377,D32258446,D32247516,D32237015}', '{}', '{PG508242,PG641614}', pg_temp.wib('2026-06-03', '15:00'), pg_temp.wib('2026-06-12', '11:30'));
+-- 160: Program Studi Arsitektur
+select pg_temp.keg(160, 'Magang Internasional Arsitektur di National University of Singapore', 54, 21, 'outbound', '2026-03-09', '2026-04-13', 'offline', 'National University of Singapore', 'SG', 19, '{9,11}', pg_temp.wib('2026-05-02', '09:30'), 'approved', pg_temp.wib('2026-05-05', '16:00'), '{ia,ir}', null, '[{"full_name": "Prof. Tan Wee Kiat", "institution": "National University of Singapore", "country_code": "SG", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(160, 'approved', '{A12247377,A12227569}', '{}', '{PG635480,PG539055}', pg_temp.wib('2026-05-02', '09:30'), pg_temp.wib('2026-05-05', '16:00'));

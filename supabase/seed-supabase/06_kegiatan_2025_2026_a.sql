@@ -119,79 +119,74 @@ begin
   end if;
 end $f$;
 
--- 101: Program Studi Teknik Sipil
-select pg_temp.keg(101, 'Short Program Infrastruktur Hijau di Kyoto Sangyo University', 55, 23, 'outbound', '2025-09-22', '2025-10-03', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{6,17}', pg_temp.wib('2025-10-13', '11:00'), 'approved', pg_temp.wib('2025-10-22', '11:30'), '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Mika Sato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(101, 'approved', '{A11236394,A11238408,A11248814,A11256435,A11226056}', '{}', '{PG648486,PG564161}', pg_temp.wib('2025-10-13', '11:00'), pg_temp.wib('2025-10-22', '11:30'));
+-- 101: Prodi Kedokteran
+select pg_temp.keg(101, 'Cultural Exchange Pendidikan Klinis di Kyoto Sangyo University', 76, 29, 'outbound', '2025-09-01', '2025-09-05', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{3,4}', pg_temp.wib('2025-09-18', '11:30'), 'approved', pg_temp.wib('2025-09-28', '15:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(101, 'approved', '{G61236074,G61228465,G61237319,G61246376,G61246402,G61248311,G61258355}', '{}', '{PG615813,PG505398}', pg_temp.wib('2025-09-18', '11:30'), pg_temp.wib('2025-09-28', '15:30'));
 
--- 102: Prodi Kedokteran
-select pg_temp.keg(102, 'Cultural Exchange Pendidikan Klinis di Kyoto Sangyo University', 76, 29, 'outbound', '2025-09-01', '2025-09-05', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{3,4}', pg_temp.wib('2025-09-18', '11:30'), 'approved', pg_temp.wib('2025-09-28', '15:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(102, 'approved', '{G61236074,G61228465,G61237319,G61246376,G61246402,G61248311,G61258355}', '{}', '{PG615813,PG505398}', pg_temp.wib('2025-09-18', '11:30'), pg_temp.wib('2025-09-28', '15:30'));
+-- 102: Program Studi Informatika
+select pg_temp.keg(102, 'Pengembangan Kurikulum Kecerdasan Buatan bersama Kyoto Sangyo', 68, 11, 'outbound', '2025-08-04', '2025-09-01', 'online', 'Zoom Meeting', null, 11, '{4,8,17}', pg_temp.wib('2025-09-19', '09:15'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Mika Sato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other"}, {"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor"}]'::jsonb);
 
--- 103: Program Studi Informatika
-select pg_temp.keg(103, 'Magang Internasional Informatika di Kyoto Sangyo University', 68, 21, 'outbound', '2025-08-25', '2025-09-23', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{4,8,9,17}', pg_temp.wib('2025-10-03', '12:45'), 'approved', pg_temp.wib('2025-10-09', '12:30'), '{ia,ir}', null, '[{"full_name": "Prof. Kenji Watanabe", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(103, 'approved', '{B11238162,B11258180,B11228302}', '{}', '{PG591795,PG593383}', pg_temp.wib('2025-10-03', '12:45'), pg_temp.wib('2025-10-09', '12:30'));
+-- 103: Prodi Akuntansi
+select pg_temp.keg(103, 'Cultural Exchange (Inbound) Kyoto Sangyo – Perpajakan Internasional', 6, 29, 'inbound', '2025-09-08', '2025-09-12', 'offline', 'Gedung T PCU', 'ID', 11, '{8,17}', pg_temp.wib('2025-09-22', '14:30'), 'approved', pg_temp.wib('2025-09-30', '12:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(103, 'approved', '{}', '{X03250305,X03250309,X03250303}', '{PG641614}', pg_temp.wib('2025-09-22', '14:30'), pg_temp.wib('2025-09-30', '12:00'));
 
--- 104: Prodi Akuntansi
-select pg_temp.keg(104, 'Cultural Exchange (Inbound) Kyoto Sangyo – Akuntansi Manajemen', 6, 29, 'inbound', '2025-09-29', '2025-10-05', 'offline', 'Gedung T PCU', 'ID', 11, '{16,17}', pg_temp.wib('2025-10-12', '08:00'), 'approved', pg_temp.wib('2025-10-24', '10:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(104, 'approved', '{}', '{X03250303,X03250301,X03250309,X03250307}', '{PG508242}', pg_temp.wib('2025-10-12', '08:00'), pg_temp.wib('2025-10-24', '10:00'));
+-- 104: Program Studi Magister Teknik Industri
+select pg_temp.keg(104, 'Seminar Internasional Ergonomi Industri bersama Kyoto Sangyo', 70, 10, 'inbound', '2025-09-22', '2025-09-23', 'online', 'Zoom Meeting', null, 11, '{4,12}', pg_temp.wib('2025-09-26', '08:30'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Kenji Watanabe", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "speaker"}]'::jsonb);
 
 -- 105: Prodi Akuntansi
-select pg_temp.keg(105, 'Cultural Exchange (Inbound) Kyoto Sangyo – Perpajakan Internasional', 6, 29, 'inbound', '2025-09-08', '2025-09-12', 'offline', 'Gedung T PCU', 'ID', 11, '{8,17}', pg_temp.wib('2025-09-22', '14:30'), 'approved', pg_temp.wib('2025-09-30', '12:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(105, 'approved', '{}', '{X03250305,X03250309,X03250303}', '{PG641614}', pg_temp.wib('2025-09-22', '14:30'), pg_temp.wib('2025-09-30', '12:00'));
+select pg_temp.keg(105, 'Workshop Akuntansi Manajemen bersama Kyoto Sangyo', 6, 35, 'inbound', '2025-09-11', '2025-09-12', 'offline', 'Ruang Seminar Gedung W PCU', 'ID', 11, '{8,17}', pg_temp.wib('2025-09-30', '14:00'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "speaker"}]'::jsonb);
 
 -- 106: Program Studi Informatika
-select pg_temp.keg(106, 'Pengembangan Kurikulum Kecerdasan Buatan bersama Kyoto Sangyo', 68, 11, 'outbound', '2025-08-04', '2025-09-01', 'online', 'Zoom Meeting', null, 11, '{4,8,17}', pg_temp.wib('2025-09-19', '09:15'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Mika Sato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other"}, {"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor"}]'::jsonb);
+select pg_temp.keg(106, 'Magang Internasional Informatika di Kyoto Sangyo University', 68, 21, 'outbound', '2025-08-25', '2025-09-23', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{4,8,9,17}', pg_temp.wib('2025-10-03', '12:45'), 'approved', pg_temp.wib('2025-10-09', '12:30'), '{ia,ir}', null, '[{"full_name": "Prof. Kenji Watanabe", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(106, 'approved', '{B11238162,B11258180,B11228302}', '{}', '{PG591795,PG593383}', pg_temp.wib('2025-10-03', '12:45'), pg_temp.wib('2025-10-09', '12:30'));
 
--- 107: Program Studi Magister Teknik Industri
-select pg_temp.keg(107, 'Seminar Internasional Ergonomi Industri bersama Kyoto Sangyo', 70, 10, 'inbound', '2025-09-22', '2025-09-23', 'online', 'Zoom Meeting', null, 11, '{4,12}', pg_temp.wib('2025-09-26', '08:30'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Kenji Watanabe", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "speaker"}]'::jsonb);
+-- 107: Prodi Akuntansi
+select pg_temp.keg(107, 'Cultural Exchange (Inbound) Kyoto Sangyo – Akuntansi Manajemen', 6, 29, 'inbound', '2025-09-29', '2025-10-05', 'offline', 'Gedung T PCU', 'ID', 11, '{16,17}', pg_temp.wib('2025-10-12', '08:00'), 'approved', pg_temp.wib('2025-10-24', '10:00'), '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(107, 'approved', '{}', '{X03250303,X03250301,X03250309,X03250307}', '{PG508242}', pg_temp.wib('2025-10-12', '08:00'), pg_temp.wib('2025-10-24', '10:00'));
 
--- 108: Prodi Akuntansi
-select pg_temp.keg(108, 'Workshop Akuntansi Manajemen bersama Kyoto Sangyo', 6, 35, 'inbound', '2025-09-11', '2025-09-12', 'offline', 'Ruang Seminar Gedung W PCU', 'ID', 11, '{8,17}', pg_temp.wib('2025-09-30', '14:00'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Emi Fujita", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "speaker"}]'::jsonb);
+-- 108: Program Studi Teknik Sipil
+select pg_temp.keg(108, 'Short Program Infrastruktur Hijau di Kyoto Sangyo University', 55, 23, 'outbound', '2025-09-22', '2025-10-03', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{6,17}', pg_temp.wib('2025-10-13', '11:00'), 'approved', pg_temp.wib('2025-10-22', '11:30'), '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Mika Sato", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(108, 'approved', '{A11236394,A11238408,A11248814,A11256435,A11226056}', '{}', '{PG648486,PG564161}', pg_temp.wib('2025-10-13', '11:00'), pg_temp.wib('2025-10-22', '11:30'));
 
--- 109: Program Studi Desain Komunikasi Visual
-select pg_temp.keg(109, 'Study Abroad Branding Budaya Lokal di University of Amsterdam', 63, 20, 'outbound', '2025-10-20', '2026-01-31', 'offline', 'University of Amsterdam', 'NL', 32, '{4,12}', pg_temp.wib('2026-02-02', '10:30'), 'approved', pg_temp.wib('2026-02-14', '13:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(109, 'approved', '{C21258635,C21238527,C21237086}', '{}', '{}', pg_temp.wib('2026-02-02', '10:30'), pg_temp.wib('2026-02-14', '13:00'));
+-- 109: Prodi Kedokteran
+select pg_temp.keg(109, 'Studi Ekskursi Kedokteran ke Bandung', 76, 24, 'outbound', '2025-10-20', '2025-10-25', 'offline', 'Bandung', 'ID', 28, '{3,4,6}', pg_temp.wib('2025-10-31', '12:00'), 'approved', pg_temp.wib('2025-11-04', '16:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(109, 'approved', '{G61246402,G61257371,G61236074,G61226627,G61237319,G61246376,G61248311,G61246171,G61228465,G61258355}', '{}', '{PG505398}', pg_temp.wib('2025-10-31', '12:00'), pg_temp.wib('2025-11-04', '16:30'));
 
--- 110: Prodi Manajemen
-select pg_temp.keg(110, 'Studi Ekskursi Manajemen ke National Taiwan University, Taipei', 5, 24, 'outbound', '2025-11-10', '2025-11-15', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{9}', pg_temp.wib('2025-12-06', '16:45'), 'approved', pg_temp.wib('2025-12-09', '13:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(110, 'approved', '{D31236401,D31237541,D31248243,D31237627,D31228357,D31258883,D31248545,D31237888,D31256312}', '{}', '{PG626211}', pg_temp.wib('2025-12-06', '16:45'), pg_temp.wib('2025-12-09', '13:00'));
+-- 110: Program Studi Informatika
+select pg_temp.keg(110, 'Staff Exchange Dosen Informatika ke National Taiwan University', 68, 3, 'outbound', '2025-10-20', '2025-10-28', 'offline', 'National Taiwan University', 'TW', 30, '{4}', pg_temp.wib('2025-11-02', '12:45'), null, null, '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Wang Mei-Ling", "institution": "National Taiwan University", "country_code": "TW", "role": "other"}]'::jsonb);
 
--- 111: Program Studi Teknik Mesin
-select pg_temp.keg(111, 'Immersion Program Termodinamika Terapan di Kyoto Sangyo University', 69, 22, 'outbound', '2025-10-20', '2025-10-30', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{7,9}', pg_temp.wib('2025-11-11', '15:30'), 'approved', pg_temp.wib('2025-11-23', '13:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(111, 'approved', '{B14238838,B14257666,B14248838,B14248236,B14256141,B14248258,B14258346,B14236733,B14237695,B14238223,B14256589,B14258081}', '{}', '{PG549679,PG603179}', pg_temp.wib('2025-11-11', '15:30'), pg_temp.wib('2025-11-23', '13:30'));
+-- 111: Prodi Akuntansi
+select pg_temp.keg(111, 'Immersion Program Akuntansi Forensik di Yonsei University', 6, 22, 'outbound', '2025-10-27', '2025-11-05', 'offline', 'Yonsei University', 'KR', 31, '{4,8,17}', pg_temp.wib('2025-11-10', '12:15'), 'approved', pg_temp.wib('2025-11-20', '09:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(111, 'approved', '{D32226377,D32248238,D32247773,D32227795,D32228656,D32237015,D32236037}', '{}', '{PG641995,PG641614}', pg_temp.wib('2025-11-10', '12:15'), pg_temp.wib('2025-11-20', '09:00'));
 
--- 112: Prodi Akuntansi
-select pg_temp.keg(112, 'Magang Internasional Akuntansi di Yonsei University', 6, 21, 'outbound', '2025-10-27', '2025-12-07', 'offline', 'Yonsei University', 'KR', 31, '{4,17}', pg_temp.wib('2025-12-26', '08:00'), 'approved', pg_temp.wib('2026-01-11', '13:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(112, 'approved', '{D32257684,D32257260}', '{}', '{PG641995,PG641614}', pg_temp.wib('2025-12-26', '08:00'), pg_temp.wib('2026-01-11', '13:00'));
+-- 112: Program Studi Teknik Mesin
+select pg_temp.keg(112, 'Immersion Program Termodinamika Terapan di Kyoto Sangyo University', 69, 22, 'outbound', '2025-10-20', '2025-10-30', 'offline', 'Kyoto Sangyo University', 'JP', 11, '{7,9}', pg_temp.wib('2025-11-11', '15:30'), 'approved', pg_temp.wib('2025-11-23', '13:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(112, 'approved', '{B14238838,B14257666,B14248838,B14248236,B14256141,B14248258,B14258346,B14236733,B14237695,B14238223,B14256589,B14258081}', '{}', '{PG549679,PG603179}', pg_temp.wib('2025-11-11', '15:30'), pg_temp.wib('2025-11-23', '13:30'));
 
--- 113: Program Studi Informatika
-select pg_temp.keg(113, 'Short Program Rekayasa Perangkat Lunak di University of Amsterdam', 68, 23, 'outbound', '2026-01-12', '2026-01-26', 'offline', 'University of Amsterdam', 'NL', 32, '{4,8}', pg_temp.wib('2026-01-29', '09:15'), 'approved', pg_temp.wib('2026-02-06', '11:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(113, 'approved', '{B11258007,B11228302,B11257605,B11247302,B11238382,B11246879,B11258180}', '{}', '{}', pg_temp.wib('2026-01-29', '09:15'), pg_temp.wib('2026-02-06', '11:00'));
+-- 113: Program Studi Desain Komunikasi Visual
+select pg_temp.keg(113, 'Workshop Branding Budaya Lokal bersama Yonsei', 63, 35, 'inbound', '2025-10-21', '2025-10-23', 'hybrid', 'Ruang Seminar Gedung W PCU', 'ID', 31, '{4,9,12,17}', pg_temp.wib('2025-11-11', '15:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Kim Soo-yeon", "institution": "Yonsei University", "country_code": "KR", "role": "speaker"}, {"full_name": "Assoc. Prof. Lee Dong-hoon", "institution": "Yonsei University", "country_code": "KR", "role": "speaker"}, {"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "speaker"}]'::jsonb);
 
--- 114: Program Studi Desain Komunikasi Visual
-select pg_temp.keg(114, 'Immersion Program Desain Berkelanjutan di Chulalongkorn University', 63, 22, 'outbound', '2025-11-17', '2025-11-28', 'offline', 'Chulalongkorn University', 'TH', 29, '{4,12}', pg_temp.wib('2025-12-19', '10:15'), 'approved', pg_temp.wib('2025-12-29', '10:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(114, 'approved', '{C21228976,C21246699,C21236260,C21237469,C21226735,C21248397,C21236671,C21228109,C21247016,C21226359,C21227424,C21246495}', '{}', '{PG526649,PG657693}', pg_temp.wib('2025-12-19', '10:15'), pg_temp.wib('2025-12-29', '10:00'));
+-- 114: Program Studi Sastra Inggris
+select pg_temp.keg(114, 'Pengembangan Kurikulum Penerjemahan Sastra bersama Chulalongkorn', 61, 11, 'outbound', '2025-10-20', '2025-11-09', 'online', 'Zoom Meeting', null, 29, '{4,17}', pg_temp.wib('2025-11-15', '14:15'), null, null, '{ia,ir}', null, '[{"full_name": "Prof. Somchai Thongchai", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor"}]'::jsonb);
 
--- 115: Program Studi Teknik Mesin
-select pg_temp.keg(115, 'Immersion Program Kendaraan Listrik di National Taiwan University', 69, 22, 'outbound', '2025-12-29', '2026-01-06', 'offline', 'National Taiwan University', 'TW', 30, '{12,17}', pg_temp.wib('2026-01-25', '11:00'), 'approved', pg_temp.wib('2026-02-05', '14:00'), '{ia,ir}', null, '[{"full_name": "Assoc. Prof. Wang Mei-Ling", "institution": "National Taiwan University", "country_code": "TW", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(115, 'approved', '{B14238223,B14236733,B14237695,B14257666,B14258081,B14248236,B14248838}', '{}', '{PG603179}', pg_temp.wib('2026-01-25', '11:00'), pg_temp.wib('2026-02-05', '14:00'));
+-- 115: Program Studi Desain Interior
+select pg_temp.keg(115, 'Studi Ekskursi Desain Interior ke Yogyakarta', 59, 24, 'outbound', '2025-10-30', '2025-11-01', 'offline', 'Yogyakarta', 'ID', 28, '{4,12}', pg_temp.wib('2025-11-19', '11:45'), 'approved', pg_temp.wib('2025-12-07', '13:30'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(115, 'approved', '{C22236769,C22237407,C22246629,C22227451,C22237634,C22227224,C22257085,C22228571,C22226908,C22237881,C22247941,C22246153}', '{}', '{PG600979}', pg_temp.wib('2025-11-19', '11:45'), pg_temp.wib('2025-12-07', '13:30'));
 
--- 116: Prodi Manajemen
-select pg_temp.keg(116, 'Student Exchange Bisnis Keluarga di National Taiwan University', 5, 2, 'outbound', '2025-10-20', '2026-01-28', 'offline', 'National Taiwan University', 'TW', 30, '{4,8}', pg_temp.wib('2026-02-18', '14:00'), 'approved', pg_temp.wib('2026-02-28', '09:30'), '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(116, 'approved', '{D31258938,D31256420}', '{}', '{PG643269}', pg_temp.wib('2026-02-18', '14:00'), pg_temp.wib('2026-02-28', '09:30'));
+-- 116: Program Studi Arsitektur
+select pg_temp.keg(116, 'Kuliah Bersama Konservasi Bangunan Bersejarah dengan UGM', 54, 34, 'inbound', '2025-10-31', '2025-10-31', 'offline', 'Gedung Q PCU', 'ID', 28, '{4,13}', pg_temp.wib('2025-11-19', '14:00'), null, null, '{ia,ir}', null, '[{"full_name": "Ir. Yudi Hartanto", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "visiting_lecturer"}]'::jsonb);
 
--- 117: Prodi Manajemen
-select pg_temp.keg(117, 'Studi Ekskursi Manajemen ke Yonsei University, Seoul', 5, 24, 'outbound', '2025-12-15', '2025-12-22', 'offline', 'Yonsei University, Seoul', 'KR', 31, '{8,12}', pg_temp.wib('2026-01-12', '11:30'), 'approved', pg_temp.wib('2026-01-20', '12:00'), '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(117, 'approved', '{D31237873,D31248243,D31248761,D31227308,D31236401,D31246583,D31237627,D31227742,D31248101,D31248545,D31247059}', '{}', '{PG670883}', pg_temp.wib('2026-01-12', '11:30'), pg_temp.wib('2026-01-20', '12:00'));
+-- 117: Program Studi Ilmu Komunikasi
+select pg_temp.keg(117, 'Cultural Exchange (Inbound) Chulalongkorn – Public Relations Global', 57, 29, 'inbound', '2025-11-10', '2025-11-15', 'offline', 'Ruang Seminar Gedung W PCU', 'ID', 29, '{5,16}', pg_temp.wib('2025-11-25', '14:30'), 'approved', pg_temp.wib('2025-12-10', '14:30'), '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(117, 'approved', '{}', '{X03250349,X03250347,X03250343}', '{PG501042,PG659200}', pg_temp.wib('2025-11-25', '14:30'), pg_temp.wib('2025-12-10', '14:30'));
 
--- 118: Prodi Akuntansi
-select pg_temp.keg(118, 'Immersion Program Akuntansi Forensik di Yonsei University', 6, 22, 'outbound', '2025-10-27', '2025-11-05', 'offline', 'Yonsei University', 'KR', 31, '{4,8,17}', pg_temp.wib('2025-11-10', '12:15'), 'approved', pg_temp.wib('2025-11-20', '09:00'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(118, 'approved', '{D32226377,D32248238,D32247773,D32227795,D32228656,D32237015,D32236037}', '{}', '{PG641995,PG641614}', pg_temp.wib('2025-11-10', '12:15'), pg_temp.wib('2025-11-20', '09:00'));
+-- 118: Program Studi Informatika
+select pg_temp.keg(118, 'Cultural Exchange (Inbound) Yonsei – Komputasi Awan', 68, 29, 'inbound', '2025-11-10', '2025-11-17', 'offline', 'Gedung P PCU', 'ID', 31, '{4}', pg_temp.wib('2025-12-04', '12:45'), 'approved', pg_temp.wib('2025-12-10', '15:30'), '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
+select pg_temp.peserta(118, 'approved', '{}', '{X03250355,X03250353,X03250357,X03250359}', '{PG663266,PG593383}', pg_temp.wib('2025-12-04', '12:45'), pg_temp.wib('2025-12-10', '15:30'));
 
--- 119: Program Studi Informatika
-select pg_temp.keg(119, 'Short Program Keamanan Siber di Chulalongkorn University', 68, 23, 'outbound', '2025-12-29', '2026-01-18', 'offline', 'Chulalongkorn University', 'TH', 29, '{9}', pg_temp.wib('2026-02-04', '09:00'), 'approved', pg_temp.wib('2026-02-15', '11:30'), '{ia,ir}', null, '[]'::jsonb);
-select pg_temp.peserta(119, 'approved', '{B11248139,B11236858,B11247339,B11238162,B11237976,B11238934}', '{}', '{PG557816}', pg_temp.wib('2026-02-04', '09:00'), pg_temp.wib('2026-02-15', '11:30'));
+-- 119: Program Studi Kedokteran Gigi
+select pg_temp.keg(119, 'Academic Visit Kedokteran Gigi ke Universitas Gadjah Mada', 74, 27, 'outbound', '2025-12-03', '2025-12-04', 'hybrid', 'Universitas Gadjah Mada', 'ID', 28, '{3,6}', pg_temp.wib('2025-12-06', '13:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "staff_visitor"}]'::jsonb);
 
--- 120: Program Studi Teknik Mesin
-select pg_temp.keg(120, 'Studi Ekskursi Teknik Mesin ke Malang', 69, 24, 'outbound', '2025-11-23', '2025-11-25', 'offline', 'Malang', 'ID', 28, '{7,12,17}', pg_temp.wib('2025-12-07', '11:15'), 'approved', pg_temp.wib('2025-12-14', '12:00'), '{ia,ir}', null, '[{"full_name": "Dewi Anggraini, S.T., M.B.A.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
-select pg_temp.peserta(120, 'approved', '{B14256141,B14248838,B14256589,B14238838,B14237695,B14258081,B14236733,B14238223,B14258346,B14248236,B14257666,B14248258}', '{}', '{PG603179}', pg_temp.wib('2025-12-07', '11:15'), pg_temp.wib('2025-12-14', '12:00'));
+-- 120: Prodi Manajemen
+select pg_temp.keg(120, 'Studi Ekskursi Manajemen ke National Taiwan University, Taipei', 5, 24, 'outbound', '2025-11-10', '2025-11-15', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{9}', pg_temp.wib('2025-12-06', '16:45'), 'approved', pg_temp.wib('2025-12-09', '13:00'), '{ia,ir}', null, '[]'::jsonb);
+select pg_temp.peserta(120, 'approved', '{D31236401,D31237541,D31248243,D31237627,D31228357,D31258883,D31248545,D31237888,D31256312}', '{}', '{PG626211}', pg_temp.wib('2025-12-06', '16:45'), pg_temp.wib('2025-12-09', '13:00'));
