@@ -1,29 +1,33 @@
 -- seed-supabase/02b_registry_more (simks-partnership): a mock BAAK registry big enough for realistic participant
 -- lists (used by 05_activities_history and 06_participants). Mockup only; written into mock_baak.* only. Idempotent
 -- (existing NRPs are skipped).
---   + 735 PETRA students: 15 prodi x intakes 2020-2026, NRP <prefix><yy>8<nnn> (e.g. D31238001); intakes older than
+--   + 1,694 PETRA students: 19 prodi x intakes 2020-2026, NRP <prefix><yy>8<nnn> (e.g. D31238001); intakes older than
 --     the prodi length are 'graduated', every 13th student 'inactive'.
---   + 378 inbound exchange students: 12 per real SIMKS partner per intake 2024-2026 (30 for Kyoto Sangyo University),
+--   + 750 inbound exchange students: 25 per real SIMKS partner per intake 2024-2026 (50 for Kyoto Sangyo University),
 --     NRP X<1x><yy>8<nnn>, home institution = the partner's SIMKS name (R-17: every inbound student holds an NRP).
 
 drop table if exists pg_temp.h6_prodi;
 create temp table h6_prodi (prefix text, fcode text, fname text, prodi text, per_intake int, years int);
 insert into h6_prodi values
-  ('A11', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Teknik Sipil', 6, 4),
-  ('A12', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Arsitektur', 8, 4),
-  ('B11', 'B', 'Fakultas Teknologi Industri', 'Informatika', 10, 4),
-  ('B12', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 6, 4),
-  ('B13', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 8, 4),
-  ('C21', 'C', 'Fakultas Seni dan Desain', 'Desain Komunikasi Visual', 10, 4),
-  ('E41', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Sastra Inggris', 5, 4),
-  ('E42', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 5, 4),
-  ('D31', 'D', 'Fakultas Bisnis dan Ekonomi', 'Manajemen', 12, 4),
-  ('D32', 'D', 'Fakultas Bisnis dan Ekonomi', 'Akuntansi', 8, 4),
-  ('D33', 'D', 'Fakultas Bisnis dan Ekonomi', 'International Business Management', 8, 4),
-  ('D34', 'D', 'Fakultas Bisnis dan Ekonomi', 'Hotel Management', 8, 4),
-  ('F51', 'F', 'Fakultas Keguruan dan Ilmu Pendidikan', 'Pendidikan Guru Sekolah Dasar', 5, 4),
-  ('G61', 'G', 'Fakultas Kedokteran', 'Kedokteran', 3, 4),
-  ('H71', 'H', 'Program Pascasarjana', 'Magister Manajemen', 3, 2);
+  ('A11', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Teknik Sipil', 12, 4),
+  ('A12', 'A', 'Fakultas Teknik Sipil dan Perencanaan', 'Arsitektur', 16, 4),
+  ('B11', 'B', 'Fakultas Teknologi Industri', 'Informatika', 20, 4),
+  ('B12', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 12, 4),
+  ('B13', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 16, 4),
+  ('C21', 'C', 'Fakultas Seni dan Desain', 'Desain Komunikasi Visual', 20, 4),
+  ('E41', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Sastra Inggris', 10, 4),
+  ('E42', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 10, 4),
+  ('D31', 'D', 'Fakultas Bisnis dan Ekonomi', 'Manajemen', 24, 4),
+  ('D32', 'D', 'Fakultas Bisnis dan Ekonomi', 'Akuntansi', 16, 4),
+  ('D33', 'D', 'Fakultas Bisnis dan Ekonomi', 'International Business Management', 16, 4),
+  ('D34', 'D', 'Fakultas Bisnis dan Ekonomi', 'Hotel Management', 16, 4),
+  ('F51', 'F', 'Fakultas Keguruan dan Ilmu Pendidikan', 'Pendidikan Guru Sekolah Dasar', 10, 4),
+  ('G61', 'G', 'Fakultas Kedokteran', 'Kedokteran', 6, 4),
+  ('H71', 'H', 'Program Pascasarjana', 'Magister Manajemen', 6, 2),
+  ('B14', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 10, 4),
+  ('C22', 'C', 'Fakultas Seni dan Desain', 'Desain Interior', 10, 4),
+  ('E43', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Bahasa Mandarin', 6, 4),
+  ('G62', 'G', 'Fakultas Kedokteran Gigi', 'Kedokteran Gigi', 6, 4);
 
 with names as (
   select array['Adrian','Agnes','Albert','Amanda','Andreas','Angela','Bryan','Calvin','Catherine','Christian','Clara',
@@ -48,23 +52,23 @@ drop table if exists pg_temp.h6_partner;
 create temp table h6_partner (idx int, name text, cc text, f text[], l text[], per_year int);
 insert into h6_partner values
   (11, 'Kyoto Sangyo University', 'JP', '{Haruto,Yui,Sota,Hina,Ren,Aoi,Yuto,Mio,Kaito,Sakura,Riku,Yuna}',
-       '{Sato,Suzuki,Takahashi,Tanaka,Watanabe,Ito,Yamamoto,Nakamura,Kobayashi,Kato}', 30),
+       '{Sato,Suzuki,Takahashi,Tanaka,Watanabe,Ito,Yamamoto,Nakamura,Kobayashi,Kato}', 50),
   (12, 'Yonsei University', 'KR', '{Min-jun,Seo-yeon,Ji-ho,Ha-eun,Do-yun,Ji-woo,Seo-jun,Su-ah,Ye-jun,Chae-won}',
-       '{Kim,Lee,Park,Choi,Jung,Kang,Cho,Yoon,Jang,Lim}', 12),
+       '{Kim,Lee,Park,Choi,Jung,Kang,Cho,Yoon,Jang,Lim}', 25),
   (13, 'National Taiwan University', 'TW', '{Chia-hao,Yu-ting,Po-han,Hsin-yi,Cheng-en,Pei-shan,Tzu-yang,Wan-ting}',
-       '{Chen,Lin,Huang,Chang,Lee,Wang,Wu,Liu,Tsai,Yang}', 12),
+       '{Chen,Lin,Huang,Chang,Lee,Wang,Wu,Liu,Tsai,Yang}', 25),
   (14, 'National University of Singapore', 'SG', '{Wei Jie,Xin Yi,Jun Hao,Hui Min,Ryan,Sarah,Marcus,Nur Aisyah,Arjun,Chloe}',
-       '{Tan,Lim,Lee,Ng,Ong,Wong,Goh,Chua,Rahman,Nair}', 12),
+       '{Tan,Lim,Lee,Ng,Ong,Wong,Goh,Chua,Rahman,Nair}', 25),
   (15, 'Chulalongkorn University', 'TH', '{Kittipong,Napat,Siriporn,Thanawat,Pimchanok,Chayanin,Warut,Kanokwan}',
-       '{Srisuk,Wongsa,Chaiyaporn,Rattanakul,Saengthong,Phromma,Boonmee,Kaewkla}', 12),
+       '{Srisuk,Wongsa,Chaiyaporn,Rattanakul,Saengthong,Phromma,Boonmee,Kaewkla}', 25),
   (16, 'Ateneo de Manila University', 'PH', '{Maria,Jose,Angelica,Miguel,Patricia,Gabriel,Bianca,Rafael,Andrea,Carlo}',
-       '{Santos,Reyes,Cruz,Bautista,Garcia,Mendoza,Torres,Villanueva,Ramos,Aquino}', 12),
+       '{Santos,Reyes,Cruz,Bautista,Garcia,Mendoza,Torres,Villanueva,Ramos,Aquino}', 25),
   (17, 'University of Amsterdam', 'NL', '{Daan,Sanne,Lucas,Emma,Sem,Julia,Milan,Lotte,Thijs,Fleur}',
-       '{de Vries,Jansen,de Jong,Bakker,Visser,Smit,Meijer,Mulder,de Boer,Bos}', 12),
+       '{de Vries,Jansen,de Jong,Bakker,Visser,Smit,Meijer,Mulder,de Boer,Bos}', 25),
   (18, 'Ludwig Maximilian University of Munich', 'DE', '{Lukas,Lea,Felix,Anna,Jonas,Lena,Leon,Marie,Paul,Sophie}',
-       '{Müller,Schmidt,Schneider,Fischer,Weber,Meyer,Wagner,Becker,Hoffmann,Schulz}', 12),
+       '{Müller,Schmidt,Schneider,Fischer,Weber,Meyer,Wagner,Becker,Hoffmann,Schulz}', 25),
   (19, 'University of Sydney', 'AU', '{Oliver,Charlotte,Jack,Olivia,William,Amelia,Noah,Isla,Thomas,Mia}',
-       '{Smith,Jones,Williams,Brown,Wilson,Taylor,Nguyen,Johnson,Martin,White}', 12);
+       '{Smith,Jones,Williams,Brown,Wilson,Taylor,Nguyen,Johnson,Martin,White}', 25);
 
 insert into mock_baak.students (nrp, full_name, faculty_code, faculty_name, prodi_name, category, home_institution,
                                 home_country_code, intake_year, status)

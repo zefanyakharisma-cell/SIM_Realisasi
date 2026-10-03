@@ -34,6 +34,22 @@ insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values
   (68, 'Program Studi Informatika', 28, 1), (73, 'Program Studi Pendidikan Guru Sekolah Dasar', 36, 1),
   (76, 'Prodi Kedokteran', 30, 1)
 on conflict do nothing;
+-- units referenced by seed-supabase/07_activities_more.sql (live names/parents)
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values
+  (12, 'Marketing and Relations Department', 1, 2), (15, 'Badan Penjaminan Mutu', 1, 2),
+  (17, 'Excellence in Learning and Teaching Center', 1, 2), (18, 'Career and Industrial Relations Division', 1, 2),
+  (21, 'Pusat Pengembangan Musik Gerejawi (PPMG)', 1, 2), (23, 'Biro Administrasi Kemahasiswaan dan Alumni', 1, 2),
+  (24, 'Unit Perpustakaan', 1, 2), (33, 'Departemen Mata Kuliah Umum', 1, 1), (34, 'Fakultas Kedokteran Gigi', 1, 1)
+on conflict do nothing;
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values
+  (41, 'Culinary Business Management', 5, 1), (43, 'International Trade and Finance', 6, 1),
+  (44, 'Program International Business Accounting', 6, 1), (45, 'Program Finance And Investment', 6, 1),
+  (46, 'Program Creative Tourism', 5, 1), (47, 'Program Tax Accounting', 6, 1), (50, 'Program Business Management', 5, 1),
+  (53, 'Program Studi Magister Arsitektur', 35, 1), (56, 'Program Studi Magister Teknik Sipil', 35, 1),
+  (60, 'Program Textile and Fashion Design', 32, 1), (62, 'International Program in Digital Media', 32, 1),
+  (66, 'Program International Business Engineering', 28, 1), (69, 'Program Studi Teknik Mesin', 28, 1),
+  (72, 'Program Studi Pendidikan Guru Pendidikan Anak Usia Dini', 36, 1), (74, 'Program Studi Kedokteran Gigi', 34, 1)
+on conflict do nothing;
 insert into public.negara (id, kode, nama, is_domestic) values
   (1, 'IDN', 'Indonesia', true),
   (2, 'JPN', 'Jepang', false),
