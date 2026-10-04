@@ -15,6 +15,8 @@ export interface InfoSheet {
   rowCount: number;
   /** Extra rows appended after the standard ones (e.g. snapshot metadata). */
   extra?: Array<[string, string]>;
+  /** 'first' (default, CONTRACTS §8.2) or 'last' (Laporan per RENSTRA: sheet 1 = the RENSTRA table, Revisi V.2). */
+  position?: 'first' | 'last';
 }
 
 export interface Column<R> {
@@ -167,11 +169,11 @@ export function formatJakartaDateTime(d: Date): string {
   return `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)} ${s.slice(11, 16)} WIB`;
 }
 
-/** Info sheet: always the first sheet (CONTRACTS §8.2). */
+/** Info sheet: the first sheet (CONTRACTS §8.2) unless `position: 'last'`. */
 export function addInfoSheet(wb: ExcelJS.Workbook, info: InfoSheet): void {
   const ws = wb.addWorksheet('Info');
-  // Always first, even when data sheets were added before (exceljs sorts by orderNo; others start at 1).
-  (ws as unknown as { orderNo: number }).orderNo = 0;
+  // First even when data sheets were added before (exceljs sorts by orderNo; others start at 1).
+  if (info.position !== 'last') (ws as unknown as { orderNo: number }).orderNo = 0;
   ws.columns = [
     { header: 'Keterangan', key: 'k' },
     { header: 'Nilai', key: 'v' },

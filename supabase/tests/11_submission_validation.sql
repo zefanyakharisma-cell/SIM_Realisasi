@@ -211,6 +211,22 @@ select pg_temp.ok(not exists (select 1 from realisasi.activities where id = pg_t
               and exists (select 1 from realisasi.file_blobs where path like 'realisasi-transcripts/' || pg_temp.id('a') || '/%')
               and not exists (select 1 from realisasi.participant_set_versions where activity_id = pg_temp.id('b')), 'R-15 draft hard-deleted with blobs');
 
+-- R-15 only the creator (or IO Admin) deletes a draft: same-unit submitter cannot delete a draft IO Admin made for it
+:as_admin
+insert into _ids select 'c', realisasi.save_activity_draft(null, pg_temp.payload());
+:as_fti
+select pg_temp.ok(realisasi.activity_detail(pg_temp.id('c')) #>> '{permissions,can_edit_draft}' = 'true'
+              and realisasi.activity_detail(pg_temp.id('c')) #>> '{permissions,can_delete_draft}' = 'false', 'unit edits but cannot delete others'' draft');
+select pg_temp.throws(format('select realisasi.delete_draft(%L)', pg_temp.id('c')), 'AUTH_FORBIDDEN', 'R-15 non-creator cannot delete');
+insert into _ids select 'd', realisasi.save_activity_draft(null, pg_temp.payload());
+select pg_temp.ok(realisasi.activity_detail(pg_temp.id('d')) #>> '{permissions,can_delete_draft}' = 'true', 'creator may delete own draft');
+:as_admin
+select pg_temp.ok(realisasi.activity_detail(pg_temp.id('d')) #>> '{permissions,can_delete_draft}' = 'true', 'IO Admin may delete any draft');
+select realisasi.delete_draft(pg_temp.id('c'));
+select realisasi.delete_draft(pg_temp.id('d'));
+reset role;
+select pg_temp.ok(not exists (select 1 from realisasi.activities where id in (pg_temp.id('c'), pg_temp.id('d'))), 'IO Admin deleted both drafts');
+
 -- R-10 late submission: S-23 draft (deadline 2026-09-13) -> LATE_NOTICE and is_late
 :as_fsd
 select pg_temp.ok((select (c ->> 'late')::boolean from jsonb_array_elements(realisasi.submission_checklist(pg_temp.aid(23))) c where c ->> 'code' = 'LATE_NOTICE'), 'LATE_NOTICE in checklist');

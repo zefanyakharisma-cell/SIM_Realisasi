@@ -5,7 +5,7 @@
 --   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
 --   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
---   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Prodi Manajemen)
+--   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Program Studi Manajemen)
 --   akun  9 viewer@petra.ac.id              viewer
 --   akun  6 rektor@petra.ac.id              viewer
 do $$

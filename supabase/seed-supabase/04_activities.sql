@@ -2,9 +2,9 @@
 -- into realisasi.* (partner snapshots come from kerjasama.partners via the activity_documents trigger). Dates lie inside
 -- each document's validity and inside AY 2025/2026 – 2026/2027. Idempotent: an activity that exists is skipped.
 -- Actors are resolved from realisasi.account_roles (03_accounts.sql) through kerjasama.profiles:
---   submitters akun 3 (unit 4, SBM) and akun 4 (unit 5, Prodi Manajemen); mobility team akun 10.
+--   submitters akun 3 (unit 4, SBM) and akun 4 (unit 5, Program Studi Manajemen); mobility team akun 10.
 -- Revisi V.1: Jenis = SIMKS agenda, Inbound/Outbound per kegiatan, one kerja sama, Mobility the only verification
--- (non-mobility kegiatan verified on submit), one open student conflict between SBM and Prodi Manajemen (S-13).
+-- (non-mobility kegiatan verified on submit), one open student conflict between SBM and Program Studi Manajemen (S-13).
 -- Ids: activities b5000000-0000-4000-8000-0000000000NN, event groups e5000000-…NN, codes RL-2026-00NN.
 
 create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
@@ -170,8 +170,8 @@ select pg_temp.pset(11, 'pending', '{D31252983,D32250736,D31243593}', '{}', '{}'
 select pg_temp.act(12, 'Kuliah Tamu Pemasaran Global dari Ateneo de Manila University', 4, 15, 'inbound', '2026-09-28', '2026-09-29', 'online',
   'Zoom Meeting', null, 44, '{4}', null, null, null, p_files => '{ia}');
 
--- rule 2.1 demo: Prodi Manajemen claims two of SBM's summer-program students (S-06) -> open conflict in the queue
-select pg_temp.act(13, 'Summer Program Business in Asia (Prodi Manajemen)', 5, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
+-- rule 2.1 demo: Program Studi Manajemen claims two of SBM's summer-program students (S-06) -> open conflict in the queue
+select pg_temp.act(13, 'Summer Program Business in Asia (Program Studi Manajemen)', 5, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
   'Chulalongkorn University', 'TH', 25, '{4}', pg_temp.daysago(4), 'pending', pg_temp.daysago(4));
 select pg_temp.pset(13, 'pending', '{D31242651,D31245931}', '{}', '{}', pg_temp.daysago(4));
 select realisasi._scan_conflicts(pg_temp.aid(13)) where not exists (select 1 from realisasi.participant_conflicts where pg_temp.aid(13) in (activity_a, activity_b));

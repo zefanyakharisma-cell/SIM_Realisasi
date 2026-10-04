@@ -208,7 +208,7 @@ select pg_temp.seed_act(33, 'Studi Ekskursi Desain ke Universitas Udayana', 31, 
   'Universitas Udayana', 'ID', 110, '{4,11}', pg_temp.wib('2026-09-10'), 'approved', pg_temp.wib('2026-09-15', '14:00'));
 select pg_temp.seed_pset(33, 1, 'approved', '{C21233005,C21233140,C21233729}', '{}', '{}', pg_temp.wib('2026-09-10'), pg_temp.wib('2026-09-15', '14:00'));
 
--- S-13 / S-14: the same summer program claimed by FTI and Prodi Informatika with the same 12 students. Rule 2.1: the
+-- S-13 / S-14: the same summer program claimed by FTI and Program Studi Informatika with the same 12 students. Rule 2.1: the
 -- Mobility team looked at both PDFs and kept every student on S-13 (FTI), so they count once, for FTI (AT-01).
 select pg_temp.seed_act(13, 'Summer Program Smart Manufacturing di Nanyang Polytechnic', 10, 23, 'outbound', '2026-08-03', '2026-08-21', 'offline',
   'Nanyang Polytechnic', 'SG', 113, '{4,9}', pg_temp.wib('2026-08-28'), 'approved', pg_temp.wib('2026-09-10', '14:00'));
@@ -239,7 +239,7 @@ select pg_temp.seed_pset(16, 1, 'revision_requested', '{B12251882,B12252182,B122
 select pg_temp.seed_act(17, 'Joint Seminar Pemasaran Digital Asia', 20, 35, 'inbound', '2026-09-07', '2026-09-08', 'offline',
   'Gedung T PCU', 'ID', 102, '{8}', pg_temp.daysago(10), null, null);
 
--- S-18: Prodi Informatika claims two of S-13's students for an overlapping program: open conflicts in the queue
+-- S-18: Program Studi Informatika claims two of S-13's students for an overlapping program: open conflicts in the queue
 select pg_temp.seed_act(18, 'Summer Program Smart Manufacturing - Nanyang Poly', 11, 23, 'outbound', '2026-08-03', '2026-08-20', 'offline',
   'Nanyang Polytechnic', 'SG', 113, '{4}', pg_temp.daysago(3), 'pending', pg_temp.daysago(3));
 select pg_temp.seed_pset(18, 1, 'pending', '{B11227366,B11234310}', '{}', '{}', pg_temp.daysago(3));

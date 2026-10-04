@@ -485,7 +485,7 @@ function StudentTable({ rows, onRemove }: { rows: StudentRow[]; onRemove: (key: 
             <th scope="col" className="px-3 py-2">NRP</th>
             <th scope="col" className="px-3 py-2">Nama</th>
             <th scope="col" className="px-3 py-2">Fakultas</th>
-            <th scope="col" className="px-3 py-2">Prodi</th>
+            <th scope="col" className="px-3 py-2">Program Studi</th>
             <th scope="col" className="px-3 py-2"><span className="sr-only">Aksi</span></th>
           </tr>
         </thead>
