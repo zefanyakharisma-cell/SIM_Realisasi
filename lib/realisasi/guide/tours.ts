@@ -191,7 +191,7 @@ const DASHBOARD_TOUR: Tour = {
     {
       target: 'nav[aria-label="Tab dashboard"]',
       title: 'Capaian Renstra & International Awards',
-      body: 'Tab Capaian Renstra berisi indikator dan grafik. Tab International Awards berisi papan peringkat unit: Inbound, Outbound Dalam Negeri, Outbound Internasional, dan Inisiatif Internasional.',
+      body: 'Tab Capaian Renstra berisi indikator dan grafik. Tab International Awards berisi papan peringkat Program Studi: Inbound, Outbound Dalam Negeri, Outbound Internasional, dan Inisiatif Internasional.',
     },
     {
       target: tid('work-queue'),
@@ -215,8 +215,8 @@ const DASHBOARD_TOUR: Tour = {
       body: 'Kegiatan terverifikasi dengan mitra luar negeri yang Jenis Kegiatannya dihitung untuk S1. Angka domestik ditampilkan sebagai pembanding.',
     },
     {
-      target: tid('kpi-card-1.19.24'),
-      title: 'RENSTRA 1.19.24 — MoU & MoA terlaksana',
+      target: tid('kpi-card-1.19.S4'),
+      title: 'RENSTRA 1.19.S4 — MoU & MoA terlaksana',
       body: 'Persentase rantai kerja sama aktif yang punya minimal satu kegiatan terverifikasi. Perpanjangan dihitung satu rantai; kerja sama baru dalam masa tenggang 6 bulan dikeluarkan dari penyebut.',
     },
     {
@@ -228,7 +228,7 @@ const DASHBOARD_TOUR: Tour = {
     {
       target: tid('kpi-grace-link'),
       title: 'Kerja sama dalam masa tenggang',
-      body: 'Tautan ini membuka daftar kerja sama yang dikeluarkan dari perhitungan karena masih baru. Mereka tidak disembunyikan, hanya dipisahkan.',
+      body: 'Jumlah kerja sama yang dikeluarkan dari perhitungan karena masih baru. Klik untuk membuka rincian 1.19.S4: mereka tidak disembunyikan, hanya dipisahkan.',
     },
     {
       target: tid('chart-mobility_by_semester'),
@@ -246,7 +246,7 @@ const AWARDS_TOUR: Tour = {
     {
       target: 'nav[aria-label="Tab dashboard"]',
       title: 'International Awards',
-      body: 'Papan peringkat per unit pengaju, memakai kegiatan terverifikasi dan aturan duplikat yang sama dengan RENSTRA 1.1. Setiap papan diurutkan dari total tertinggi.',
+      body: 'Papan peringkat per Program Studi pengaju, memakai kegiatan terverifikasi dan aturan duplikat yang sama dengan RENSTRA 1.1. Setiap papan diurutkan dari total tertinggi.',
     },
     {
       target: 'nav[aria-labelledby="period-seg-label"]',
@@ -581,6 +581,12 @@ const REPORTS_TOUR: Tour = {
       side: 'right',
     },
     {
+      target: tid('report-kpi'),
+      title: 'Laporan per RENSTRA',
+      body: 'Pilih satu indikator untuk melihat nilai tiap unit (Fakultas → Program Studi → Program) beserta data pendukungnya.',
+      side: 'right',
+    },
+    {
       target: tid('report-peserta'),
       title: 'Daftar peserta',
       body: 'Nama dan NRP peserta. Ini data pribadi: setiap unduhan dicatat (siapa, filter, jumlah baris).',
@@ -589,7 +595,7 @@ const REPORTS_TOUR: Tour = {
     {
       target: tid('report-realisasi-kerjasama'),
       title: 'Realisasi per kerja sama',
-      body: 'Status setiap rantai MoU/MoA: Terlaksana, Belum terlaksana, atau Masa tenggang (dasar RENSTRA 1.19.24).',
+      body: 'Status setiap rantai MoU/MoA: Terlaksana, Belum terlaksana, atau Masa tenggang (dasar RENSTRA 1.19.S4).',
       side: 'right',
     },
     {
