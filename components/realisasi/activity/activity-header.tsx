@@ -22,7 +22,7 @@ export function ActivityHeader({ detail, actions }: { detail: ActivityDetail; ac
           </div>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" data-tour="activity-status">
         <StatusBadge status={detail.status} />
         {detail.status !== 'draft' && <TrackChips mobility={detail.mobility_status} />}
         {flags.late && <FlagPill flag="late" />}

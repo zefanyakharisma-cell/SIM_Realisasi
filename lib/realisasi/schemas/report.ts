@@ -116,10 +116,55 @@ export function realizationStatusToBucket(s: RealizationStatus | undefined): str
   return s;
 }
 
+// ---------- Laporan per RENSTRA (Revisi V.2) ----------
+/** RENSTRA indicators as named by the university. 1.19.S4 is the KPI engine's '1.19.24'. */
+export const RENSTRA_KEYS = ['1.1', '1.1.a', '1.1.b', '1.19.S1', '1.19.S4'] as const;
+export type RenstraKey = (typeof RENSTRA_KEYS)[number];
+/** Per-unit value a RENSTRA reads from a KPI block (null = no per-unit table, overall only). */
+export type RenstraMetric = 'k11_total' | 'k11_inbound' | 'k11_outbound' | 's1_international' | null;
+
+export interface RenstraDef {
+  key: RenstraKey;
+  title: string;
+  kpi: DrilldownKpi;
+  bucket?: string;
+  metric: RenstraMetric;
+  /** Unit of the number: students, activities, or a percentage of agreement chains. */
+  unit: 'mahasiswa' | 'kegiatan' | 'persen';
+}
+
+export const RENSTRA_DEF: Record<RenstraKey, RenstraDef> = {
+  '1.1': { key: '1.1', title: 'Jumlah Mahasiswa mengikuti Kegiatan Internasional', kpi: '1.1', metric: 'k11_total', unit: 'mahasiswa' },
+  '1.1.a': { key: '1.1.a', title: 'Jumlah Mahasiswa Inbound Mengikuti Kegiatan Internasional', kpi: '1.1', bucket: 'inbound', metric: 'k11_inbound', unit: 'mahasiswa' },
+  '1.1.b': { key: '1.1.b', title: 'Jumlah Mahasiswa Outbound Mengikuti Kegiatan Internasional', kpi: '1.1', bucket: 'outbound', metric: 'k11_outbound', unit: 'mahasiswa' },
+  '1.19.S1': { key: '1.19.S1', title: 'Jumlah Kegiatan Internasional dengan Mitra', kpi: '1.19.S1', bucket: 'international', metric: 's1_international', unit: 'kegiatan' },
+  '1.19.S4': { key: '1.19.S4', title: 'Persen Terlaksana MoU & MoA', kpi: '1.19.24', metric: null, unit: 'persen' },
+};
+
+export function renstraLabel(k: RenstraKey): string {
+  return `${k}. ${RENSTRA_DEF[k].title}`;
+}
+
+export function parseRenstraKey(v: string | undefined): RenstraKey | undefined {
+  return (RENSTRA_KEYS as readonly string[]).includes(v ?? '') ? (v as RenstraKey) : undefined;
+}
+
+/** `renstra` param, else the pre-V.2 `kpi` + `bucket` params (dashboard cards, old bookmarks). */
+export function parseRenstraParams(sp: SearchParamsLike): RenstraKey | undefined {
+  const direct = parseRenstraKey(getParam(sp, 'renstra'));
+  if (direct) return direct;
+  const kpi = parseDrilldownKpi(getParam(sp, 'kpi'));
+  const bucket = getParam(sp, 'bucket');
+  if (kpi === '1.1') return bucket === 'inbound' ? '1.1.a' : bucket === 'outbound' ? '1.1.b' : '1.1';
+  if (kpi === '1.19.S1') return '1.19.S1';
+  if (kpi === '1.19.24') return '1.19.S4';
+  return undefined;
+}
+
 export const KPI_LABEL: Record<DrilldownKpi, string> = {
   '1.1': 'RENSTRA 1.1 — Mahasiswa Inbound & Outbound',
   '1.19.S1': 'RENSTRA 1.19.S1 — Kegiatan Internasional dengan Mitra',
-  '1.19.24': 'RENSTRA 1.19.24 — Persentase MoU/MoA Terlaksana',
+  '1.19.24': 'RENSTRA 1.19.S4 — Persen Terlaksana MoU & MoA',
   base: 'Kegiatan Terverifikasi (basis)',
 };
 

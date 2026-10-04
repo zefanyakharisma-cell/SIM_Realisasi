@@ -75,6 +75,10 @@ select pg_temp.eq((realisasi.dashboard(1, 'ganjil') #>> '{values,kpi_1_1,total}'
                   (realisasi.dashboard(1, 'full') #>> '{values,kpi_1_1,total}')::int, 'ganjil + genap = whole year (KPI 1.1)');
 select pg_temp.eq(realisasi.period_info(2, 'ytd') ->> 'label', 'YTD 2026/2027', 'ytd label');
 select pg_temp.eq(realisasi.period_info(2, 'ytd') ->> 'window_end', realisasi.today()::text, 'ytd ends today');
+select pg_temp.eq(realisasi.period_info(2, 'ytd') ->> 'current_ay_id', '2', 'current academic year exposed');
+select pg_temp.eq(realisasi.period_info(1, 'ytd') ->> 'period', 'full', 'YTD only for the active AY: other years fall back to Setahun');
+select pg_temp.eq(realisasi.dashboard(1, 'ytd') #> '{values,kpi_1_1,total}', realisasi.dashboard(1, 'full') #> '{values,kpi_1_1,total}',
+                  'past-year YTD = Setahun values');
 select pg_temp.throws($$select realisasi.period_info(2, 'live')$$, 'VALIDATION_INVALID', 'old live period is gone');
 select pg_temp.eq((realisasi.dashboard(2, 'genap') ->> 'late_additions')::int, 0, 'genap without a snapshot works live');
 select pg_temp.eq((select count(*) from jsonb_array_elements(realisasi.kpi_drilldown(null, null, 'base', null, null, pg_temp.sid('ganjil_ytd')) -> 'rows')), 

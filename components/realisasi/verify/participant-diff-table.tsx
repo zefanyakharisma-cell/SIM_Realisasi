@@ -124,7 +124,7 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                   {section === 'internal' ? (
                     <>
                       <th scope="col" className="px-3 py-2">Fakultas</th>
-                      <th scope="col" className="px-3 py-2">Prodi</th>
+                      <th scope="col" className="px-3 py-2">Program Studi</th>
                     </>
                   ) : (
                     <>

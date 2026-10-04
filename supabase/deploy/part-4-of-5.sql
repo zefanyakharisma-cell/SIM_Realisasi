@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 4 OF 5 (commit b0bf749).
+-- SIM Realisasi Supabase install, PART 4 OF 5 (commit ce646eb).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -497,6 +497,8 @@ begin
     select * into ay from realisasi.academic_years where id = realisasi._resolve_ay(p_ay_id);
     if not found then perform realisasi._not_found(); end if;
     r.period := p_period;
+    -- YTD exists only for the active academic year; any other year falls back to Setahun (kumulatif)
+    if r.period = 'ytd' and ay.id is distinct from realisasi._resolve_ay(null) then r.period := 'full'; end if;
   end if;
   r.ay_id := ay.id; r.ay_label := ay.label; r.frozen := false;
   r.grace_months := coalesce(realisasi.setting_int('grace_period_months'), 6);
@@ -546,6 +548,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
   select jsonb_build_object('ay_id', c.ay_id, 'ay_label', c.ay_label, 'period', c.period, 'kind', c.kind, 'label', c.label,
     'window_start', c.window_start, 'window_end', c.window_end, 'cutoff', c.cutoff, 'frozen', c.frozen,
     'snapshot_id', c.snapshot_id, 'frozen_at', c.frozen_at, 'frozen_by_name', c.frozen_by_name, 'today', realisasi.today(),
+    'current_ay_id', realisasi._resolve_ay(null),
     'academic_years', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'label', label) order by start_date)
                                   from realisasi.academic_years), '[]'::jsonb))
 $$;
@@ -846,7 +849,7 @@ begin
 
   v_perm := jsonb_build_object(
     'can_edit_draft', v_editor and a.status = 'draft',
-    'can_delete_draft', v_editor and a.status = 'draft',
+    'can_delete_draft', a.status = 'draft' and realisasi._can_delete_draft(p_id),
     'can_edit_detail', v_editor and (a.status = 'draft' or a.mobility_status = 'revision_requested'),
     'can_edit_files', v_editor and (a.status = 'draft' or a.mobility_status = 'revision_requested'),
     'can_edit_participants', realisasi._can_edit_participants(p_id, false),
@@ -1119,11 +1122,22 @@ begin
 end $$;
 
 -- International Awards (Revisi V.1) -----------------------------------------------------------------------------
--- Four leaderboards per SUBMITTING unit for a period context, built on the same verified items as KPI 1.1 (so the
--- conflict decisions of rule 2.1 apply): students by mobility category for inbound, outbound domestic (activity country
--- Indonesia) and outbound international, plus international initiatives (activities with a foreign partner or held
--- abroad). "Kegiatan Internasional (<14 hari)" = students of a mobility kegiatan lasting under 14 days whose category is
--- none of JD/DD, Student Exchange, Short/Summer, so every student is in one column only. total = sum of the columns.
+-- Four leaderboards per PROGRAM STUDI for a period context (Fakultas, Program and UP units are never ranked), built on
+-- the same verified items as KPI 1.1 at university level (so students are counted once and the conflict decisions of
+-- rule 2.1 apply). Student boards credit each student to their OWN prodi (participant prodi_name matched to a
+-- kerjasama.units prodi); a student without a matching prodi (e.g. inbound exchange "Program Pertukaran") goes to the
+-- submitting unit when that unit is a prodi (the host), else is not counted. Boards: inbound, outbound domestic
+-- (activity country Indonesia) and outbound international by mobility category, plus international initiatives
+-- (activities with a foreign partner or held abroad, per submitting prodi). "Kegiatan Internasional (<14 hari)" =
+-- students of a mobility kegiatan lasting under 14 days whose category is none of JD/DD, Student Exchange,
+-- Short/Summer, so every student is in one column only. total = sum of the columns. A unit scope (or a submitter)
+-- keeps that prodi, or the prodis of that faculty.
+-- prodi name as BAAK and SIMKS spell it, without the "Prodi" / "Program Studi" prefix (internal)
+create function realisasi._prodi_norm(p_name text) returns text
+language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
+  select lower(regexp_replace(btrim(p_name), '^(prodi|program studi)\s+', '', 'i'))
+$$;
+
 create function realisasi.international_awards(p_ay_id int default null, p_period text default 'ytd', p_unit_id int default null)
 returns jsonb
 language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
@@ -1134,16 +1148,21 @@ begin
   c := realisasi._period_ctx(p_ay_id, coalesce(p_period, 'ytd'));
   if to_regclass('pg_temp._aw_items') is null then
     create temp table _aw_items (su int, kpi_code text, bucket text, ref_type text, ref_id text, activity_id uuid, is_intl boolean) on commit drop;
+    create temp table _aw_prodi (id int primary key, name text, norm text, in_scope boolean) on commit drop;
   end if;
-  truncate _aw_items;
+  truncate _aw_items, _aw_prodi;
   insert into _aw_items
-  select * from realisasi._kpi_items_scoped(c.window_start, c.window_end, c.cutoff, c.frozen_at, 'all', null, c.grace_months) i
-   where i.su is not null and i.kpi_code in ('1.1','base');
+  select * from realisasi._kpi_items_scoped(c.window_start, c.window_end, c.cutoff, c.frozen_at, 'university', null, c.grace_months) i
+   where i.kpi_code in ('1.1','base');
+  -- the rankable units: Program Studi only; a unit scope keeps that prodi or the prodis of that faculty
+  insert into _aw_prodi
+  select u.id, u.name, realisasi._prodi_norm(u.name), v_unit is null or u.id = v_unit or u.parent_id = v_unit
+    from kerjasama.units u where u.kind = 'prodi';
 
   return jsonb_build_object('period', realisasi._period_json(c), 'scope', realisasi._scope_json(v_unit),
-    'inbound', realisasi._awards_students(v_unit, 'inbound', null),
-    'outbound_domestic', realisasi._awards_students(v_unit, 'outbound', false),
-    'outbound_international', realisasi._awards_students(v_unit, 'outbound', true),
+    'inbound', realisasi._awards_students('inbound', null),
+    'outbound_domestic', realisasi._awards_students('outbound', false),
+    'outbound_international', realisasi._awards_students('outbound', true),
     'initiatives', coalesce((select jsonb_agg(to_jsonb(x) order by x.total desc, x.unit_name) from (
         select a.submitter_unit_id as unit_id, u.name as unit_name,
                count(*) filter (where a.direction = 'inbound' and r.mobility_category is not null)::int as inbound,
@@ -1151,39 +1170,45 @@ begin
                count(*) filter (where r.mobility_category is null)::int as activities,
                count(*)::int as total
           from _aw_items i
-          join realisasi.activities a on a.id = i.activity_id and a.submitter_unit_id = i.su
+          join realisasi.activities a on a.id = i.activity_id
+          join _aw_prodi u on u.id = a.submitter_unit_id and u.in_scope
           left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
-          left join kerjasama.units u on u.id = a.submitter_unit_id
-         where i.kpi_code = 'base' and (v_unit is null or i.su = v_unit)
+         where i.kpi_code = 'base'
            and (coalesce(a.country_code <> 'ID', false)
                 or exists (select 1 from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id and ps.country_code <> 'ID'))
          group by a.submitter_unit_id, u.name) x), '[]'::jsonb));
 end $$;
 
--- one student leaderboard from _aw_items (internal; p_intl null = any country)
-create function realisasi._awards_students(p_unit int, p_direction text, p_intl boolean) returns jsonb
+-- one student leaderboard from _aw_items / _aw_prodi (internal; p_intl null = any country), grouped by the student's
+-- own prodi (participant prodi_name), else the submitting unit when that is a prodi (the host of inbound students)
+create function realisasi._awards_students(p_direction text, p_intl boolean) returns jsonb
 language plpgsql volatile security definer set search_path = realisasi, extensions, public, pg_temp as $$
 begin
   return (select coalesce(jsonb_agg(to_jsonb(x) order by x.total desc, x.unit_name), '[]'::jsonb) from (
     select unit_id, unit_name, jd_dd, student_exchange, short_summer, short_international,
            jd_dd + student_exchange + short_summer + short_international as total
       from (
-        select a.submitter_unit_id as unit_id, u.name as unit_name,
+        select u.id as unit_id, u.name as unit_name,
                count(*) filter (where r.mobility_category = 'jd_dd')::int as jd_dd,
                count(*) filter (where r.mobility_category = 'student_exchange')::int as student_exchange,
                count(*) filter (where r.mobility_category = 'short_summer')::int as short_summer,
                count(*) filter (where r.mobility_category = 'other_mobility' and a.end_date - a.start_date + 1 < 14)::int
                  as short_international
           from _aw_items i
-          join realisasi.activities a on a.id = i.activity_id and a.submitter_unit_id = i.su
+          join realisasi.activities a on a.id = i.activity_id
           join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
-          left join kerjasama.units u on u.id = a.submitter_unit_id
-         where i.kpi_code = '1.1' and i.bucket = p_direction and (p_unit is null or i.su = p_unit)
+          left join lateral (select s.prodi_name from realisasi.participant_students s
+                              where s.set_version_id = realisasi._counts_version(a.id) and s.nrp = split_part(i.ref_id, ':', 2)
+                              order by s.id limit 1) st on true
+          join _aw_prodi u on u.id = coalesce((select p.id from _aw_prodi p where p.norm = realisasi._prodi_norm(st.prodi_name)
+                                                order by p.id limit 1),
+                                               (select p.id from _aw_prodi p where p.id = a.submitter_unit_id))
+         where i.kpi_code = '1.1' and i.bucket = p_direction and u.in_scope
            and (p_intl is null
                 or p_intl = coalesce(a.country_code <> 'ID',
                                      exists (select 1 from realisasi.activity_partner_snapshot ps
                                               where ps.activity_id = a.id and ps.country_code <> 'ID')))
-         group by a.submitter_unit_id, u.name) y
+         group by u.id, u.name) y
      where jd_dd + student_exchange + short_summer + short_international > 0) x);
 end $$;
 

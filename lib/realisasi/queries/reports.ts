@@ -123,6 +123,17 @@ export async function listUnits(tx: Tx): Promise<UnitOption[]> {
   return rows.map((r) => ({ id: Number(r.id), name: String(r.name), kind: String(r.kind) }));
 }
 
+/** Academic unit hierarchy (parent_id) for the Laporan per RENSTRA rollup (Revisi V.2). */
+export async function listUnitTree(tx: Tx): Promise<Array<UnitOption & { parent_id: number | null }>> {
+  const rows = await tx`select id, name, kind, parent_id from kerjasama.units where is_academic order by name`;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    name: String(r.name),
+    kind: String(r.kind),
+    parent_id: r.parent_id === null || r.parent_id === undefined ? null : Number(r.parent_id),
+  }));
+}
+
 /** Integer settings (grace period, reporting deadline, reminders). */
 export async function getSettingsMap(tx: Tx): Promise<Record<string, unknown>> {
   const rows = await tx`select key, value from realisasi.settings`;

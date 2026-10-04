@@ -12,14 +12,12 @@ import { parseActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
 import { getAgendas } from '@/lib/realisasi/queries/lookups';
 import {
-  BUCKET_LABEL,
-  DRILLDOWN_BUCKETS,
-  KPI_LABEL,
+  RENSTRA_KEYS,
   getParam,
   isUuid,
-  parseBucket,
-  parseDrilldownKpi,
   parsePeriodParams,
+  parseRenstraParams,
+  renstraLabel,
   parsePositiveInt,
   parseRealizationStatus,
   parseReportKey,
@@ -46,7 +44,15 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PeriodSelector } from '@/components/realisasi/dashboard/period-selector';
 import { PeriodBadge } from '@/components/realisasi/dashboard/period-badge';
-import { ChainKpiTable, DrilldownTables, EmptyRows, SummaryTable } from '@/components/realisasi/reports/kpi-tables';
+import {
+  ActivityKpiTable,
+  ChainKpiTable,
+  EmptyRows,
+  OverallPctCard,
+  SummaryTable,
+  UnitRollupTable,
+} from '@/components/realisasi/reports/kpi-tables';
+import { getRenstraReport } from '@/lib/realisasi/queries/renstra';
 import { SnapshotDetailView, SnapshotTimeline } from '@/components/realisasi/reports/snapshot-archive';
 import { ActivityFilterForm } from '@/components/realisasi/reports/report-filters';
 import { AwardsTables } from '@/components/realisasi/dashboard/awards-tables';
@@ -67,11 +73,11 @@ interface ReportDef {
 
 const REPORTS: ReportDef[] = [
   { key: 'ringkasan', title: 'Ringkasan RENSTRA', description: 'Nilai indikator RENSTRA beserta rinciannya.', kind: 'kpi-summary', visible: () => true },
-  { key: 'kpi', title: 'Rincian per indikator RENSTRA', description: 'Kegiatan/kerja sama yang membentuk satu indikator.', kind: 'kpi-drilldown', visible: () => true },
+  { key: 'kpi', title: 'Laporan per RENSTRA', description: 'Nilai tiap unit (Fakultas → Program Studi → Program) dan data pendukungnya.', kind: 'kpi-drilldown', visible: () => true },
   { key: 'kegiatan', title: 'Daftar kegiatan', description: 'Seluruh kegiatan sesuai filter.', kind: 'activities', visible: () => true },
   { key: 'peserta', title: 'Daftar peserta', description: 'Nama & NRP peserta (data pribadi, dicatat).', kind: 'participants', visible: (u) => can(u, 'export.participants') },
   { key: 'awards', title: 'International Awards', description: 'Peringkat unit: inbound, outbound, dan inisiatif internasional.', kind: 'awards', visible: () => true },
-  { key: 'realisasi-kerjasama', title: 'Realisasi per kerja sama', description: 'Status terlaksana tiap rantai MoU/MoA (1.19.24).', kind: 'realization-by-agreement', visible: () => true },
+  { key: 'realisasi-kerjasama', title: 'Realisasi per kerja sama', description: 'Status terlaksana tiap rantai MoU/MoA (1.19.S4).', kind: 'realization-by-agreement', visible: () => true },
   { key: 'arsip', title: 'Arsip snapshot', description: 'Snapshot RENSTRA yang dibekukan per semester.', kind: 'snapshot-archive', visible: (u) => can(u, 'snapshot.archive') },
 ];
 
@@ -265,44 +271,32 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
     kind = 'kpi-summary';
     content = <SummaryTable values={dash.values} />;
   } else if (key === 'kpi') {
-    const kpi = parseDrilldownKpi(getParam(sp, 'kpi')) ?? '1.1';
-    const bucket = parseBucket(kpi, getParam(sp, 'bucket'));
-    const dd = await getDrilldown(tx, { ...p, kpi, bucket });
-    periodInfo = dd.period;
+    const renstra = parseRenstraParams(sp) ?? '1.1';
+    const rep = await getRenstraReport(tx, user, p, renstra);
+    const def = rep.def;
+    const scopeName = rep.scope.unit_name ?? 'Universitas';
+    periodInfo = rep.period;
     kind = 'kpi-drilldown';
-    preserve.kpi = kpi;
-    if (bucket) preserve.bucket = bucket;
+    preserve.renstra = renstra;
     if (p.snapshot) preserve.snapshot = p.snapshot;
-    exportParams = { ...exportParams, kpi };
+    exportParams = { ...cleanParams(sp, ['report', 'kpi', 'bucket']), renstra };
+    const dataCount = def.kpi === '1.19.24' ? rep.chainRows.length : rep.activityRows.length;
     content = (
       <div className="space-y-4">
         <form method="get" action="/realisasi/laporan" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="report" value="kpi" />
-          <input type="hidden" name="ay" value={String(dd.period.ay_id)} />
-          <input type="hidden" name="period" value={dd.period.period} />
-          {p.unit ? <input type="hidden" name="unit" value={String(p.unit)} /> : null}
+          <input type="hidden" name="ay" value={String(rep.period.ay_id)} />
+          <input type="hidden" name="period" value={rep.period.period} />
+          {p.unit && !isSubmitter ? <input type="hidden" name="unit" value={String(p.unit)} /> : null}
           {p.snapshot ? <input type="hidden" name="snapshot" value={p.snapshot} /> : null}
           <div className="grid gap-1">
-            <Label htmlFor="k-kpi" className="text-xs text-muted-foreground">
+            <Label htmlFor="k-renstra" className="text-xs text-muted-foreground">
               Indikator RENSTRA
             </Label>
-            <NativeSelect id="k-kpi" name="kpi" defaultValue={kpi} className="w-80">
-              {(Object.keys(KPI_LABEL) as Array<keyof typeof KPI_LABEL>).map((k) => (
+            <NativeSelect id="k-renstra" name="renstra" defaultValue={renstra} className="w-[26rem] max-w-full">
+              {RENSTRA_KEYS.map((k) => (
                 <option key={k} value={k}>
-                  {KPI_LABEL[k]}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="grid gap-1">
-            <Label htmlFor="k-bucket" className="text-xs text-muted-foreground">
-              Kelompok
-            </Label>
-            <NativeSelect id="k-bucket" name="bucket" defaultValue={bucket ?? ''} className="w-48">
-              <option value="">Semua</option>
-              {DRILLDOWN_BUCKETS[kpi].map((b) => (
-                <option key={b} value={b}>
-                  {BUCKET_LABEL[b] ?? b}
+                  {renstraLabel(k)}
                 </option>
               ))}
             </NativeSelect>
@@ -311,11 +305,30 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
             Terapkan
           </Button>
         </form>
-        <p className="text-sm text-muted-foreground">
-          {KPI_LABEL[kpi]}
-          {bucket ? ` · ${BUCKET_LABEL[bucket] ?? bucket}` : ''} · <span data-testid="list-total">{dd.rows.length}</span> baris
-        </p>
-        <DrilldownTables dd={dd} />
+        <h3 className="text-base font-semibold" data-testid="renstra-title">
+          {renstraLabel(renstra)}
+        </h3>
+        {rep.rollup ? (
+          <>
+            <UnitRollupTable
+              rows={rep.rollup}
+              valueHeader={def.unit === 'mahasiswa' ? 'Jumlah mahasiswa' : 'Jumlah kegiatan'}
+              totalLabel={`Total ${scopeName}`}
+              totalValue={rep.scopeValue}
+            />
+            <p className="text-xs text-muted-foreground">
+              Fakultas = kegiatan unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program. Kegiatan bersama dihitung pada setiap
+              unit yang terlibat, sehingga jumlah unit dapat melebihi total {scopeName.toLowerCase() === 'universitas' ? 'universitas' : 'lingkup'} yang
+              menghitungnya sekali.
+            </p>
+          </>
+        ) : (
+          <OverallPctCard value={rep.overall!} scopeName={scopeName} />
+        )}
+        <h3 className="pt-2 text-sm font-semibold">
+          Data pendukung · <span data-testid="list-total">{dataCount}</span> {def.kpi === '1.19.24' ? 'rantai kerja sama' : 'kegiatan'}
+        </h3>
+        {def.kpi === '1.19.24' ? <ChainKpiTable rows={rep.chainRows} /> : <ActivityKpiTable rows={rep.activityRows} kpi={def.kpi} />}
       </div>
     );
   } else {
@@ -362,6 +375,7 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
         <PeriodSelector
           basePath="/realisasi/laporan"
           academicYears={periodInfo.academic_years}
+          currentAyId={periodInfo.current_ay_id}
           ay={periodInfo.ay_id}
           period={periodInfo.period}
           unit={isSubmitter ? null : (p.unit ?? null)}

@@ -33,12 +33,21 @@ select pg_temp.eq((select merged_into_id::text || '/' || is_active::text from ke
 select pg_temp.eq((select string_agg(id || ':' || kind, ',' order by id) from kerjasama.units where id in (1, 2, 10, 11, 20, 21, 30, 31)),
                   '1:up,2:up,10:faculty,11:prodi,20:faculty,21:prodi,30:faculty,31:prodi', 'unit kind from jenis_unit + hierarchy');
 select pg_temp.eq((select parent_id from kerjasama.units where id = 11), 10, 'unit parent_id = id_parent_unit');
+select pg_temp.eq((select name from kerjasama.units where id = 11), 'Program Studi Informatika', 'SIMKS "Prodi X" reads as "Program Studi X"');
 -- an academic university root above faculties is 'up', not 'faculty'
 insert into public.unit (id, nama, id_jenis_unit) values (500, 'Universitas Uji', 1);
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (501, 'Fakultas Uji', 500, 1);
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (502, 'Prodi Uji', 501, 1);
 select pg_temp.eq((select string_agg(kind, ',' order by id) from kerjasama.units where id between 500 and 502), 'up,faculty,prodi',
                   'academic root / faculty / prodi');
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (503, 'Program Uji', 502, 1);
+select pg_temp.eq((select kind from kerjasama.units where id = 503), 'program', 'below a prodi -> program (under an academic root)');
+-- the live SIMKS shape: Unit Pembantu root -> School -> Prodi -> Program (SBM -> Prodi Manajemen -> Program ...)
+insert into public.unit (id, nama, id_jenis_unit) values (510, 'Universitas (UP)', 2);
+insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (511, 'School Uji', 510, 1), (512, 'Prodi Manajemen Uji', 511, 1),
+  (513, 'Program Marketing Uji', 512, 1), (514, 'Program Studi Magister Uji', 511, 1);
+select pg_temp.eq((select string_agg(kind, ',' order by id) from kerjasama.units where id between 510 and 514),
+                  'up,faculty,prodi,program,prodi', 'faculty / prodi / program by depth');
 
 -- ---- documents ------------------------------------------------------------------------------------------------------
 select pg_temp.eq((select count(*) from kerjasama.documents), (select count(*) from public.dokumen_kerja_sama), 'one document per dokumen_kerja_sama');

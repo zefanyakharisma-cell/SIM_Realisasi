@@ -144,9 +144,8 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
 
   const { period, scope, values, previous } = data;
   const base = { ay: period.ay_id, period: period.period, unit: scope.unit_id };
-  const drill = (kpi: string, bucket?: string) =>
-    `/realisasi/laporan?${query(base, { report: 'kpi', kpi, ...(bucket ? { bucket } : {}) })}`;
-  const exp = (kpi: string) => `/api/export/kpi-drilldown?${query(base, { kpi })}`;
+  const drill = (renstra: string) => `/realisasi/laporan?${query(base, { report: 'kpi', renstra })}`;
+  const exp = (renstra: string) => `/api/export/kpi-drilldown?${query(base, { renstra })}`;
   const prevLabel = previous ? `${PERIOD_LABEL[period.period] ?? ''} ${previous.ay_label}`.trim() : null;
 
   const k11 = values.kpi_1_1;
@@ -169,6 +168,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
       <PeriodSelector
         basePath="/realisasi"
         academicYears={period.academic_years}
+        currentAyId={period.current_ay_id}
         ay={period.ay_id}
         period={period.period}
         unit={user.role === 'submitter' ? null : scope.unit_id}
@@ -214,7 +214,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
               code="1.19.S1"
               title="Kegiatan internasional dengan mitra"
               value={formatNumber(s1.international)}
-              drillHref={drill('1.19.S1', 'international')}
+              drillHref={drill('1.19.S1')}
               exportHref={exp('1.19.S1')}
               delta={countDelta(s1.international, previous?.kpi_1_19_s1.international, prevLabel)}
             >
@@ -222,18 +222,18 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
             </KpiCard>
 
             <KpiCard
-              code="1.19.24"
+              code="1.19.S4"
               title="MoU & MoA terlaksana"
               value={formatPct(k24.all.pct)}
-              drillHref={drill('1.19.24')}
-              exportHref={exp('1.19.24')}
+              drillHref={drill('1.19.S4')}
+              exportHref={exp('1.19.S4')}
               delta={pctDelta(k24.all.pct, previous?.kpi_1_19_24.pct, prevLabel)}
             >
               <p>
                 {formatNumber(k24.all.numerator)} dari {formatNumber(k24.all.denominator)} kerja sama
               </p>
               <p className="text-xs">
-                <Link href={drill('1.19.24', 'grace_excluded')} className="underline-offset-2 hover:underline" data-testid="kpi-grace-link">
+                <Link href={drill('1.19.S4')} className="underline-offset-2 hover:underline" data-testid="kpi-grace-link">
                   {formatNumber(k24.all.grace_excluded)} dalam masa tenggang
                 </Link>
                 {' · '}Intl {formatPct(k24.international.pct)} · Dom {formatPct(k24.domestic.pct)}

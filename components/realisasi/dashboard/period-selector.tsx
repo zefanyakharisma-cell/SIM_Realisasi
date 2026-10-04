@@ -24,10 +24,14 @@ function buildHref(basePath: string, preserve: Record<string, string>, next: { a
   return s ? `${basePath}?${s}` : basePath;
 }
 
-/** Tahun Akademik dropdown + segmented Ganjil | Genap | Setahun (kumulatif) | YTD (+ unit filter for university-level roles). */
+/**
+ * Tahun Akademik dropdown + segmented Ganjil | Genap | Setahun (kumulatif) | YTD (+ unit filter for university-level roles).
+ * YTD is offered only for the active academic year; switching to another year while on YTD goes to Setahun.
+ */
 export function PeriodSelector({
   basePath,
   academicYears,
+  currentAyId,
   ay,
   period,
   unit,
@@ -36,6 +40,8 @@ export function PeriodSelector({
 }: {
   basePath: string;
   academicYears: Array<{ id: number; label: string }>;
+  /** the active academic year (PeriodInfo.current_ay_id) */
+  currentAyId: number | null;
   ay: number;
   period: Period;
   unit?: number | null;
@@ -47,6 +53,11 @@ export function PeriodSelector({
   const [pending, startTransition] = useTransition();
   const go = (next: { ay?: number; period: Period; unit?: number | null }) =>
     startTransition(() => router.push(buildHref(basePath, preserve, next)));
+  // currentAyId is missing only from a database without the YTD rule yet: keep offering YTD everywhere then.
+  const isActiveAy = (id: number) => currentAyId == null || id === currentAyId;
+  const options = PERIOD_OPTIONS.filter((o) => o.value !== 'ytd' || isActiveAy(ay));
+  const onAyChange = (nextAy: number) =>
+    go({ ay: nextAy, period: period === 'ytd' && !isActiveAy(nextAy) ? 'full' : period, unit });
 
   return (
     <div className={cn('flex flex-wrap items-end gap-3', pending && 'opacity-70')} aria-busy={pending}>
@@ -57,7 +68,7 @@ export function PeriodSelector({
         <NativeSelect
           id="period-ay"
           value={String(ay)}
-          onChange={(e) => go({ ay: Number(e.target.value), period, unit })}
+          onChange={(e) => onAyChange(Number(e.target.value))}
           className="w-36"
         >
           {academicYears.map((y) => (
@@ -73,7 +84,7 @@ export function PeriodSelector({
         </span>
         {/* L-10: these are navigation links, so links + aria-current (not role="radio" without arrow keys). */}
         <nav aria-labelledby="period-seg-label" className="inline-flex h-9 rounded-md border bg-background p-0.5">
-          {PERIOD_OPTIONS.map((o) => {
+          {options.map((o) => {
             const active = o.value === period;
             return (
               <Link
