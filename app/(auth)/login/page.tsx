@@ -69,9 +69,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
       </div>
 
       {demo ? (
-        <LoginDemoGuide
-          accounts={accounts.map((a) => ({ id: a.id, displayName: a.displayName, role: a.role, roleLabel: ROLE_LABEL[a.role], unitName: a.unitName }))}
-        />
+        <LoginDemoGuide />
       ) : null}
 
       {demo ? (
@@ -102,7 +100,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
         </Alert>
       ) : null}
 
-      <Card>
+      <Card data-tour="account-list">
         <CardHeader>
           <CardTitle className="text-lg">Pilih akun</CardTitle>
           <CardDescription>

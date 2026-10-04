@@ -33,7 +33,7 @@ export function Topbar({ user, sections, unread }: { user: TopbarUser; sections:
     <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4 lg:px-6">
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Buka menu navigasi">
+          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Buka menu navigasi" data-tour="mobile-menu">
             <Menu aria-hidden="true" />
           </Button>
         </SheetTrigger>

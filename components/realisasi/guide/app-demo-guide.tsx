@@ -1,83 +1,95 @@
 'use client';
 
 /**
- * In-app half of "Mode Demo": while it is on, a floating "Panduan" button opens a side sheet with
- * tips for the current page and the full step-by-step guide. Renders nothing while it is off.
+ * In-app half of "Mode Demo": the first time each page is opened, its pop-up tour starts by itself
+ * (after the one-off tour of the app frame). The floating "Panduan" menu replays tours or switches
+ * the mode off. Renders nothing while Mode Demo is off.
  */
 import * as React from 'react';
-import { usePathname } from 'next/navigation';
-import { GraduationCap, MapPin } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Compass, GraduationCap, PlayCircle, PowerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
-import { GuideStepper } from '@/components/realisasi/guide/guide-stepper';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { CoachTour } from '@/components/realisasi/guide/coach-tour';
 import { useDemoGuide } from '@/components/realisasi/guide/use-demo-guide';
-import { pageGuideFor } from '@/lib/realisasi/guide/content';
+import { SHELL_TOUR, tourFor, type Tour } from '@/lib/realisasi/guide/tours';
+
+/** Lets the page paint (and client widgets hydrate) before the first target is measured. */
+const SETTLE_MS = 400;
 
 export function AppDemoGuide() {
-  const { enabled, setEnabled, stepId, setStepId } = useDemoGuide();
+  const { enabled, setEnabled, seen, markSeen } = useDemoGuide();
   const pathname = usePathname() ?? '';
-  const [open, setOpen] = React.useState(false);
-  const page = pageGuideFor(pathname);
+  const tab = useSearchParams()?.get('tab') ?? null;
+  const pageTour = tourFor(pathname, tab);
+  const [active, setActive] = React.useState<Tour | null>(null);
+
+  // Leaving the page closes its tour without marking it seen.
+  const routeKey = `${pathname}?${tab ?? ''}`;
+  const lastRoute = React.useRef(routeKey);
+  React.useEffect(() => {
+    if (lastRoute.current === routeKey) return;
+    lastRoute.current = routeKey;
+    setActive(null);
+  }, [routeKey]);
+
+  // Auto-start: the app-frame tour once, then each page's tour on its first visit.
+  React.useEffect(() => {
+    if (!enabled || active) return;
+    const next = !seen.has(SHELL_TOUR.id) ? SHELL_TOUR : pageTour && !seen.has(pageTour.id) ? pageTour : null;
+    if (!next) return;
+    const t = setTimeout(() => setActive(next), SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [enabled, active, seen, pageTour]);
+
+  // Menu items start tours after the dropdown has closed and returned focus.
+  const start = (t: Tour) => setTimeout(() => setActive(t), 50);
 
   if (!enabled) return null;
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button className="fixed bottom-5 right-5 z-40 rounded-full shadow-lg print:hidden" data-testid="demo-guide-open">
-          <GraduationCap aria-hidden="true" />
-          Panduan
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" data-testid="demo-guide-sheet">
-        <div className="space-y-1 pr-6">
-          <SheetTitle className="flex items-center gap-2 text-lg">
-            <GraduationCap className="size-5 text-primary" aria-hidden="true" />
-            Panduan Mode Demo
-          </SheetTitle>
-          <SheetDescription>Tips untuk halaman ini dan panduan lengkap langkah demi langkah.</SheetDescription>
-        </div>
-
-        {page ? (
-          <section aria-labelledby="page-guide-title" className="rounded-lg border bg-muted/40 p-4" data-testid="page-guide">
-            <h3 id="page-guide-title" className="mb-2 flex items-center gap-2 text-sm font-semibold">
-              <MapPin className="size-4 text-primary" aria-hidden="true" />
-              Di halaman ini: {page.title}
-            </h3>
-            <ul className="list-disc space-y-1 pl-5 text-sm">
-              {page.tips.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
-            {stepId !== page.stepId ? (
-              <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => setStepId(page.stepId)}>
-                Buka bab panduan terkait
-              </Button>
-            ) : null}
-          </section>
-        ) : null}
-
-        <GuideStepper stepId={stepId} onStepChange={setStepId} compact />
-
-        <Separator />
-        <div className="flex items-center justify-between gap-3">
-          <Label htmlFor="demo-mode-switch-app" className="text-sm">
-            Mode Demo aktif
-          </Label>
-          <Switch
-            id="demo-mode-switch-app"
-            checked={enabled}
-            onCheckedChange={(on) => {
-              setEnabled(on);
-              if (!on) setOpen(false);
-            }}
-            data-testid="demo-mode-toggle-app"
-          />
-        </div>
-      </SheetContent>
-    </Sheet>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button className="fixed bottom-5 right-5 z-40 rounded-full shadow-lg print:hidden" data-testid="demo-guide-open">
+            <GraduationCap aria-hidden="true" />
+            Panduan
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" className="w-64">
+          <DropdownMenuLabel>Mode Demo</DropdownMenuLabel>
+          <DropdownMenuItem disabled={!pageTour} onSelect={() => pageTour && start(pageTour)} data-testid="demo-replay-page">
+            <PlayCircle aria-hidden="true" />
+            {pageTour ? `Ulangi tur: ${pageTour.title}` : 'Tidak ada tur untuk halaman ini'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => start(SHELL_TOUR)} data-testid="demo-replay-shell">
+            <Compass aria-hidden="true" />
+            Tur dasar aplikasi
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setEnabled(false)} data-testid="demo-mode-off">
+            <PowerOff aria-hidden="true" />
+            Matikan Mode Demo
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {active ? (
+        <CoachTour
+          key={active.id}
+          tour={active}
+          onClose={() => {
+            markSeen(active.id);
+            setActive(null);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

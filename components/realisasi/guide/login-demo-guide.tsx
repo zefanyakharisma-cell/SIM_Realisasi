@@ -1,81 +1,58 @@
 'use client';
 
-/** "Mode Demo" switch on /login: when on, shows the step-by-step guide above the account list. */
+/** "Mode Demo" switch on /login: switching it on starts the pop-up tour of the login page. */
 import * as React from 'react';
-import { GraduationCap, LogIn } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { GraduationCap, PlayCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { GuideStepper } from '@/components/realisasi/guide/guide-stepper';
+import { CoachTour } from '@/components/realisasi/guide/coach-tour';
 import { useDemoGuide } from '@/components/realisasi/guide/use-demo-guide';
-import { loginAs } from '@/lib/realisasi/actions/session';
-import type { Role } from '@/lib/session';
-import type { GuideStep } from '@/lib/realisasi/guide/content';
+import { LOGIN_TOUR } from '@/lib/realisasi/guide/tours';
 
-export interface GuideAccount {
-  id: string;
-  displayName: string;
-  role: Role;
-  roleLabel: string;
-  unitName: string | null;
-}
+export function LoginDemoGuide() {
+  const { enabled, setEnabled, seen, markSeen } = useDemoGuide();
+  const [running, setRunning] = React.useState(false);
 
-export function LoginDemoGuide({ accounts }: { accounts: GuideAccount[] }) {
-  const { enabled, setEnabled, stepId, setStepId } = useDemoGuide();
-
-  const renderAccounts = (step: GuideStep) => {
-    const roles = step.roles;
-    if (!roles) return null;
-    const matching = accounts.filter((a) => roles.includes(a.role));
-    if (matching.length === 0) return null;
-    return (
-      <div className="space-y-2" data-testid="guide-accounts">
-        <h4 className="text-sm font-semibold">Masuk dengan akun yang cocok</h4>
-        <ul className="flex flex-wrap gap-2">
-          {matching.map((a) => (
-            <li key={a.id}>
-              <form action={loginAs.bind(null, a.id)}>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1 text-xs transition-colors hover:border-primary hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={`Masuk sebagai ${a.displayName}, ${a.roleLabel}${a.unitName ? `, ${a.unitName}` : ''}`}
-                >
-                  <LogIn className="size-3.5 text-primary" aria-hidden="true" />
-                  <span className="font-medium">{a.displayName}</span>
-                  <span className="text-muted-foreground">· {a.roleLabel}</span>
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
+  // Runs once per Mode Demo session (switching it on clears the seen list).
+  React.useEffect(() => {
+    if (enabled && !seen.has(LOGIN_TOUR.id)) setRunning(true);
+    if (!enabled) setRunning(false);
+  }, [enabled, seen]);
 
   return (
-    <Card data-testid="demo-mode-card" className={enabled ? 'border-primary/40' : undefined}>
-      <CardHeader className="flex-row items-center gap-3 space-y-0">
-        <GraduationCap className="size-6 shrink-0 text-primary" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <Label htmlFor="demo-mode-switch" className="text-base font-semibold">
-            Mode Demo
-          </Label>
-          <p id="demo-mode-desc" className="text-sm text-muted-foreground">
-            Tampilkan panduan langkah demi langkah: cara memakai aplikasi, penjelasan fitur, dan skenario demo.
-          </p>
-        </div>
-        <Switch
-          id="demo-mode-switch"
-          checked={enabled}
-          onCheckedChange={setEnabled}
-          aria-describedby="demo-mode-desc"
-          data-testid="demo-mode-toggle"
-        />
-      </CardHeader>
+    <Card data-testid="demo-mode-card" className="flex flex-wrap items-center gap-3 p-4">
+      <GraduationCap className="size-6 shrink-0 text-primary" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <Label htmlFor="demo-mode-switch" className="text-base font-semibold">
+          Mode Demo
+        </Label>
+        <p id="demo-mode-desc" className="text-sm text-muted-foreground">
+          Tur interaktif: setiap halaman, tombol, dan fitur dijelaskan langkah demi langkah sebelum Anda memakainya.
+        </p>
+      </div>
       {enabled ? (
-        <CardContent>
-          <GuideStepper stepId={stepId} onStepChange={setStepId} renderExtra={renderAccounts} />
-        </CardContent>
+        <Button type="button" variant="outline" size="sm" onClick={() => setRunning(true)} data-testid="demo-tour-restart">
+          <PlayCircle aria-hidden="true" />
+          Mulai ulang tur
+        </Button>
+      ) : null}
+      <Switch
+        id="demo-mode-switch"
+        checked={enabled}
+        onCheckedChange={setEnabled}
+        aria-describedby="demo-mode-desc"
+        data-testid="demo-mode-toggle"
+      />
+      {running ? (
+        <CoachTour
+          tour={LOGIN_TOUR}
+          onClose={() => {
+            markSeen(LOGIN_TOUR.id);
+            setRunning(false);
+          }}
+        />
       ) : null}
     </Card>
   );

@@ -45,7 +45,10 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <AppDemoGuide />
+      {/* useSearchParams (tab-specific tours) needs a Suspense boundary. */}
+      <React.Suspense fallback={null}>
+        <AppDemoGuide />
+      </React.Suspense>
     </div>
   );
 }
