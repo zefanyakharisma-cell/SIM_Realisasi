@@ -23,6 +23,13 @@ npm run dev                           # http://localhost:3000 → pick a demo ac
 The login page is a demo role switcher (`DEMO_AUTH=1`, default). Demo "today" is 2026-10-01; IO Admin can
 time-travel in Pengaturan to demonstrate cutoffs, deadlines and reminders.
 
+Turn on **Mode Demo** on the login page for an app-style onboarding tour: step-by-step pop-ups dim the screen,
+spotlight one real component or button at a time and explain it. The login page, the app frame (sidebar, notifications,
+account menu) and every page (dashboard, kegiatan list/detail/new/revision, verification, reports, settings tabs,
+notifications, SIM Kerjasama documents) each have a tour that starts on the first visit; steps that don't apply to the
+current role or screen size are skipped. The **Panduan** button replays tours or switches the mode off. The preference
+and seen tours are stored per browser (localStorage); tours live in `lib/realisasi/guide/tours.ts`.
+
 ## Tests
 
 | Command | What |

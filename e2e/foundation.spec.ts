@@ -64,4 +64,56 @@ test.describe('foundation: login, shell, navigation per role', () => {
     await page.getByTestId('switch-account').click();
     await expect(page).toHaveURL(/\/login$/);
   });
+
+  test('Mode Demo: pop-up tours on /login and on first visit to each page', async ({ page }) => {
+    // Walks the open tour to its end with "Berikutnya" / "Selesai".
+    const finishTour = async () => {
+      for (let i = 0; i < 40 && (await page.getByTestId('tour-card').count()) > 0; i++) await page.getByTestId('tour-next').click();
+      await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    };
+    await page.goto('/login');
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.getByTestId('demo-mode-toggle').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('1 /');
+    await page.getByTestId('tour-next').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('2 /');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.getByTestId('tour-progress')).toContainText('1 /');
+    // Skipping marks the login tour seen: a reload doesn't start it again.
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByTestId('demo-mode-toggle')).toBeChecked();
+    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+
+    // After login: the app-frame tour, then the dashboard tour, each spotlighting a real element.
+    await page.getByTestId(`login-${ACCOUNTS.kepalaIo}`).click();
+    await page.waitForURL(/\/realisasi$/);
+    await expect(page.getByTestId('tour-progress')).toContainText('Tur dasar aplikasi');
+    await page.getByTestId('tour-next').click();
+    await expect(page.getByTestId('tour-title')).toHaveText('Dashboard');
+    await expect(page.getByTestId('tour-spotlight')).toBeVisible();
+    await finishTour();
+    await expect(page.getByTestId('tour-progress')).toContainText('Dashboard');
+    await finishTour();
+
+    // Seen tours don't repeat; the Panduan menu replays them.
+    await page.reload();
+    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.getByTestId('demo-guide-open').click();
+    await page.getByTestId('demo-replay-page').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('Dashboard · 1 /');
+    await page.getByTestId('tour-skip').click();
+
+    // Another page starts its own tour on first visit.
+    await page.getByTestId('nav-laporan').first().click();
+    await expect(page.getByTestId('tour-progress')).toContainText('Laporan & Ekspor');
+    await page.getByTestId('tour-skip').click();
+
+    await page.getByTestId('demo-guide-open').click();
+    await page.getByTestId('demo-mode-off').click();
+    await expect(page.getByTestId('demo-guide-open')).toHaveCount(0);
+  });
 });

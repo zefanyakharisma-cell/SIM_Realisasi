@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getSessionUser, isDemoAuthEnabled, listDemoAccounts, type DemoAccount } from '@/lib/session';
 import { ROLE_LABEL, TRACK_LABEL } from '@/lib/realisasi/status';
 import { loginAs } from '@/lib/realisasi/actions/session';
+import { LoginDemoGuide } from '@/components/realisasi/guide/login-demo-guide';
 
 export const metadata: Metadata = { title: 'Masuk' };
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,10 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
       </div>
 
       {demo ? (
+        <LoginDemoGuide />
+      ) : null}
+
+      {demo ? (
         <Alert variant="warning" role="note" data-testid="demo-auth-notice">
           <AlertDescription>
             Mode demo: pengalih peran ini tidak memakai autentikasi dan hanya untuk mockup. Nonaktifkan dengan{' '}
@@ -95,7 +100,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
         </Alert>
       ) : null}
 
-      <Card>
+      <Card data-tour="account-list">
         <CardHeader>
           <CardTitle className="text-lg">Pilih akun</CardTitle>
           <CardDescription>
