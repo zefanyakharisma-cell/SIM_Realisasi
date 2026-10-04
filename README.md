@@ -17,6 +17,7 @@ Requires Node 22 and Postgres 16 (with `pg_trgm`, `pgcrypto`).
 npm install
 cp .env.example .env.local            # Supabase URL/key + DATABASE_URL (local: 127.0.0.1:54322/postgres)
 npm run db:reset                      # SIMKS-shaped stub + migrations + demo seed (refuses a real SIMKS DB)
+                                      # demo seed = 34 scenarios (S-01..S-34) + 200 bulk Kegiatan (RL-2026-0101..0300)
 npm run dev                           # http://localhost:3000 → pick a demo account
 ```
 
@@ -27,7 +28,7 @@ time-travel in Pengaturan to demonstrate cutoffs, deadlines and reminders.
 
 | Command | What |
 |---|---|
-| `npm run test:db` | SQL acceptance tests (AT-01..AT-11, status machine, RLS, RENSTRA/KPIs, conflicts, awards, snapshots, adapter) |
+| `npm run test:db` | (after `SEED_BULK=0 npm run db:reset`) SQL acceptance tests (AT-01..AT-11, status machine, RLS, RENSTRA/KPIs, conflicts, awards, snapshots, adapter) |
 | `npm test` | Vitest unit tests |
 | `npm run typecheck` · `npm run lint` | TypeScript, ESLint |
 | `npm run test:e2e` | Playwright journeys (resets the DB first) |
