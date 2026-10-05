@@ -53,10 +53,9 @@ test('Periods: Ganjil, Genap, Setahun (kumulatif) and YTD (active year only); RE
   expect(res.status()).toBe(200);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(Buffer.from(await res.body()) as unknown as ArrayBuffer);
-  const info = wb.getWorksheet('Info')!;
-  const values: string[] = [];
-  info.eachRow((row) => values.push(`${String(row.getCell(1).value)}=${String(row.getCell(2).value)}`));
-  expect(values.some((v) => v.includes('Setahun 2025/2026'))).toBeTruthy();
+  // Revisi V.1: no Info sheet; the workbook opens directly on the data.
+  expect(wb.worksheets.map((w) => w.name)).not.toContain('Info');
+  expect(wb.worksheets[0]!.name).toBe('Ringkasan');
 });
 
 test('International Awards tab: four leaderboards per Program Studi, exportable', async ({ page }) => {
@@ -77,9 +76,18 @@ test('International Awards tab: four leaderboards per Program Studi, exportable'
   expect(res.status()).toBe(200);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(Buffer.from(await res.body()) as unknown as ArrayBuffer);
-  expect(wb.worksheets.map((w) => w.name)).toEqual(
-    expect.arrayContaining(['Info', 'Inbound Tertinggi', 'Outbound DN Tertinggi', 'Outbound Intl Tertinggi', 'Inisiatif Intl Tertinggi']),
-  );
+  expect(wb.worksheets.map((w) => w.name)).toEqual(['Inbound Tertinggi', 'Outbound DN Tertinggi', 'Outbound Intl Tertinggi', 'Inisiatif Intl Tertinggi']);
+
+  // Revisi V.1 item 8: every board lists only ranks 1–3 (ties kept), on screen and in the workbook.
+  for (const id of ['inbound', 'outbound-domestic', 'outbound-international', 'initiatives']) {
+    const ranks = await page.getByTestId(`awards-${id}`).getByTestId('awards-row').locator('td:first-child').allTextContents();
+    for (const r of ranks) expect(Number(r.replace(/\D/g, ''))).toBeLessThanOrEqual(3);
+  }
+  for (const ws of wb.worksheets) {
+    ws.eachRow((row, i) => {
+      if (i > 1) expect(Number(row.getCell(1).value)).toBeLessThanOrEqual(3);
+    });
+  }
 });
 
 test('AT-05: YTD 1.19.S4 card shows grace count and drill-down lists doc 901', async ({ page }) => {
@@ -94,7 +102,7 @@ test('AT-05: YTD 1.19.S4 card shows grace count and drill-down lists doc 901', a
   await expect(page.locator('table')).toContainText('Masa tenggang');
 });
 
-test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and exports Rekap → Data → Info', async ({ page }) => {
+test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and exports Rekap → Data (no Info sheet)', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   for (const renstra of ['1.1', '1.1.a', '1.1.b', '1.19.S1']) {
     await page.goto(`/realisasi/laporan?report=kpi&period=ytd&renstra=${renstra}`);
@@ -108,7 +116,7 @@ test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and expo
 
     const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
     expect(wb.worksheets.map((w) => w.name)).toEqual(
-      renstra === '1.19.S1' ? [`${renstra} Rekap`, `${renstra} Data`, 'Info'] : [`${renstra} Rekap`, `${renstra} Data`, `${renstra} Mahasiswa`, 'Info'],
+      renstra === '1.19.S1' ? [`${renstra} Rekap`, `${renstra} Data`] : [`${renstra} Rekap`, `${renstra} Data`, `${renstra} Mahasiswa`],
     );
     expect(wb.worksheets[0]!.rowCount - 1).toBe(8); // 7 units + total row
     const listed = Number(await page.getByTestId('list-total').textContent());
@@ -116,7 +124,7 @@ test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and expo
   }
   await page.goto('/realisasi/laporan?report=kpi&period=ytd&renstra=1.19.S4');
   const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
-  expect(wb.worksheets.map((w) => w.name)).toEqual(['1.19.S4 Rekap', '1.19.S4 Data', 'Info']);
+  expect(wb.worksheets.map((w) => w.name)).toEqual(['1.19.S4 Rekap', '1.19.S4 Data']);
 });
 
 test('AT-07: Kerjasama realisasi tab lists activities with the document at activity time', async ({ page }) => {
@@ -134,9 +142,11 @@ test('AT-08: Arsip shows S-19 as a late addition in the Genap 2025/2026 snapshot
   const genap = items.filter({ hasText: 'Setahun' });
   const wb = await downloadWorkbook(page, () => genap.getByTestId('export-excel').click());
   expect(wb.worksheets.map((w) => w.name)).toEqual(
-    expect.arrayContaining(['Info', 'Ringkasan', '1.1', '1.19.S1', '1.19.S4', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
+    expect.arrayContaining(['Ringkasan', '1.1', '1.19.S1', '1.19.S4', 'Tambahan Susulan', 'Perubahan Pasca-Beku']),
   );
-  expect(wb.worksheets[0]!.name).toBe('Info');
+  // Revisi V.1: no Info sheet; the workbook opens on the data
+  expect(wb.worksheets.map((w) => w.name)).not.toContain('Info');
+  expect(wb.worksheets[0]!.name).toBe('Ringkasan');
   const late = wb.getWorksheet('Tambahan Susulan')!;
   const codes: string[] = [];
   late.eachRow((row, i) => {
@@ -159,8 +169,23 @@ test('AT-12: Laporan activity export rows equal the on-screen total', async ({ p
   const total = Number(await page.getByTestId('list-total').textContent());
   const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
   expect(wb.getWorksheet('Kegiatan')!.rowCount - 1).toBe(total);
-  const info = wb.getWorksheet('Info')!;
-  const labels: string[] = [];
-  info.eachRow((row) => labels.push(String(row.getCell(1).value)));
-  expect(labels.some((l) => l.startsWith('Filter: Status'))).toBeTruthy();
+
+  // Revisi V.1 items 2–4: no Info sheet; SDG, Link IA and Link IR columns; a Peserta sheet per reported kegiatan.
+  expect(wb.worksheets.map((w) => w.name)).toEqual(['Kegiatan', 'Peserta']);
+  const kegiatan = wb.getWorksheet('Kegiatan')!;
+  const headers = (kegiatan.getRow(1).values as unknown[]).map(String);
+  for (const h of ['SDG', 'Link IA', 'Link IR']) expect(headers).toContain(h);
+  const iaCol = headers.indexOf('Link IA');
+  const ia = kegiatan.getRow(2).getCell(iaCol).value as { hyperlink?: string } | null;
+  expect(ia?.hyperlink).toMatch(/^http:\/\/localhost:\d+\/api\/files\//);
+  expect((await page.request.get(ia!.hyperlink!)).status()).toBe(200);
+  const sdgCol = headers.indexOf('SDG');
+  const sdgs: string[] = [];
+  kegiatan.eachRow((row, i) => {
+    if (i > 1) sdgs.push(String(row.getCell(sdgCol).value ?? ''));
+  });
+  expect(sdgs.some((v) => /^SDG \d+ /.test(v))).toBeTruthy();
+  const peserta = wb.getWorksheet('Peserta')!;
+  expect(peserta.rowCount).toBeGreaterThan(1);
+  expect((peserta.getRow(1).values as unknown[]).map(String)).toEqual(expect.arrayContaining(['Kode Kegiatan', 'Jenis Peserta', 'Nama']));
 });

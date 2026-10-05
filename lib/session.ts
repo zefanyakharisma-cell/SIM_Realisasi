@@ -123,6 +123,8 @@ export async function requireUser(): Promise<SessionUser> {
 export type Capability =
   | 'activity.create'
   | 'verify.mobility'
+  /** Revisi V.1 item 7: submitters follow their own mobility kegiatan (Menunggu / Revisi) on Verifikasi Mobilitas. */
+  | 'verify.mobility.status'
   | 'edit.verified'
   | 'settings.manage'
   | 'reports.view'
@@ -138,6 +140,7 @@ export function can(user: SessionUser, cap: Capability): boolean {
   const mobility = io && user.teams.includes('mobility');
   switch (cap) {
     case 'activity.create':
+    case 'verify.mobility.status':
       return user.role === 'submitter';
     case 'verify.mobility':
     case 'export.conflicts':

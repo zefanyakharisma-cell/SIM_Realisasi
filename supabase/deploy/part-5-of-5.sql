@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 5 OF 5 (commit ab83e5c).
+-- SIM Realisasi Supabase install, PART 5 OF 5 (commit 9ceabdb).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -306,10 +306,11 @@ on conflict (employee_id) do update set full_name = excluded.full_name, unit_nam
 -- >>> supabase/seed-supabase/03_accounts.sql
 -- seed-supabase/03_accounts (simks-partnership): which REAL SIMKS accounts (public.akun) use SIM Realisasi, and their
 -- verification teams. Written only into realisasi.*; SIMKS roles are untouched. Idempotent: re-running resets these
--- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility).
+-- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility);
+-- every KUI account (Kepala Kantor KUI, Head/Staff of Partnership and Global Alliance) is io_admin (all features).
 --   akun  1 kepala-kui@petra.ac.id          io_admin   (mobility)
---   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
---   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
+--   akun 11 staff-partnership@petra.ac.id   io_admin   (mobility)
+--   akun 10 head-partnership@petra.ac.id    io_admin   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
 --   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Program Studi Manajemen)
 --   akun  9 viewer@petra.ac.id              viewer
@@ -325,7 +326,7 @@ begin
 end $$;
 
 insert into realisasi.account_roles (akun_id, app_role, unit_id) values
-  (1, 'io_admin', null), (11, 'io_staff', null), (10, 'io_staff', null),
+  (1, 'io_admin', null), (11, 'io_admin', null), (10, 'io_admin', null),
   (3, 'submitter', 4), (4, 'submitter', 5),
   (9, 'viewer', null), (6, 'viewer', null)
 on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excluded.unit_id, updated_at = now();

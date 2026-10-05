@@ -1,9 +1,9 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
-import { addInfoSheet, addTableSheet, createWorkbook, toBuffer, toExcelDate } from './workbook';
+import { addTableSheet, createWorkbook, toBuffer, toExcelDate } from './workbook';
 
 describe('excel workbook helpers', () => {
-  it('puts Info first, styles headers and formats dates/percentages', async () => {
+  it('writes only data sheets (no Info sheet), styles headers and formats dates/percentages', async () => {
     const wb = createWorkbook();
     addTableSheet(
       wb,
@@ -14,45 +14,27 @@ describe('excel workbook helpers', () => {
       ],
       [{ d: '2026-09-14', p: 42.9 }],
     );
-    addInfoSheet(wb, {
-      kind: 'test',
-      title: 'Uji',
-      filters: [['Status', 'Terverifikasi']],
-      generatedBy: 'Tester',
-      generatedAt: new Date('2026-10-01T03:00:00Z'),
-      dataAsOf: 'Live s.d. 1 Okt 2026',
-      rowCount: 1,
-    });
     const back = new ExcelJS.Workbook();
     await back.xlsx.load((await toBuffer(wb)) as unknown as ArrayBuffer);
-    expect(back.worksheets.map((w) => w.name)).toEqual(['Info', 'Data']);
+    expect(back.worksheets.map((w) => w.name)).toEqual(['Data']);
     const data = back.getWorksheet('Data')!;
     expect(data.getRow(1).font?.bold).toBe(true);
     expect(data.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
     expect(data.getCell('A2').numFmt).toBe('dd-mm-yyyy');
     expect(data.getCell('B2').numFmt).toBe('0.0%');
     expect(data.getCell('B2').value).toBeCloseTo(0.429);
-    const info = back.getWorksheet('Info')!;
-    expect(info.getCell('A4').value).toBe('Filter: Status');
   });
 
-  it("puts Info last when position is 'last' (Laporan per RENSTRA)", async () => {
+  it("writes http(s) 'link' cells as hyperlinks and anything else as neutralized text", async () => {
     const wb = createWorkbook();
-    addTableSheet(wb, '1.1 Rekap', [{ header: 'Unit', key: 'u', value: (r: { u: string }) => r.u }], [{ u: 'FTI' }]);
-    addTableSheet(wb, '1.1 Data', [{ header: 'Kode', key: 'c', value: (r: { c: string }) => r.c }], [{ c: 'RL-1' }]);
-    addInfoSheet(wb, {
-      kind: 'kpi-drilldown',
-      title: 'RENSTRA 1.1',
-      filters: [],
-      generatedBy: 'Tester',
-      generatedAt: new Date('2026-10-01T03:00:00Z'),
-      dataAsOf: 'live',
-      rowCount: 2,
-      position: 'last',
-    });
+    const col = { header: 'Link IA', key: 'l', value: (r: { l: string | null }) => r.l, format: 'link' as const };
+    addTableSheet(wb, 'Data', [col], [{ l: 'https://sim.example/api/files/a/ia/x.pdf' }, { l: '=cmd' }, { l: null }]);
     const back = new ExcelJS.Workbook();
     await back.xlsx.load((await toBuffer(wb)) as unknown as ArrayBuffer);
-    expect(back.worksheets.map((w) => w.name)).toEqual(['1.1 Rekap', '1.1 Data', 'Info']);
+    const ws = back.getWorksheet('Data')!;
+    expect(ws.getCell('A2').value).toMatchObject({ text: 'https://sim.example/api/files/a/ia/x.pdf', hyperlink: 'https://sim.example/api/files/a/ia/x.pdf' });
+    expect(ws.getCell('A3').value).toBe("'=cmd");
+    expect(ws.getCell('A4').value).toBeNull();
   });
 
   it('keeps calendar dates and shifts timestamps to WIB', () => {

@@ -31,12 +31,12 @@ function countsText(v: ParticipantVersion): string {
 }
 
 /**
- * Mobilitas-track actions (Approve / Minta Revisi, R-27; Revisi V.1: one general note, no per-row notes).
+ * Mobilitas-track actions (Approve / Minta Revisi, R-27). Revisi V.1: Setujui is a plain confirmation (no Catatan);
+ * Minta Revisi keeps one required general note.
  * Renders nothing unless `permissions.can_mobility_verify`.
  */
 export function MobilityActions({ activityId, code, version, previous, permissions, conflictsOpen = 0 }: MobilityActionsProps) {
   const uid = useId();
-  const [approveNote, setApproveNote] = useState('');
   const [revisionNote, setRevisionNote] = useState('');
 
   if (!permissions.can_mobility_verify) return null;
@@ -58,20 +58,15 @@ export function MobilityActions({ activityId, code, version, previous, permissio
         title={`Setujui peserta ${code}?`}
         description={
           <>
-            Data peserta {versionText} akan disetujui dan menjadi satu-satunya versi yang dihitung (R-21)
+            Apakah Anda yakin ingin menyetujui peserta {code}? Data peserta {versionText} akan disetujui dan menjadi satu-satunya versi yang dihitung (R-21)
             {previous ? `; versi v${previous.version} tetap tersimpan sebagai riwayat` : ''}.
             {summary ? ` Perubahan: ${summary.added} ditambahkan, ${summary.removed} dihapus, ${summary.changed} diubah.` : ''}
           </>
         }
-        confirmLabel="Setujui"
-        onOpenChange={(o) => o && setApproveNote('')}
-        action={() => mobilityApprove(activityId, approveNote.trim() || null)}
+        confirmLabel="Ya, setujui"
+        action={() => mobilityApprove(activityId, null)}
         successMessage={(r) => `${code}: peserta disetujui · status ${ACTIVITY_STATUS_LABEL[r.status]}.`}
-      >
-        {({ pending }) => (
-          <NoteField id={`${uid}-approve-note`} label="Catatan" value={approveNote} onChange={setApproveNote} disabled={pending} />
-        )}
-      </ActionDialog>
+      />
 
       <ActionDialog
         triggerLabel={

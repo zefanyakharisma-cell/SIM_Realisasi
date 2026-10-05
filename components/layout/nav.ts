@@ -36,12 +36,7 @@ function item(href: string, label: string, icon: NavIcon, extra: Partial<NavItem
 export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
   const realisasi: NavItem[] = [
     item('/realisasi', 'Dashboard', 'dashboard', { exact: true }),
-    item('/realisasi/kegiatan', 'Kegiatan', 'list', {
-      exact: true,
-      ...(user.role === 'submitter' && counts.revision_inbox > 0
-        ? { badge: counts.revision_inbox, badgeLabel: `${counts.revision_inbox} kegiatan perlu revisi` }
-        : {}),
-    }),
+    item('/realisasi/kegiatan', 'Kegiatan', 'list', { exact: true }),
   ];
   if (can(user, 'activity.create')) realisasi.push(item('/realisasi/kegiatan/baru', 'Kegiatan Baru', 'plus'));
   if (can(user, 'verify.mobility'))
@@ -50,6 +45,15 @@ export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
         // Revisi V.1: one badge for everything the mobility team must process (queue + duplicate students).
         badge: counts.mobility_queue + counts.conflicts_open,
         badgeLabel: `${counts.mobility_queue} dalam antrean, ${counts.conflicts_open} duplikat mahasiswa`,
+      }),
+    );
+  else if (can(user, 'verify.mobility.status'))
+    // Revisi V.1 item 7: the unit follows its mobility kegiatan here; the badge = kegiatan KUI sent back for revision.
+    realisasi.push(
+      item('/realisasi/verifikasi/mobilitas', 'Verifikasi Mobilitas', 'users', {
+        ...(counts.revision_inbox > 0
+          ? { badge: counts.revision_inbox, badgeLabel: `${counts.revision_inbox} kegiatan perlu revisi` }
+          : {}),
       }),
     );
   realisasi.push(item('/realisasi/laporan', 'Laporan & Ekspor', 'report'));

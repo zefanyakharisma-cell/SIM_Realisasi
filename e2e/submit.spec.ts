@@ -131,7 +131,8 @@ test('R-15: the creator and IO Admin can delete a draft from the list; others ca
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi/kegiatan');
   await expect(page.getByTestId('delete-draft-RL-2026-0023')).toBeVisible();
-  await loginAs(page, ACCOUNTS.ioMobility);
+  // every KUI account is io_admin since Revisi V.1; another unit's submitter cannot delete it
+  await loginAs(page, ACCOUNTS.uaFti);
   await page.goto('/realisasi/kegiatan');
   await expect(page.getByTestId('activity-table')).toBeVisible();
   await expect(page.getByTestId('delete-draft-RL-2026-0023')).toHaveCount(0);

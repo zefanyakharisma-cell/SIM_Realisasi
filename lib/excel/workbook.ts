@@ -2,22 +2,9 @@
 // Server-only: imported by export route handlers and the registry.
 import ExcelJS from 'exceljs';
 
-export type CellFormat = 'date' | 'datetime' | 'pct' | 'int' | 'decimal' | 'text';
+/** 'link': an absolute http(s) URL written as a clickable hyperlink (anything else is stored as plain text). */
+export type CellFormat = 'date' | 'datetime' | 'pct' | 'int' | 'decimal' | 'text' | 'link';
 export type CellValue = string | number | Date | boolean | null;
-
-export interface InfoSheet {
-  kind: string;
-  title: string;
-  filters: Array<[string, string]>;
-  generatedBy: string;
-  generatedAt: Date;
-  dataAsOf: string;
-  rowCount: number;
-  /** Extra rows appended after the standard ones (e.g. snapshot metadata). */
-  extra?: Array<[string, string]>;
-  /** 'first' (default, CONTRACTS §8.2) or 'last' (Laporan per RENSTRA: sheet 1 = the RENSTRA table, Revisi V.2). */
-  position?: 'first' | 'last';
-}
 
 export interface Column<R> {
   header: string;
@@ -36,6 +23,7 @@ const NUM_FMT: Record<CellFormat, string | undefined> = {
   int: '#,##0',
   decimal: '0.00',
   text: '@',
+  link: undefined,
 };
 
 const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF7' } };
@@ -76,6 +64,7 @@ export function neutralizeFormula(text: string): string {
 /** Converts a raw value to what exceljs should store for the given format. */
 function coerce(value: CellValue, fmt: CellFormat | undefined): ExcelJS.CellValue {
   if (value === null || value === undefined) return null;
+  if (fmt === 'link' && typeof value === 'string' && /^https?:\/\//i.test(value)) return { text: value, hyperlink: value };
   if (typeof value === 'string' && fmt !== 'date' && fmt !== 'datetime') return neutralizeFormula(value);
   switch (fmt) {
     case 'date':
@@ -145,6 +134,9 @@ export function addTableSheet<R>(
       const fmt = typeof c.format === 'function' ? c.format(row) : c.format;
       const numFmt = fmt ? NUM_FMT[fmt] : undefined;
       if (numFmt && fmt !== 'text') excelRow.getCell(i + 1).numFmt = numFmt;
+      if (fmt === 'link' && typeof raw === 'string' && /^https?:\/\//i.test(raw)) {
+        excelRow.getCell(i + 1).font = { color: { argb: 'FF0563C1' }, underline: true };
+      }
       if (typeof raw === 'string' && raw.includes('\n')) {
         excelRow.getCell(i + 1).alignment = { wrapText: true, vertical: 'top' };
       }
@@ -162,44 +154,6 @@ export function addTableSheet<R>(
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, rows.length + 1), column: columns.length } };
   }
   return ws;
-}
-
-export function formatJakartaDateTime(d: Date): string {
-  const s = new Date(d.getTime() + JAKARTA_OFFSET_MS).toISOString();
-  return `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)} ${s.slice(11, 16)} WIB`;
-}
-
-/** Info sheet: the first sheet (CONTRACTS §8.2) unless `position: 'last'`. */
-export function addInfoSheet(wb: ExcelJS.Workbook, info: InfoSheet): void {
-  const ws = wb.addWorksheet('Info');
-  // First even when data sheets were added before (exceljs sorts by orderNo; others start at 1).
-  if (info.position !== 'last') (ws as unknown as { orderNo: number }).orderNo = 0;
-  ws.columns = [
-    { header: 'Keterangan', key: 'k' },
-    { header: 'Nilai', key: 'v' },
-  ];
-  const rows: Array<[string, string | number]> = [
-    ['Jenis ekspor', info.kind],
-    ['Judul', info.title],
-    ...info.filters.map(([label, value]): [string, string] => [`Filter: ${label}`, value]),
-    ['Dibuat oleh', info.generatedBy],
-    ['Dibuat pada', formatJakartaDateTime(info.generatedAt)],
-    ['Data per', info.dataAsOf],
-    ['Jumlah baris', info.rowCount],
-    ...(info.extra ?? []),
-  ];
-  let maxK = 10;
-  let maxV = 10;
-  for (const [k, v] of rows) {
-    ws.addRow({ k, v });
-    maxK = Math.max(maxK, k.length);
-    maxV = Math.max(maxV, String(v).length);
-  }
-  ws.getColumn(1).width = Math.min(45, maxK + 2);
-  ws.getColumn(2).width = Math.min(100, maxV + 2);
-  ws.getColumn(2).alignment = { wrapText: true, vertical: 'top' };
-  ws.getColumn(1).font = { bold: true };
-  styleHeader(ws, 2);
 }
 
 export async function toBuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
