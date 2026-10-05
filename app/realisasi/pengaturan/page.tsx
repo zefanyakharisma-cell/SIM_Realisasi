@@ -74,7 +74,7 @@ export default async function PengaturanPage(props: { searchParams: Promise<Reco
             data-testid={`settings-tab-${t.key}`}
             className={cn(
               '-mb-px border-b-2 px-4 py-2 text-sm font-medium',
-              t.key === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+              t.key === tab ? 'border-primary font-semibold text-primary' : 'border-transparent text-text-secondary hover:text-foreground',
             )}
           >
             {t.label}

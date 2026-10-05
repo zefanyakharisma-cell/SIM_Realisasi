@@ -42,7 +42,7 @@ function SideCard({
     <div
       className={cn(
         'flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm',
-        kept && 'border-green-600 bg-green-50 dark:bg-green-950/30',
+        kept && 'border-success bg-success-subtle',
         lost && 'opacity-70',
         current && 'ring-2 ring-primary/40',
       )}

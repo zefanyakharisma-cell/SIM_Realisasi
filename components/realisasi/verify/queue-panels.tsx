@@ -50,7 +50,7 @@ function MobilityBundleLink({ detail }: { detail: ActivityDetail }) {
       <FileText className="h-4 w-4" aria-hidden /> PDF transkrip, poster &amp; dokumentasi ({bundle.filename})
     </a>
   ) : (
-    <p className="text-sm text-red-700 dark:text-red-300">PDF transkrip, poster &amp; dokumentasi belum diunggah.</p>
+    <p className="text-sm text-danger-fg">PDF transkrip, poster &amp; dokumentasi belum diunggah.</p>
   );
 }
 
@@ -75,7 +75,7 @@ function MobilityPanel({ rv }: { rv: Review }) {
       </div>
       <MobilityBundleLink detail={rv.detail} />
       {rv.detail.conflicts.length > 0 ? (
-        <section aria-label="Duplikat mahasiswa" className="space-y-2 rounded-md border border-purple-300 bg-purple-50/40 p-3 dark:bg-purple-950/20">
+        <section aria-label="Duplikat mahasiswa" className="space-y-2 rounded-md border border-renewal-line bg-renewal-subtle p-3">
           <h4 className="text-sm font-semibold">Duplikat mahasiswa ({rv.detail.flags.conflicts_open} menunggu keputusan)</h4>
           <ConflictList conflicts={rv.detail.conflicts} canResolve={rv.detail.permissions.can_mobility_verify} currentActivityId={rv.detail.id} />
         </section>

@@ -105,7 +105,7 @@ export function MobilityActions({ activityId, code, version, previous, permissio
         )}
       </ActionDialog>
       {conflictsOpen > 0 ? (
-        <p className="w-full text-xs text-amber-800 dark:text-amber-300" role="status" data-testid="approve-blocked-conflicts">
+        <p className="w-full text-xs text-warning-fg" role="status" data-testid="approve-blocked-conflicts">
           Selesaikan {conflictsOpen} duplikat mahasiswa terlebih dahulu sebelum menyetujui peserta.
         </p>
       ) : null}

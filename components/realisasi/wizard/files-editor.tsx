@@ -152,7 +152,7 @@ export function FilesEditor({
                   </Button>
                 </div>
               ) : (
-                <p className="text-sm text-red-700">Belum diunggah.</p>
+                <p className="text-sm text-danger-fg">Belum diunggah.</p>
               )}
               <FileDrop
                 id={`upload-${kind}`}

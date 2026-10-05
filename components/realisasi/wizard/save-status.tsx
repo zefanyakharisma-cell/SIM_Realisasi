@@ -158,13 +158,13 @@ export function SaveIndicator() {
       )}
       {state.kind === 'saved' && (
         <>
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-700" aria-hidden />
+          <CheckCircle2 className="h-3.5 w-3.5 text-success-fg" aria-hidden />
           Tersimpan sebagai draf · {formatTime(state.at)}
         </>
       )}
       {state.kind === 'dirty' && 'Perubahan belum tersimpan'}
       {state.kind === 'error' && (
-        <span className="flex items-center gap-1.5 text-red-700">
+        <span className="flex items-center gap-1.5 text-danger-fg">
           <AlertCircle className="h-3.5 w-3.5" aria-hidden />
           Gagal menyimpan: {state.message}
         </span>

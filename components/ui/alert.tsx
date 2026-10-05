@@ -8,10 +8,13 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'bg-background text-foreground',
-        info: 'border-blue-200 bg-blue-50 text-blue-900 [&>svg]:text-blue-700',
-        warning: 'border-amber-300 bg-amber-50 text-amber-950 [&>svg]:text-amber-700',
-        success: 'border-green-200 bg-green-50 text-green-900 [&>svg]:text-green-700',
-        destructive: 'border-red-200 bg-red-50 text-red-900 [&>svg]:text-red-700',
+        // Tinted ground + hairline in the tone; text stays text-primary, the icon carries the tone ink.
+        info: 'border-info-line bg-info-subtle text-foreground [&>svg]:text-info-fg',
+        warning: 'border-warning-line bg-warning-subtle text-foreground [&>svg]:text-warning-fg',
+        /** status-pending: a revision is requested (Perlu Revisi). */
+        pending: 'border-pending-line bg-pending-subtle text-foreground [&>svg]:text-pending-fg',
+        success: 'border-success-line bg-success-subtle text-foreground [&>svg]:text-success-fg',
+        destructive: 'border-danger-line bg-danger-subtle text-foreground [&>svg]:text-danger-fg',
       },
     },
     defaultVariants: { variant: 'default' },

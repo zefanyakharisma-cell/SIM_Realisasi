@@ -5,7 +5,7 @@ import { formatDate } from '@/lib/realisasi/format';
 export function DemoTodayBanner({ demoToday, canManage = false }: { demoToday: string | null; canManage?: boolean }) {
   if (!demoToday) return null;
   return (
-    <div role="status" className="flex flex-wrap items-center gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950" data-testid="demo-today-banner">
+    <div role="status" className="flex flex-wrap items-center gap-2 border-b border-warning-line bg-warning-subtle px-4 py-2 text-sm text-warning-fg" data-testid="demo-today-banner">
       <Clock className="size-4 shrink-0" aria-hidden="true" />
       <span>
         Mode simulasi tanggal aktif — sistem menganggap hari ini <strong>{formatDate(demoToday)}</strong>.

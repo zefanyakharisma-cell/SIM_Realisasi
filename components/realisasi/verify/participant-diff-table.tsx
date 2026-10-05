@@ -15,23 +15,23 @@ const CHANGE_LABEL: Record<RowChange, string> = {
 };
 
 const ROW_CLASS: Record<RowChange, string> = {
-  added: 'bg-green-50 dark:bg-green-950/40',
-  removed: 'bg-red-50 text-red-900 line-through decoration-red-600 dark:bg-red-950/40 dark:text-red-200',
+  added: 'bg-success-subtle',
+  removed: 'bg-danger-subtle text-danger-fg line-through decoration-danger',
   changed: '',
   same: '',
 };
 
-const CELL_CHANGED = 'bg-amber-100 font-medium dark:bg-amber-900/50';
+const CELL_CHANGED = 'bg-warning/25 font-medium';
 
 function ChangeMarker({ change }: { change: RowChange }) {
   if (change === 'same') return <span className="sr-only">{CHANGE_LABEL.same}</span>;
   const Icon = change === 'added' ? Plus : change === 'removed' ? Minus : Pencil;
   const tone =
     change === 'added'
-      ? 'border-green-600 text-green-800 dark:text-green-300'
+      ? 'border-success text-success-fg'
       : change === 'removed'
-        ? 'border-red-600 text-red-800 dark:text-red-300'
-        : 'border-amber-600 text-amber-800 dark:text-amber-300';
+        ? 'border-danger text-danger-fg'
+        : 'border-warning text-warning-fg';
   return (
     <span
       className={cn('inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs font-medium no-underline', tone)}
@@ -148,7 +148,7 @@ export function ParticipantDiffTable({ version, previous, caption }: Participant
                       <td className="px-3 py-2 align-top font-mono text-xs">
                         {r.nrp}
                         {r.registry_status !== 'active' ? (
-                          <span className="ml-1 rounded border border-amber-500 px-1 text-[10px] uppercase text-amber-800 no-underline dark:text-amber-300">
+                          <span className="ml-1 rounded border border-warning px-1 text-[10px] uppercase text-warning-fg no-underline">
                             {r.registry_status === 'graduated' ? 'Lulus' : 'Tidak aktif'}
                           </span>
                         ) : null}

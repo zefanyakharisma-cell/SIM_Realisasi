@@ -108,7 +108,7 @@ export default async function LaporanPage(props: { searchParams: Promise<SP> }) 
     } catch (e) {
       const err = parseDbError(e);
       body = (
-        <Card role="alert" className="flex items-start gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <Card role="alert" className="flex items-start gap-3 border-danger-line bg-danger-subtle p-4 text-sm text-danger-fg">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>{err.message}</p>
         </Card>
@@ -195,7 +195,7 @@ async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): 
             <span data-testid="list-total">{rows.length}</span> kegiatan
           </Toolbar>
           {key === 'peserta' ? (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p className="rounded-md border border-warning-line bg-warning-subtle px-3 py-2 text-sm text-warning-fg">
               Berkas berisi nama dan NRP peserta (data pribadi). Setiap unduhan dicatat sesuai UU PDP. Pratinjau di bawah menampilkan kegiatan yang pesertanya
               akan diekspor.
             </p>

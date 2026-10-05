@@ -84,7 +84,7 @@ export function GeneralSettingsForm({ initial }: { initial: GeneralSettingsInput
                   <span className="text-sm text-muted-foreground">{f.suffix}</span>
                 </div>
                 {err ? (
-                  <p id={`${id}-err`} className="text-xs text-red-700">
+                  <p id={`${id}-err`} className="text-xs text-danger-fg">
                     {err}
                   </p>
                 ) : null}

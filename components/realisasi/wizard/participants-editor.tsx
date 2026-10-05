@@ -53,14 +53,14 @@ const STATUS_TEXT: Record<RowStatus, string> = {
 };
 
 function StatusIcon({ status, blocking }: { status: RowStatus; blocking: boolean }) {
-  if (blocking) return <XCircle className="h-4 w-4 shrink-0 text-red-700" aria-hidden />;
-  if (status === 'graduated' || status === 'inactive') return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" aria-hidden />;
-  return <CheckCircle2 className="h-4 w-4 shrink-0 text-green-700" aria-hidden />;
+  if (blocking) return <XCircle className="h-4 w-4 shrink-0 text-danger-fg" aria-hidden />;
+  if (status === 'graduated' || status === 'inactive') return <AlertTriangle className="h-4 w-4 shrink-0 text-warning-fg" aria-hidden />;
+  return <CheckCircle2 className="h-4 w-4 shrink-0 text-success-fg" aria-hidden />;
 }
 
 function rowClass(status: RowStatus, blocking: boolean): string {
-  if (blocking) return 'bg-red-50';
-  if (status === 'graduated' || status === 'inactive') return 'bg-amber-50';
+  if (blocking) return 'bg-danger-subtle';
+  if (status === 'graduated' || status === 'inactive') return 'bg-warning-subtle';
   return '';
 }
 
@@ -378,7 +378,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                     <td className="px-3 py-2">
                       <span className="flex items-center gap-1.5">
                         <StatusIcon status={r.status} blocking={r.blocking} />
-                        <span className={r.blocking ? 'font-medium text-red-800' : ''}>{STATUS_TEXT[r.status]}</span>
+                        <span className={r.blocking ? 'font-medium text-danger-fg' : ''}>{STATUS_TEXT[r.status]}</span>
                       </span>
                     </td>
                     <td className="px-3 py-2 font-mono">{r.employee_id}</td>
@@ -423,7 +423,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                     <StatusIcon status={r.status} blocking={r.blocking} />
                     <span className="font-mono">{r.nrp}</span>
                     <span>{r.full_name ?? ''}</span>
-                    <span className={r.blocking ? 'font-medium text-red-800' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
+                    <span className={r.blocking ? 'font-medium text-danger-fg' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
                   </p>
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeStudent(r.key)} aria-label={`Hapus ${r.nrp}`}>
                     <Trash2 aria-hidden />
@@ -495,7 +495,7 @@ function StudentTable({ rows, onRemove }: { rows: StudentRow[]; onRemove: (key: 
               <td className="px-3 py-2">
                 <span className="flex items-center gap-1.5">
                   <StatusIcon status={r.status} blocking={r.blocking} />
-                  <span className={r.blocking ? 'font-medium text-red-800' : ''}>{STATUS_TEXT[r.status]}</span>
+                  <span className={r.blocking ? 'font-medium text-danger-fg' : ''}>{STATUS_TEXT[r.status]}</span>
                 </span>
               </td>
               <td className="px-3 py-2 font-mono">{r.nrp}</td>
@@ -632,7 +632,7 @@ function Panel({
             </a>
           </Button>
         </div>
-        <p aria-live="polite" className={cn('text-sm', message?.tone === 'error' ? 'text-red-700' : 'text-amber-800')}>
+        <p aria-live="polite" className={cn('text-sm', message?.tone === 'error' ? 'text-danger-fg' : 'text-warning-fg')}>
           {message?.text}
         </p>
         {children}

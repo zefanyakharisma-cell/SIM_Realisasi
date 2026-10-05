@@ -78,7 +78,7 @@ export function NotificationBell({ unread }: { unread: number }) {
           {count > 0 ? (
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white"
               data-testid="notification-count"
             >
               {count > 99 ? '99+' : count}
@@ -106,10 +106,10 @@ export function NotificationBell({ unread }: { unread: number }) {
                   <Link
                     href={n.link ?? '/realisasi/notifikasi'}
                     onClick={() => openItem(n)}
-                    className={cn('block px-4 py-3 text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none', !n.read_at && 'bg-blue-50/60')}
+                    className={cn('block px-4 py-3 text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none', !n.read_at && 'bg-info-subtle/60')}
                   >
                     <span className="flex items-start gap-2">
-                      {!n.read_at ? <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" aria-hidden="true" /> : null}
+                      {!n.read_at ? <span className="mt-1.5 size-2 shrink-0 rounded-full bg-info" aria-hidden="true" /> : null}
                       <span className="min-w-0">
                         <span className={cn('block', !n.read_at && 'font-semibold')}>
                           {n.title}

@@ -16,7 +16,7 @@ export function ActivityTabs({ activityId, current, tabs }: { activityId: string
               data-testid={`tab-${t.id}`}
               className={cn(
                 'inline-block border-b-2 px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                t.id === current ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+                t.id === current ? 'border-primary font-semibold text-primary' : 'border-transparent text-text-secondary hover:text-foreground',
               )}
             >
               {t.label}

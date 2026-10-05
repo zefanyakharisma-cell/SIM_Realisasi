@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { Building2, LogIn, Users } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -61,12 +62,15 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center gap-6 px-4 py-10">
-      <div className="space-y-1 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">SIM Realisasi</h1>
-        <p className="text-sm text-muted-foreground">
+      {/* Brand layer (login only): gradient-midnight with the white-wordmark logomaster, approved on midnight. */}
+      <header className="overflow-hidden rounded-xl bg-gradient-midnight px-6 py-8 text-white sm:px-10">
+        <Image src="/brand/logo-petra.png" alt="Petra Christian University" width={137} height={48} className="h-12 w-auto" priority />
+        <h1 className="mt-6 text-3xl font-bold tracking-[-0.02em] sm:text-4xl">SIM Realisasi</h1>
+        <p className="mt-1 max-w-prose text-sm text-white/85">
           {demo ? 'Mockup — pilih akun demo untuk masuk. Tidak ada kata sandi.' : 'Masuk demo dinonaktifkan.'}
         </p>
-      </div>
+        <p className="mt-6 text-[11px] font-medium uppercase tracking-[0.32em] text-amber">Explore | Discover | Transform</p>
+      </header>
 
       {demo ? (
         <LoginDemoGuide />
@@ -128,7 +132,7 @@ export default async function LoginPage(props: { searchParams: Promise<Record<st
                     <span className="min-w-0 flex-1 space-y-1.5">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{a.displayName}</span>
-                        <Badge variant={a.role === 'io_admin' ? 'purple' : a.role === 'io_staff' ? 'blue' : a.role === 'viewer' ? 'neutral' : 'green'}>
+                        <Badge variant="neutral">
                           {ROLE_LABEL[a.role]}
                         </Badge>
                         {current?.id === a.id ? <Badge variant="outline">Aktif</Badge> : null}

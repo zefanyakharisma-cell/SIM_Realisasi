@@ -3,35 +3,36 @@
 @tailwind utilities;
 
 /*
- * Design tokens (HSL triplets). Inherits the SIM Kerjasama look: PETRA navy primary, neutral slate UI.
- * Contrast: foreground/background ≥ 12:1; muted-foreground on background ≥ 4.6:1 (WCAG AA).
+ * Design tokens: PCU Design System, app layer (Formal register). Values come from lib/design/tokens.ts;
+ * shadcn names stay so every ui/* component follows. HSL triplets, hex alongside.
+ * Contrast: foreground 21:1, muted-foreground 5.4:1 on white / 4.8:1 on smoke, input border 3.4:1 (WCAG 1.4.11).
  */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --background: 0 0% 100%;               /* surface #ffffff */
+    --foreground: 0 0% 0%;                 /* text-primary #000000 */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 70% 33%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 212.4 50% 19.6%;            /* midnight #19304b */
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 94%;
-    --secondary-foreground: 222 47% 15%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 19% 35%;
-    --accent: 214 40% 93%;
-    --accent-foreground: 222 47% 15%;
-    --destructive: 0 72% 42%;
+    --secondary: 0 0% 94.5%;               /* smoke #f1f1f1 */
+    --secondary-foreground: 212.7 13.6% 31.8%; /* text-secondary #46505c */
+    --muted: 0 0% 94.5%;                   /* surface-sunk #f1f1f1 */
+    --muted-foreground: 211.2 11.6% 42.2%; /* text-muted #5f6b78 */
+    --accent: 212.7 31.4% 93.1%;           /* hover #e8edf3 */
+    --accent-foreground: 212.4 50% 19.6%;
+    --destructive: 357.9 77.8% 50.6%;      /* action-danger #e31f26, white text 4.7:1 */
     --destructive-foreground: 0 0% 100%;
-    --border: 214 26% 85%;
-    --input: 214 26% 75%;
-    --ring: 221 83% 45%;
-    --radius: 0.5rem;
-    --sidebar: 222 47% 14%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-accent: 221 45% 24%;
-    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --border: 214.3 13.7% 90%;             /* border #e2e5e9 */
+    --input: 213 8.8% 55.7%;               /* #848d98: control edges need 3:1, the hairline is 1.3:1 */
+    --ring: 212.4 60% 41.2%;               /* focus-ring #2a64a8 */
+    --radius: 0.5rem;                      /* radius-md 8px; panels use rounded-xl (12px) */
+    --sidebar: 212.4 50% 19.6%;            /* midnight */
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-accent: 212.1 27.4% 30.8%;   /* 14% white over midnight */
+    --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   * {
@@ -43,12 +44,13 @@
   }
 
   body {
-    @apply bg-muted/40 text-foreground antialiased;
+    @apply bg-muted text-foreground antialiased;
     font-family: var(--font-sans);
-    font-feature-settings: 'tnum' 1;
+    /* Inter: cv11 (single-storey a) and ss01 (open digits) per the design system; tnum keeps figures aligned. */
+    font-feature-settings: 'cv11' 1, 'ss01' 1, 'tnum' 1;
   }
 
-  /* Visible focus for keyboard users everywhere (WCAG 2.4.7 / 2.4.11). */
+  /* Visible focus for keyboard users everywhere (WCAG 2.4.7 / 2.4.11): 2px focus-ring at 2px offset. */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }

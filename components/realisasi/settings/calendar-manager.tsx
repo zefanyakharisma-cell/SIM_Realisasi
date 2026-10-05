@@ -93,7 +93,7 @@ export function CalendarManager({
                       <TableCell>{formatDate(s.end_date)}</TableCell>
                       <TableCell>
                         {formatDate(s.cutoff_date)}
-                        {s.cutoff_date <= today && !live ? <div className="text-xs text-amber-800">cutoff terlewati</div> : null}
+                        {s.cutoff_date <= today && !live ? <div className="text-xs text-warning-fg">cutoff terlewati</div> : null}
                       </TableCell>
                       <TableCell>
                         {live ? (
@@ -256,7 +256,7 @@ function RefreezeDialog({ snapshot }: { snapshot: SnapshotListRow }) {
             aria-describedby={error ? `reason-err-${snapshot.id}` : undefined}
           />
           {error ? (
-            <p id={`reason-err-${snapshot.id}`} className="text-xs text-red-700" role="alert">
+            <p id={`reason-err-${snapshot.id}`} className="text-xs text-danger-fg" role="alert">
               {error}
             </p>
           ) : null}

@@ -130,7 +130,7 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
         <section
           id="duplikat"
           aria-labelledby="duplikat-title"
-          className="scroll-mt-24 space-y-3 rounded-lg border border-purple-300 bg-purple-50/40 p-4 dark:bg-purple-950/20"
+          className="scroll-mt-24 space-y-3 rounded-lg border border-renewal-line bg-renewal-subtle p-4"
         >
           <h2 id="duplikat-title" className="text-base font-semibold">
             Duplikat mahasiswa{' '}
@@ -161,7 +161,7 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
                   {shown.reviewed_at && <span>· ditinjau {formatDateTime(shown.reviewed_at)}{shown.reviewed_by_name ? ` oleh ${shown.reviewed_by_name}` : ''}</span>}
                   {shown.status !== 'draft' && shown.status !== 'pending' && <span>· hanya baca</span>}
                 </div>
-                {shown.review_note && <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">Catatan IO: {shown.review_note}</p>}
+                {shown.review_note && <p className="rounded-md bg-pending-subtle p-3 text-sm text-pending-fg">Catatan IO: {shown.review_note}</p>}
                 <ParticipantTable version={shown} />
               </>
             ) : detail.participants.counts ? (

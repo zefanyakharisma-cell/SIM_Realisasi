@@ -131,7 +131,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
     return (
       <div className="space-y-6">
         <PageHeader title="Dashboard Realisasi" />
-        <Card role="alert" className="flex items-start gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <Card role="alert" className="flex items-start gap-3 border-danger-line bg-danger-subtle p-4 text-sm text-danger-fg">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-medium">Dashboard tidak dapat dimuat.</p>
@@ -190,7 +190,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
       ) : (
         <>
           {data.late_additions > 0 ? (
-            <p className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+            <p className="flex items-center gap-2 rounded-md border border-info-line bg-info-subtle px-3 py-2 text-sm text-info-fg">
               <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
               {formatNumber(data.late_additions)} tambahan susulan: kegiatan dalam jendela ini yang diverifikasi setelah snapshot dibekukan.
             </p>
@@ -257,7 +257,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
                       <Link href={`/realisasi/kegiatan/baru?draft=${d.id}`} className="font-medium hover:underline">
                         <span className="text-muted-foreground">{d.code}</span> · {d.name}
                       </Link>
-                      <span className={d.days_left < 0 ? 'font-medium text-red-800' : 'text-amber-900'}>
+                      <span className={d.days_left < 0 ? 'font-medium text-danger-fg' : 'text-warning-fg'}>
                         Batas {formatDate(d.reporting_deadline)} ({daysLeftText(d.days_left)})
                       </span>
                     </li>

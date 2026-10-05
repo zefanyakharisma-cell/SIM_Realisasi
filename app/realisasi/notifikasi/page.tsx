@@ -55,8 +55,8 @@ export default async function NotificationsPage(props: { searchParams: Promise<R
         <Card>
           <ul className="divide-y" data-testid="notification-list">
             {items.map((n) => (
-              <li key={n.id} className={cn('flex items-start gap-3 px-4 py-3', !n.read_at && 'bg-blue-50/60')}>
-                <span className={cn('mt-2 size-2 shrink-0 rounded-full', n.read_at ? 'bg-transparent' : 'bg-blue-600')} aria-hidden="true" />
+              <li key={n.id} className={cn('flex items-start gap-3 px-4 py-3', !n.read_at && 'bg-info-subtle/60')}>
+                <span className={cn('mt-2 size-2 shrink-0 rounded-full', n.read_at ? 'bg-transparent' : 'bg-info')} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className={cn('text-sm', !n.read_at && 'font-semibold')}>
                     {n.link ? (

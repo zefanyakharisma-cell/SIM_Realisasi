@@ -89,10 +89,10 @@ function Leaderboard<T extends { unit_id: number; unit_name: string; total: numb
               {rows.map((r, i) => {
                 const top = rk[i] === 1 && r.total > 0;
                 return (
-                  <tr key={r.unit_id} className={cn('border-b last:border-0', top && 'bg-amber-50 dark:bg-amber-950/30')} data-testid="awards-row">
+                  <tr key={r.unit_id} className={cn('border-b last:border-0', top && 'bg-warning-subtle')} data-testid="awards-row">
                     <td className="px-2 py-2 tabular-nums">
                       {top ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1 font-semibold text-warning-fg">
                           <Trophy className="h-3.5 w-3.5" aria-hidden /> 1
                         </span>
                       ) : (

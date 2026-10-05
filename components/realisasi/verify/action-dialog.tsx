@@ -145,7 +145,7 @@ export function ActionDialog<T>({
             <div
               id={errorId}
               role="alert"
-              className="mt-4 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
+              className="mt-4 flex items-start gap-2 rounded-md border border-danger-line bg-danger-subtle p-3 text-sm text-danger-fg"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{serverError}</span>
@@ -192,7 +192,7 @@ export function NoteField({
       <label htmlFor={id} className="text-sm font-medium">
         {label}
         {required ? (
-          <span className="text-red-700 dark:text-red-400">
+          <span className="text-danger-fg">
             {' '}*<span className="sr-only"> (wajib)</span>
           </span>
         ) : (
@@ -210,10 +210,10 @@ export function NoteField({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errId : undefined}
         aria-required={required || undefined}
-        className={cn('min-h-[96px]', error && 'border-red-600 focus-visible:ring-red-600')}
+        className={cn('min-h-[96px]', error && 'border-danger focus-visible:ring-danger')}
       />
       {error ? (
-        <p id={errId} className="flex items-center gap-1 text-sm text-red-700 dark:text-red-400">
+        <p id={errId} className="flex items-center gap-1 text-sm text-danger-fg">
           <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
           {error}
         </p>
