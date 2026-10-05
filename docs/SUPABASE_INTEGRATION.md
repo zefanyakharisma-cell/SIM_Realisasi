@@ -165,7 +165,13 @@ The file is one transaction (an error rolls everything back), is safe to run aga
    Every line must be `ok`/rows/`absent`, and akun 1, 3, 4, 6, 9, 10, 11 must resolve to the emails above.
 4. **Deploy**: run the same command without a mode. It is one transaction; any error rolls everything back. Check the verify block: as authenticated, `documents=<dokumen_kerja_sama count>` with `my_role=io_admin`, then 7 accounts, `unmapped negara.kode: none`.
 5. **Advisors**: expect "security definer view" for `kerjasama.*` (intended) and nothing new in `public`. Do not add `kerjasama`/`realisasi` to the exposed API schemas.
-6. **App env** (Vercel): `DATABASE_URL` = session pooler URL (`prepare:false` is already set in `lib/db.ts`), `DEMO_AUTH` on for the demo.
+6. **App env** (Vercel): `DATABASE_URL` = **transaction pooler** URL, port **6543** (`prepare:false` is already set in
+   `lib/db.ts`; every request runs one transaction per `withUser`), `DEMO_AUTH` on for the demo. Do not point the app
+   at the session pooler (5432): it pins one of its 15 server connections per open client, and serverless instances
+   (production, still-warm old deployments, previews) keep idle sockets open, so the pool runs out and every page fails
+   with `EMAXCONNSESSION ... max clients reached in session mode` (outage 2026-10-05, recovered by terminating the idle
+   `Supavisor` backends). `lib/db.ts` also keeps each instance small (3 connections on Vercel, `DB_POOL_MAX`).
+   The deploy script keeps using the session pooler or the direct connection (DDL in one long transaction).
 7. **Re-seed later** (idempotent): `--seed-only`.
    **Rollback**: `drop schema realisasi, kerjasama, mock_baak, mock_hr cascade; select cron.unschedule('realisasi-daily-jobs');` SIMKS data is never touched.
 
