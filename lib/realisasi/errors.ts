@@ -62,6 +62,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   FILE_FORBIDDEN: 'Anda tidak memiliki akses ke berkas ini.',
   FILE_NOT_FOUND: 'Berkas tidak ditemukan.',
   RATE_LIMITED: 'Terlalu banyak permintaan. Coba lagi sebentar.',
+  DB_BUSY: 'Server sedang sibuk. Coba lagi dalam beberapa saat.',
   INTERNAL: 'Terjadi kesalahan pada server.',
   BAD_REQUEST: 'Permintaan tidak valid.',
 };
@@ -94,6 +95,17 @@ export function isNextControlError(e: unknown): boolean {
   return digest.startsWith('NEXT_') || digest === 'DYNAMIC_SERVER_USAGE' || digest === 'BAILOUT_TO_CLIENT_SIDE_RENDERING';
 }
 
+/**
+ * Pool exhaustion: Supavisor (`EMAXCONNSESSION` / `XX000` "max clients reached"), Postgres `53300`
+ * too_many_connections, or a connect timeout. Temporary — the user should retry.
+ */
+export function isConnectionLimitError(e: unknown): boolean {
+  const code = prop(e, 'code');
+  const message = prop(e, 'message');
+  if (code === '53300' || code === 'CONNECT_TIMEOUT') return true;
+  return typeof message === 'string' && /EMAXCONN|max clients reached|too many (clients|connections)/i.test(message);
+}
+
 /** Maps any thrown value to an AppError. Unknown errors become INTERNAL (original is logged). */
 export function parseDbError(e: unknown): AppError {
   const message = prop(e, 'message');
@@ -106,6 +118,10 @@ export function parseDbError(e: unknown): AppError {
     }
   }
   const sqlState = prop(e, 'code');
+  if (isConnectionLimitError(e)) {
+    console.error('[parseDbError] database connection limit reached', e);
+    return { code: 'DB_BUSY', message: ERROR_MESSAGES.DB_BUSY! };
+  }
   if (sqlState === '42501') {
     // insufficient_privilege (RLS / missing grant) — still an access problem for the user.
     return { code: 'AUTH_FORBIDDEN', message: ERROR_MESSAGES.AUTH_FORBIDDEN! };
@@ -130,6 +146,8 @@ export function httpStatusFor(code: string): number {
       return 404;
     case 'RATE_LIMITED':
       return 429;
+    case 'DB_BUSY':
+      return 503;
     case 'INTERNAL':
       return 500;
     default:

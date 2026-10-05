@@ -7,6 +7,10 @@ submit; duplicate students between units are decided inside Verifikasi Mobilitas
 KPI 1.19.S8; "KPI" is called **RENSTRA** in the UI; four period cut-offs; International Awards dashboard; Unit Akademik
 only.
 
+**Revisi V.2 (2026-10-05)** — the "SIM Kerjasama" navigation section is hidden: SIM Realisasi only reads SIM
+Kerjasama's data (agreements, partners, units); its document screens belong to the SIM Kerjasama app. An agreement's
+Realisasi page stays reachable from the RENSTRA tables (deep link `/kerjasama/dokumen/<id>/realisasi`).
+
 **Revisi V.1, round 2 (2026-10-05)** — supersedes the rules below where they differ:
 1. Every KUI account (Kepala Kantor Kerja Sama dan Urusan Internasional, Head of Partnership and Global Alliance, Staff
    of Partnership and Global Alliance) is `io_admin`: all features unlocked. Live install:

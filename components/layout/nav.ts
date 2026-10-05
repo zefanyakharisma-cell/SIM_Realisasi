@@ -8,8 +8,7 @@ export type NavIcon =
   | 'plus'
   | 'users'
   | 'report'
-  | 'settings'
-  | 'file';
+  | 'settings';
 
 export interface NavItem {
   href: string;
@@ -59,8 +58,7 @@ export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
   realisasi.push(item('/realisasi/laporan', 'Laporan & Ekspor', 'report'));
   if (can(user, 'settings.manage')) realisasi.push(item('/realisasi/pengaturan', 'Pengaturan', 'settings'));
 
-  return [
-    { title: 'Realisasi', items: realisasi },
-    { title: 'SIM Kerjasama', items: [item('/kerjasama/dokumen', 'Dokumen', 'file')] },
-  ];
+  // Revisi V.2: no "SIM Kerjasama" section. Realisasi only reads its agreement data; the document screens live in the
+  // SIM Kerjasama app. /kerjasama/dokumen/<id>/realisasi stays reachable from the RENSTRA tables (deep links).
+  return [{ title: 'Realisasi', items: realisasi }];
 }

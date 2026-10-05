@@ -122,12 +122,6 @@ export const SHELL_TOUR: Tour = {
       side: 'right',
     },
     {
-      target: tid('nav-dokumen'),
-      title: 'SIM Kerjasama → Dokumen',
-      body: 'Daftar MoU/MoA dari SIM Kerjasama beserta status realisasinya. SIM Realisasi hanya membaca dokumen ini, tidak pernah mengubahnya.',
-      side: 'right',
-    },
-    {
       target: tour('mobile-menu'),
       title: 'Menu navigasi',
       body: 'Di layar kecil, menu navigasi ada di balik tombol ini: Dashboard, Kegiatan, Verifikasi, Laporan, dan lainnya.',
