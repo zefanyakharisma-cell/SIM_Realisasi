@@ -133,7 +133,7 @@ async function SubmitterMobilityStatus({ user }: { user: SessionUser }) {
         {inRevision > 0 ? (
           <>
             {' · '}
-            <span className="font-semibold text-red-700 dark:text-red-400" data-testid="revision-total">
+            <span className="font-semibold text-pending-fg" data-testid="revision-total">
               {inRevision} perlu revisi
             </span>
           </>
