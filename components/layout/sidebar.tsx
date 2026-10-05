@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ClipboardList,
-  FileText,
   LayoutDashboard,
   PlusCircle,
   BarChart3,
@@ -23,7 +22,6 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   users: Users,
   report: BarChart3,
   settings: Settings,
-  file: FileText,
 };
 
 function isActive(pathname: string, href: string, exact?: boolean): boolean {

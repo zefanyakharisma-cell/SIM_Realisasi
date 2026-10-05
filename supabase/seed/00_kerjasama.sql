@@ -146,8 +146,9 @@ insert into public.akun (id, auth_user_id, id_jabatan, email, role) values
 on conflict (id) do update set auth_user_id = excluded.auth_user_id, id_jabatan = excluded.id_jabatan,
   email = excluded.email, role = excluded.role;
 
+-- Every KUI/IO account is io_admin (all features unlocked)
 insert into realisasi.account_roles (akun_id, app_role, unit_id) values
-  (1, 'io_admin', null), (2, 'io_staff', null), (3, 'io_staff', null), (4, 'submitter', null), (5, 'submitter', null),
+  (1, 'io_admin', null), (2, 'io_admin', null), (3, 'io_admin', null), (4, 'submitter', null), (5, 'submitter', null),
   (6, 'submitter', null), (7, 'submitter', null), (8, 'viewer', null)
 on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excluded.unit_id;
 

@@ -37,13 +37,27 @@ function toNumber(value: string): number {
 
 const identity = (value: string): string => value;
 
+/**
+ * Connections per server instance. On Vercel many instances (production, still-warm old deployments, previews) share
+ * one Supavisor pool (15 server connections), and a frozen instance keeps its sockets open, so each instance must stay
+ * small: default 3 there, 10 locally; `DB_POOL_MAX` overrides. Use the TRANSACTION pooler (port 6543) for the app.
+ */
+const ON_VERCEL = Boolean(process.env.VERCEL);
+
+function poolMax(): number {
+  const n = Number(process.env.DB_POOL_MAX);
+  return Number.isInteger(n) && n > 0 ? n : ON_VERCEL ? 3 : 10;
+}
+
 function createSql(): postgres.Sql {
   return postgres(process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL, {
-    max: 10,
+    max: poolMax(),
     // Unnamed statements: survives schema resets under a running server and
     // works behind Supabase's transaction-mode pooler.
     prepare: false,
-    idle_timeout: 20,
+    // Release idle connections quickly on serverless; recycle long-lived ones.
+    idle_timeout: ON_VERCEL ? 5 : 20,
+    max_lifetime: 60 * 5,
     connect_timeout: 10,
     onnotice: () => {},
     types: {
