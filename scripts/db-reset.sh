@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # LOCAL ONLY. Rebuild the SIM Realisasi database: supabase/local (SIMKS-shaped stub) -> supabase/migrations -> supabase/seed.
+# SEED_BULK=0 skips the bulk Kegiatan seed (supabase/seed/04_bulk_*.sql, 200 extra kegiatan RL-2026-0101..0300); the SQL
+# acceptance tests (npm run test:db) and the e2e journeys expect only the S-01..S-34 scenarios.
 # Idempotent: drops the realisasi/kerjasama/mock schemas (and the local SIMKS stub tables unless RESET_PUBLIC_STUBS=0).
 # Never point this at the SIM Kerjasama Supabase project: use scripts/db-deploy-supabase.sh there.
 set -euo pipefail
@@ -10,15 +12,16 @@ for f in "$ROOT/.env.local" "$ROOT/.env"; do
     # only pick up DATABASE_URL / RESET_PUBLIC_STUBS; ignore everything else
     while IFS='=' read -r k v; do
       case "$k" in
-        DATABASE_URL|RESET_PUBLIC_STUBS)
+        DATABASE_URL|RESET_PUBLIC_STUBS|SEED_BULK)
           if [ -z "${!k:-}" ]; then v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; export "$k=$v"; fi ;;
       esac
-    done < <(grep -E '^(DATABASE_URL|RESET_PUBLIC_STUBS)=' "$f" || true)
+    done < <(grep -E '^(DATABASE_URL|RESET_PUBLIC_STUBS|SEED_BULK)=' "$f" || true)
   fi
 done
 
 DATABASE_URL="${DATABASE_URL:-postgresql://postgres@localhost:54322/sim_realisasi}"
 RESET_PUBLIC_STUBS="${RESET_PUBLIC_STUBS:-1}"
+SEED_BULK="${SEED_BULK:-1}"
 export PGOPTIONS="${PGOPTIONS:-} -c client_min_messages=warning"
 
 # --- create the database if missing (connect to the same server's "postgres" DB)
@@ -78,6 +81,7 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
   "${PSQL[@]}" -f "$f"
 done
 for f in "$ROOT"/supabase/seed/*.sql; do
+  case "$(basename "$f")" in 04_bulk_*) if [ "$SEED_BULK" = "0" ]; then continue; fi ;; esac
   echo "seed    $(basename "$f")"
   "${PSQL[@]}" -f "$f"
 done

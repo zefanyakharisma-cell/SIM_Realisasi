@@ -286,7 +286,7 @@ const ACTIVITY_LIST_TOUR: Tour = {
     {
       target: '[role="group"][aria-label="Filter cepat"]',
       title: 'Filter cepat',
-      body: 'Tombol siap pakai: "Perlu tindakan saya", "Terlambat", dan "Semester ini" untuk langsung menyaring daftar.',
+      body: 'Tombol "Perlu tindakan saya" menyaring kegiatan yang menunggu tindakan Anda: untuk KUI, pengajuan yang perlu disetujui; untuk unit, draf dan kegiatan yang perlu direvisi.',
     },
     {
       target: tid('list-total'),

@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 5 OF 5 (commit ce646eb).
+-- SIM Realisasi Supabase install, PART 5 OF 5 (commit 9ceabdb).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -306,10 +306,11 @@ on conflict (employee_id) do update set full_name = excluded.full_name, unit_nam
 -- >>> supabase/seed-supabase/03_accounts.sql
 -- seed-supabase/03_accounts (simks-partnership): which REAL SIMKS accounts (public.akun) use SIM Realisasi, and their
 -- verification teams. Written only into realisasi.*; SIMKS roles are untouched. Idempotent: re-running resets these
--- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility).
+-- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility);
+-- every KUI account (Kepala Kantor KUI, Head/Staff of Partnership and Global Alliance) is io_admin (all features).
 --   akun  1 kepala-kui@petra.ac.id          io_admin   (mobility)
---   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
---   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
+--   akun 11 staff-partnership@petra.ac.id   io_admin   (mobility)
+--   akun 10 head-partnership@petra.ac.id    io_admin   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
 --   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Program Studi Manajemen)
 --   akun  9 viewer@petra.ac.id              viewer
@@ -325,7 +326,7 @@ begin
 end $$;
 
 insert into realisasi.account_roles (akun_id, app_role, unit_id) values
-  (1, 'io_admin', null), (11, 'io_staff', null), (10, 'io_staff', null),
+  (1, 'io_admin', null), (11, 'io_admin', null), (10, 'io_admin', null),
   (3, 'submitter', 4), (4, 'submitter', 5),
   (9, 'viewer', null), (6, 'viewer', null)
 on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excluded.unit_id, updated_at = now();
@@ -2128,6 +2129,2140 @@ begin
   for s in select * from realisasi.kpi_snapshots
             where academic_year_id = 1 and superseded_by is null and refreeze_reason is distinct from v_reason
               and exists (select 1 from realisasi.activities a where a.id = ('b5000000-0000-4000-8000-' || lpad('101', 12, '0'))::uuid)
+            order by frozen_at
+  loop
+    perform realisasi._freeze(s.academic_year_id, s.kind, s.frozen_at, (select id from kerjasama.profiles where akun_id = 1),
+                              v_reason, s.id);
+  end loop;
+end $$;
+
+-- >>> supabase/seed-supabase/09_registries_tambahan.sql
+-- seed-supabase/09_registries_tambahan (simks-partnership): mock BAAK students for the additional bulk kegiatan
+-- (10_kegiatan_tambahan_1..8 = kegiatan 221-420). Each 10_kegiatan_tambahan_N file owns one disjoint slice (marked
+-- below), so the new kegiatan never share a student with each other or with the 06/07 kegiatan (no new conflicts).
+-- NRPs use sequence digit 9 ({prefix}{intake}9{nnn}); inbound X05/X06. Prodi/faculty names follow 05_registries_bulk.
+-- Self-contained and idempotent (existing rows are skipped). Writes only mock_baak; SIM Kerjasama tables are only read.
+insert into mock_baak.students (nrp, full_name, faculty_code, faculty_name, prodi_name, category, home_institution, home_country_code, intake_year, status) values
+  -- 10_kegiatan_tambahan_1
+  ('B11239558', 'Fiona Chandra', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11239097', 'Samuel Hadinata', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11229093', 'Bryan Suryadi', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11239548', 'Fiona Rusli', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11249656', 'Kevin Prawira', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B11259876', 'Joshua Hartanto', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2025, 'active'),
+  ('B11229911', 'Carissa Wibisono', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11249376', 'Felix Lim', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B11239054', 'Michelle Kartika', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11239992', 'Evan Lim', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11249731', 'Michelle Hadinata', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B11259793', 'Nicholas Hartanto', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2025, 'active'),
+  ('B11229772', 'Aurelia Susilo', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11249484', 'Tiffany Tanuwijaya', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B13249805', 'Sharon Tan', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2024, 'active'),
+  ('B13239251', 'Evan Halim', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2023, 'active'),
+  ('B13249021', 'Valencia Santoso', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2024, 'active'),
+  ('B13249069', 'Alvin Soetomo', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2024, 'active'),
+  ('B13259437', 'Owen Halim', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2025, 'active'),
+  ('B13259187', 'Stefanie Pangestu', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2025, 'active'),
+  ('B13249780', 'Ricky Halim', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2024, 'active'),
+  ('B13239748', 'Adrian Widjaja', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2023, 'active'),
+  ('B13249311', 'Glory Prawira', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2024, 'active'),
+  ('B13239273', 'Aurelia Lim', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2023, 'active'),
+  ('B13239019', 'Agnes Pangestu', 'B', 'Fakultas Teknologi Industri', 'Teknik Industri', 'regular', null, null, 2023, 'active'),
+  ('X06269001', 'Yu-ting Hsieh', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'National Taiwan University', 'TW', 2026, 'active'),
+  ('X06259002', 'Darren Lim Jun Wei', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'National University of Singapore', 'SG', 2025, 'active'),
+  ('X06259003', 'Zhang Wei', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Xiamen University', 'CN', 2025, 'active'),
+  ('X05259004', 'Leon Wagner', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Technische Hochschule Deggendorf', 'DE', 2025, 'active'),
+  ('X05269005', 'Nicole Ong Hui Min', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Temasek Polytechnic', 'SG', 2026, 'active'),
+  -- 10_kegiatan_tambahan_2
+  ('B12239256', 'Ignatius Lim', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12259675', 'Irvan Effendi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12259921', 'Hendrik Suryadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12249585', 'Yemima Effendi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2024, 'active'),
+  ('B12229628', 'Bryan Jayadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2022, 'active'),
+  ('B12259849', 'Kristina Tanuwijaya', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12239294', 'Glory Effendi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12239153', 'Samuel Prawira', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12249412', 'Valencia Budiman', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2024, 'active'),
+  ('B12259553', 'Raymond Wijaya', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12259448', 'Irvan Lim', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12239792', 'Angela Pangestu', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12249256', 'Elisabeth Kusnadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2024, 'active'),
+  ('B12249376', 'Nicholas Sutanto', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2024, 'active'),
+  ('B12239075', 'Elisabeth Hadinata', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B14239757', 'Calvin Tedja', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2023, 'active'),
+  ('B14229309', 'Kenneth Kartika', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2022, 'active'),
+  ('B14239830', 'Lukas Lim', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2023, 'active'),
+  ('B14229407', 'Kristina Rusli', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2022, 'active'),
+  ('B14259358', 'Samuel Kusnadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2025, 'active'),
+  ('B14229541', 'Agnes Santoso', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2022, 'active'),
+  ('B14249427', 'Joanne Halim', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2024, 'active'),
+  ('B14249899', 'Hendrik Budiman', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2024, 'active'),
+  ('B14259010', 'Natasha Halim', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2025, 'active'),
+  ('B14229977', 'Jessica Budiman', 'B', 'Fakultas Teknologi Industri', 'Teknik Mesin', 'regular', null, null, 2022, 'active'),
+  ('X06269006', 'Hannah Schulz', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Technische Hochschule Deggendorf', 'DE', 2026, 'active'),
+  ('X05269007', 'Chloe Mitchell', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Melbourne', 'AU', 2026, 'active'),
+  ('X05269008', 'Min-seo Yoon', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Yonsei University', 'KR', 2026, 'active'),
+  ('X06269009', 'Yuto Ishikawa', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Kanazawa Institute of Technology', 'JP', 2026, 'active'),
+  ('X06269010', 'Aisyah binti Hamzah', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Universiti Teknologi Malaysia', 'MY', 2026, 'active'),
+  -- 10_kegiatan_tambahan_3
+  ('D32249150', 'Steven Rusli', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32259472', 'Kevin Rusli', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2025, 'active'),
+  ('D32249331', 'Fransiska Wijaya', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32229204', 'Adrian Prawira', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2022, 'active'),
+  ('D32239758', 'Amanda Hartanto', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32249505', 'Felix Chandra', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32259900', 'Wendy Budiman', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2025, 'active'),
+  ('D32229279', 'Fiona Wibisono', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2022, 'active'),
+  ('D32249196', 'Clara Sutanto', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32259976', 'Darren Gunawan', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2025, 'active'),
+  ('D32249493', 'Karina Prawira', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32229661', 'Samuel Budiman', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2022, 'active'),
+  ('D32239572', 'Felix Hartanto', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32239508', 'Samuel Rusli', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32259984', 'Karina Wijaya', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2025, 'active'),
+  ('D31249692', 'Gilbert Wijaya', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31239726', 'Ricky Chandra', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31229821', 'Yemima Hartanto', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31229027', 'Irvan Budiman', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31229451', 'Alvin Kartika', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31239549', 'Nicholas Angkasa', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249207', 'Raymond Kartika', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31259757', 'Bryan Hadinata', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2025, 'active'),
+  ('D31249746', 'Bella Tanuwijaya', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31239185', 'Joanne Santoso', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('X06269011', 'Lachlan Reid', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Monash University', 'AU', 2026, 'active'),
+  ('X06269012', 'Lim Wei Jie', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Taylor''s University', 'MY', 2026, 'active'),
+  ('X05259013', 'Nur Hazwani binti Yusof', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Universiti Brunei Darussalam', 'BN', 2025, 'active'),
+  ('X05259014', 'Zoe Campbell', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Curtin University', 'AU', 2025, 'active'),
+  ('X06259015', 'Ji-woo Shin', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Yonsei University', 'KR', 2025, 'active'),
+  -- 10_kegiatan_tambahan_4
+  ('D31259442', 'Michelle Angkasa', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2025, 'active'),
+  ('D31239083', 'Joanne Chandra', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31229852', 'Gilbert Angkasa', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31239791', 'Kenneth Sutanto', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249994', 'Kenneth Pangestu', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31239881', 'Evan Pangestu', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31229748', 'Calvin Kartika', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31239043', 'Priscilla Kartika', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31239676', 'Joshua Jayadi', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249546', 'Joanne Tan', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31249493', 'Kevin Lukito', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31249971', 'Joanne Tedja', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31249923', 'Joshua Susilo', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31249797', 'Matthew Rusli', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31239469', 'Vincent Soetomo', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31229309', 'Raymond Jayadi', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31259588', 'Ricky Kusnadi', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2025, 'active'),
+  ('D31249029', 'Albert Kusnadi', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31239820', 'Karina Rusli', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249725', 'Samuel Lukito', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('H71249141', 'Aurelia Hadinata', 'H', 'School of Business and Management', 'Magister Manajemen', 'regular', null, null, 2024, 'active'),
+  ('H71249876', 'Hana Halim', 'H', 'School of Business and Management', 'Magister Manajemen', 'regular', null, null, 2024, 'active'),
+  ('H71249078', 'Ricky Pangestu', 'H', 'School of Business and Management', 'Magister Manajemen', 'regular', null, null, 2024, 'active'),
+  ('H71259136', 'Carissa Budiman', 'H', 'School of Business and Management', 'Magister Manajemen', 'regular', null, null, 2025, 'active'),
+  ('H71259686', 'Felix Soetomo', 'H', 'School of Business and Management', 'Magister Manajemen', 'regular', null, null, 2025, 'active'),
+  ('X05259016', 'Thanakorn Chaiwat', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Chulalongkorn University', 'TH', 2025, 'active'),
+  ('X06259017', 'Chen-wei Lo', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'National Taiwan University', 'TW', 2025, 'active'),
+  ('X05269018', 'Wong Ka Yan', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Hong Kong Baptist University', 'HK', 2026, 'active'),
+  ('X05259019', 'Ananya Sharma', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Manipal Academy of Higher Education', 'IN', 2025, 'active'),
+  ('X05259020', 'Thijs van Dijk', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Amsterdam', 'NL', 2025, 'active'),
+  -- 10_kegiatan_tambahan_5
+  ('C22259857', 'Fiona Darmawan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2025, 'active'),
+  ('C22229994', 'Irvan Darmawan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2022, 'active'),
+  ('C22239024', 'Nathania Lim', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2023, 'active'),
+  ('C22249123', 'Debora Hartanto', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22249999', 'Raymond Effendi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22229438', 'Yemima Wijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2022, 'active'),
+  ('C22239955', 'Kristina Santoso', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2023, 'active'),
+  ('C22239188', 'Marcel Chandra', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2023, 'active'),
+  ('C22249635', 'Valencia Halim', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22249514', 'Sharon Chandra', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22239208', 'Carissa Tan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2023, 'active'),
+  ('C22249824', 'Yemima Tan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22239295', 'Joanne Wibisono', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2023, 'active'),
+  ('C22249177', 'Joshua Soetomo', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2024, 'active'),
+  ('C22229221', 'Gerald Kartika', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Interior', 'regular', null, null, 2022, 'active'),
+  ('E42259904', 'Albert Pangestu', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2025, 'active'),
+  ('E42249976', 'Kenneth Sanjaya', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2024, 'active'),
+  ('E42239200', 'Darren Wijaya', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2023, 'active'),
+  ('E42249697', 'Kenneth Prawira', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2024, 'active'),
+  ('E42239001', 'Valencia Hadinata', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2023, 'active'),
+  ('E42239798', 'Darren Pangestu', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2023, 'active'),
+  ('E42249420', 'Felix Effendi', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2024, 'active'),
+  ('E42239215', 'Steven Suryadi', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2023, 'active'),
+  ('E42239743', 'Glory Rusli', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2023, 'active'),
+  ('E42249210', 'Matthew Kartika', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Ilmu Komunikasi', 'regular', null, null, 2024, 'active'),
+  ('X06259021', 'Paul Richter', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Hochschule Bremen', 'DE', 2025, 'active'),
+  ('X05259022', 'Ruby Anderson', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Technology Sydney', 'AU', 2025, 'active'),
+  ('X05259023', 'Rin Matsumoto', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Kanazawa Institute of Technology', 'JP', 2025, 'active'),
+  ('X06259024', 'Muhammad Haziq bin Ali', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Universiti Brunei Darussalam', 'BN', 2025, 'active'),
+  ('X05259025', 'Marcus Goh', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Temasek Polytechnic', 'SG', 2025, 'active'),
+  -- 10_kegiatan_tambahan_6
+  ('C21239954', 'Hana Gunawan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239549', 'Cynthia Tanuwijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21259848', 'Calvin Jayadi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21259343', 'Ricky Tedja', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21239991', 'Clara Effendi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239626', 'Edward Tan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239301', 'Matthew Wijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21249196', 'Kenneth Widjaja', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21249481', 'Irvan Angkasa', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21249147', 'Joanne Darmawan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21259948', 'Tiffany Suryadi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21259543', 'Joshua Santoso', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21239888', 'Valencia Gunawan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239659', 'Kevin Wibisono', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21249776', 'Vincent Setiadi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21229377', 'Alvin Tan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21259428', 'Gerald Angkasa', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21259142', 'Felix Santoso', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21229391', 'Felix Widjaja', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21239562', 'Natasha Jayadi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21249999', 'Raymond Wibisono', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21229931', 'Jovan Tanuwijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21249451', 'Steven Prawira', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21239724', 'Debora Susilo', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239896', 'Darren Rusli', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('X06269026', 'Hamish Clarke', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Technology Sydney', 'AU', 2026, 'active'),
+  ('X06269027', 'Mia Robertson', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Technology Sydney', 'AU', 2026, 'active'),
+  ('X05259028', 'Lena Koch', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Hochschule Bremen', 'DE', 2025, 'active'),
+  ('X05259029', 'Abigail Vander Meer', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Calvin University', 'US', 2025, 'active'),
+  ('X06269030', 'Nurul Izzah binti Rahim', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Taylor''s University', 'MY', 2026, 'active'),
+  -- 10_kegiatan_tambahan_7
+  ('B11229965', 'Nathania Kartika', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11239432', 'Owen Chandra', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11229081', 'Elisabeth Wijaya', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11259395', 'Owen Widjaja', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2025, 'active'),
+  ('B11249182', 'Clara Setiadi', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B12239310', 'Vincent Lukito', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12249808', 'Yoel Lim', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2024, 'active'),
+  ('B12259428', 'Felix Kartika', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12239803', 'Bella Widjaja', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12239093', 'Owen Kusnadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('D31239877', 'Darren Kartika', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31239764', 'Nathania Tan', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249852', 'Yoel Rusli', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D31229441', 'Steven Sanjaya', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31249140', 'Gilbert Sutanto', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D32239280', 'Darren Kusnadi', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32239903', 'Christian Rusli', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32249932', 'Karina Santoso', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32249413', 'Sharon Budiman', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32259676', 'Bryan Kusnadi', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2025, 'active'),
+  ('C21229456', 'Agnes Soetomo', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21239107', 'Marcel Sanjaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21249850', 'Wendy Lukito', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('C21229874', 'Edward Wijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21239176', 'Samuel Tan', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('X06269031', 'Hui-min Tseng', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'National Taiwan University', 'TW', 2026, 'active'),
+  ('X05269032', 'Siriporn Kaewmanee', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Chulalongkorn University', 'TH', 2026, 'active'),
+  ('X06259033', 'Oscar Bennett', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Monash University', 'AU', 2025, 'active'),
+  ('X05269034', 'Sota Fujimoto', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Kanazawa Institute of Technology', 'JP', 2026, 'active'),
+  ('X05269035', 'Maximilian Braun', 'E', 'Fakultas Humaniora dan Industri Kreatif', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Hochschule Bremen', 'DE', 2026, 'active'),
+  -- 10_kegiatan_tambahan_8
+  ('B11239024', 'Karina Kartika', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11239809', 'Jessica Angkasa', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2023, 'active'),
+  ('B11249208', 'Kristina Budiman', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2024, 'active'),
+  ('B11229632', 'Adrian Darmawan', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B11229075', 'Nicholas Chandra', 'B', 'Fakultas Teknologi Industri', 'Informatika', 'regular', null, null, 2022, 'active'),
+  ('B12259442', 'Kevin Suryadi', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2025, 'active'),
+  ('B12239276', 'Vincent Prawira', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12239596', 'Alvin Hartanto', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12239147', 'Irvan Susilo', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('B12239970', 'Priscilla Santoso', 'B', 'Fakultas Teknologi Industri', 'Teknik Elektro', 'regular', null, null, 2023, 'active'),
+  ('D31229599', 'Owen Gunawan', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2022, 'active'),
+  ('D31239924', 'Kenneth Kusnadi', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31239267', 'Adrian Susilo', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31239013', 'Valencia Wijaya', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2023, 'active'),
+  ('D31249008', 'Priscilla Hartanto', 'D', 'School of Business and Management', 'Manajemen', 'regular', null, null, 2024, 'active'),
+  ('D32239187', 'Christian Soetomo', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32249796', 'Valencia Sanjaya', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32239589', 'Gerald Effendi', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2023, 'active'),
+  ('D32249171', 'Joshua Hadinata', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2024, 'active'),
+  ('D32229270', 'Amanda Soetomo', 'D', 'School of Business and Management', 'Akuntansi', 'regular', null, null, 2022, 'active'),
+  ('C21229761', 'Tiffany Wijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2022, 'active'),
+  ('C21259377', 'Stefanie Widjaja', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2025, 'active'),
+  ('C21239657', 'Karina Jayadi', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21239466', 'Fiona Wijaya', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2023, 'active'),
+  ('C21249938', 'Angela Tedja', 'C', 'Fakultas Humaniora dan Industri Kreatif', 'Desain Komunikasi Visual', 'regular', null, null, 2024, 'active'),
+  ('X06269036', 'Sarah Teo Xin Yi', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'National University of Singapore', 'SG', 2026, 'active'),
+  ('X05269037', 'Seung-hyun Baek', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Yonsei University', 'KR', 2026, 'active'),
+  ('X06269038', 'Tan Mei Ling', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Taylor''s University', 'MY', 2026, 'active'),
+  ('X06269039', 'Arif bin Zulkifli', 'B', 'Fakultas Teknologi Industri', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'Universiti Teknologi Malaysia', 'MY', 2026, 'active'),
+  ('X06269040', 'Fleur de Jong', 'D', 'School of Business and Management', 'Program Pertukaran (Inbound)', 'inbound_exchange', 'University of Amsterdam', 'NL', 2026, 'active')
+on conflict (nrp) do nothing;
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_1.sql
+-- seed-supabase/10_kegiatan_tambahan_1 (simks-partnership): additional bulk kegiatan 221-245, adapted from the local
+-- demo seed supabase/seed/04_bulk_1.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 11, 19, 25, 30, 34, 83, 105, 107, 126, 181, 184, 188, 191, 193, 200. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{11,19,25,30,34,83,105,107,126,181,184,188,191,193,200}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_1: SIM Kerjasama agreements missing, kegiatan 221-245 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(221, 'Kuliah Tamu Machine Learning untuk Visi Komputer dari Kanazawa Institute of Technology', 68, 15, 'inbound', '2025-09-15', '2025-09-16', 'offline', 'Auditorium Gedung P PCU', 'ID', 105, '{4,9}', 'Kuliah tamu dua hari tentang deep learning untuk inspeksi visual di industri manufaktur Jepang, disertai sesi praktik klasifikasi citra cacat produk bagi mahasiswa Informatika semester 5.', pg_temp.wib('2025-09-25', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Hiroshi Tanaka", "institution": "Kanazawa Institute of Technology", "country_code": "JP", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(222, 'Inbound Student Exchange Informatika Xiamen University Semester Ganjil 2025', 68, 2, 'inbound', '2025-09-01', '2025-12-19', 'offline', 'Kampus PCU Siwalankerto', 'ID', 184, '{4,17}', 'Mahasiswa Xiamen University mengikuti satu semester perkuliahan Informatika di PCU (Pemrograman Web, Basis Data Lanjut, Kecerdasan Buatan) dengan pengakuan kredit di universitas asal.', pg_temp.wib('2026-01-08', '09:00'), 'approved', pg_temp.wib('2026-01-15', '14:00'));
+select pg_temp.bulk_pset(222, '{}', '{X06259003}', '{PG557816}');
+select pg_temp.bulk_act(223, 'Riset Bersama Sensor IoT untuk Pertanian Presisi dengan Universitas Brawijaya', 65, 4, 'outbound', '2025-10-13', '2025-10-17', 'offline', 'Kebun Percobaan Fakultas Pertanian Universitas Brawijaya, Malang', 'ID', 193, '{2,9}', 'Tim dosen Teknik Elektro melakukan kalibrasi bersama jaringan sensor kelembapan tanah berbasis LoRaWAN di kebun percobaan Universitas Brawijaya serta menyusun rencana publikasi hasil uji lapangan.', pg_temp.wib('2025-10-28', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Bambang Susilo, M.Sc.Agr.", "institution": "Universitas Brawijaya", "country_code": "ID", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(224, 'Short Program Data Science and Analytics di NTUST Taipei 2025', 68, 23, 'outbound', '2025-10-20', '2025-11-07', 'offline', 'NTUST Taipei Campus, Department of Computer Science and Information Engineering', 'TW', 200, '{4,9}', 'Program singkat tiga minggu berisi kuliah analitik big data, praktikum Python untuk machine learning, dan proyek kelompok analisis data transportasi publik kota Taipei.', pg_temp.wib('2025-11-20', '09:00'), 'approved', pg_temp.wib('2025-11-27', '14:00'));
+select pg_temp.bulk_pset(224, '{B11239558,B11239097,B11229093,B11239548}', '{}', '{PG663266}');
+select pg_temp.bulk_act(225, 'Workshop Penyelarasan Kurikulum Rekayasa Perangkat Lunak bersama ITB', 68, 11, 'outbound', '2025-11-17', '2025-11-18', 'offline', 'Kampus ITB Ganesha, Bandung', 'ID', 83, '{4}', 'Lokakarya penyelarasan capaian pembelajaran mata kuliah rekayasa perangkat lunak dan DevOps antara Informatika PCU dan STEI ITB, menghasilkan draf peta mata kuliah setara untuk program pertukaran.', pg_temp.wib('2025-11-28', '09:00'), null, null, p_co_units => '{28}');
+select pg_temp.bulk_act(226, 'Inbound Short Program Industrial Automation TH Deggendorf 2025', 67, 23, 'inbound', '2025-11-24', '2025-12-12', 'offline', 'Laboratorium Sistem Manufaktur Gedung P PCU', 'ID', 126, '{4,9,17}', 'Mahasiswa Technische Hochschule Deggendorf mengikuti program tiga minggu tentang otomasi lini produksi dengan PLC dan sistem MES, termasuk kunjungan industri ke kawasan SIER Surabaya.', pg_temp.wib('2025-12-22', '09:00'), 'approved', pg_temp.wib('2026-01-05', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(226, '{}', '{X05259004}', '{PG681184}');
+select pg_temp.bulk_act(227, 'Kuliah Bersama Cloud Computing dengan University of Amsterdam', 68, 34, 'inbound', '2025-09-08', '2025-12-12', 'online', 'Microsoft Teams', null, 191, '{4,9}', 'Mata kuliah Cloud Computing diajarkan bersama secara daring oleh dosen Informatika PCU dan dosen University of Amsterdam selama satu semester, mencakup arsitektur serverless dan kontainerisasi.', pg_temp.wib('2025-12-18', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Pieter de Vries", "institution": "University of Amsterdam", "country_code": "NL", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(228, 'Magang Smart Factory di Technische Hochschule Deggendorf', 67, 21, 'outbound', '2026-01-05', '2026-01-30', 'offline', 'Technologie Campus Cham, Technische Hochschule Deggendorf', 'DE', 126, '{8,9}', 'Mahasiswa Teknik Industri magang di laboratorium smart production TH Deggendorf, mengerjakan pemetaan aliran nilai dan integrasi sensor untuk lini perakitan cerdas skala pilot.', pg_temp.wib('2026-02-12', '09:00'), 'approved', pg_temp.wib('2026-02-20', '14:00'));
+select pg_temp.bulk_pset(228, '{B13239251,B13239748}', '{}', '{PG634699}');
+select pg_temp.bulk_act(229, 'Seminar Internasional AI for Smart Manufacturing bersama Kanazawa Institute of Technology', 67, 35, 'inbound', '2026-02-24', '2026-02-25', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 105, '{8,9}', 'Seminar internasional dua hari membahas penerapan kecerdasan buatan pada pemeliharaan prediktif dan kendali kualitas, dihadiri 180 peserta luring dan daring dari kampus serta industri Jawa Timur.', pg_temp.wib('2026-03-06', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Kenji Yamamoto", "institution": "Kanazawa Institute of Technology", "country_code": "JP", "role": "speaker"}, {"full_name": "Dr. Ayumi Sato", "institution": "Kanazawa Institute of Technology", "country_code": "JP", "role": "speaker"}]', p_co_units => '{28,68,65}');
+select pg_temp.bulk_act(230, 'Student Exchange Informatika di National Taiwan University Semester Genap 2026', 68, 2, 'outbound', '2026-02-16', '2026-06-19', 'offline', 'National Taiwan University, Main Campus Taipei', 'TW', 30, '{4,17}', 'Tiga mahasiswa Informatika menempuh satu semester di National Taiwan University dengan mata kuliah Deep Learning, Distributed Systems, dan Mandarin dasar; kredit diakui melalui skema transfer kredit.', pg_temp.wib('2026-07-02', '09:00'), 'approved', pg_temp.wib('2026-07-10', '14:00'));
+select pg_temp.bulk_pset(230, '{B11249656,B11229911,B11239054}', '{}', '{}');
+select pg_temp.bulk_act(231, 'Inbound Credit Transfer National Taiwan University di Prodi Informatika 2026', 68, 33, 'inbound', '2026-02-09', '2026-06-12', 'offline', 'Kampus PCU Siwalankerto', 'ID', 30, '{4,17}', 'Mahasiswa National Taiwan University mengambil 18 SKS mata kuliah Informatika PCU (Pengembangan Aplikasi Mobile, Interaksi Manusia dan Komputer) yang dikonversi ke kredit di universitas asal.', pg_temp.wib('2026-06-24', '09:00'), 'approved', pg_temp.wib('2026-07-03', '14:00'));
+select pg_temp.bulk_pset(231, '{}', '{X06269001}', '{PG593383}');
+select pg_temp.bulk_act(232, 'Riset Bersama Digital Twin Lini Produksi dengan TH Deggendorf', 67, 4, 'inbound', '2026-03-09', '2026-05-29', 'hybrid', 'Laboratorium Sistem Produksi Gedung P PCU', 'ID', 126, '{9,12}', 'Pengembangan purwarupa digital twin lini perakitan skala laboratorium untuk simulasi penjadwalan dan pengurangan limbah produksi, dengan pertemuan daring mingguan dan kunjungan peneliti TH Deggendorf.', pg_temp.wib('2026-07-08', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr.-Ing. Markus Hofmann", "institution": "Technische Hochschule Deggendorf", "country_code": "DE", "role": "researcher"}]');
+select pg_temp.bulk_act(233, 'Academic Exchange Teknik Industri National University of Singapore 2026', 67, 28, 'inbound', '2026-03-02', '2026-05-22', 'offline', 'Laboratorium Optimasi dan Rekayasa Industri Gedung P PCU', 'ID', 19, '{4,9}', 'Mahasiswa National University of Singapore mengikuti perkuliahan Riset Operasi dan Ergonomi Industri serta terlibat dalam proyek optimasi tata letak gudang mitra industri Teknik Industri PCU.', pg_temp.wib('2026-06-04', '09:00'), 'approved', pg_temp.wib('2026-06-12', '14:00'));
+select pg_temp.bulk_pset(233, '{}', '{X06259002}', '{}');
+select pg_temp.bulk_act(234, 'Pelatihan dan Sertifikasi IoT Developer bersama Temasek Polytechnic', 67, 44, 'inbound', '2026-04-20', '2026-04-24', 'offline', 'Laboratorium Internet of Things Gedung P PCU', 'ID', 188, '{4,8}', 'Pelatihan lima hari pemrograman mikrokontroler, protokol MQTT, dan dashboard IoT yang ditutup dengan ujian sertifikasi IoT Developer berstandar Temasek Polytechnic untuk 30 mahasiswa Teknik Industri dan Informatika.', pg_temp.wib('2026-05-06', '09:00'), null, null, p_ext => '[{"full_name": "Mr. Tan Jun Hao", "institution": "Temasek Polytechnic", "country_code": "SG", "role": "visiting_lecturer"}]', p_co_units => '{68}');
+select pg_temp.bulk_act(235, 'Kunjungan Akademik Teknik Industri ke Kyoto Sangyo University', 67, 27, 'outbound', '2026-04-13', '2026-04-16', 'offline', 'Kyoto Sangyo University, Kamigamo Campus', 'JP', 11, '{9,17}', 'Delegasi pimpinan Teknik Industri dan FTI meninjau laboratorium sistem informasi dan rekayasa produksi Kyoto Sangyo University untuk menindaklanjuti kerja sama serta merancang skema riset bersama periode 2026-2031.', pg_temp.wib('2026-04-27', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Takeshi Nakamura", "institution": "Kyoto Sangyo University", "country_code": "JP", "role": "other"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(236, 'Pengabdian Masyarakat Smart Village Berbasis IoT bersama ITB', 68, 40, 'outbound', '2026-07-06', '2026-07-10', 'offline', 'Desa Ketapanrame, Trawas, Mojokerto', 'ID', 83, '{1,9,11}', 'Pemasangan sistem pemantauan debit air dan panel informasi desa berbasis IoT bersama tim ITB, disertai pelatihan perawatan perangkat bagi karang taruna desa.', pg_temp.wib('2026-07-20', '09:00'), null, null, p_co_units => '{28}');
+select pg_temp.bulk_act(237, 'June Program Robotika dan Otomasi Industri di Temasek Polytechnic', 67, 23, 'outbound', '2026-06-22', '2026-07-10', 'offline', 'Temasek Polytechnic, Tampines Campus', 'SG', 188, '{4,9}', 'Program tiga minggu tentang pemrograman robot kolaboratif, machine vision, dan integrasi PLC di pusat otomasi Temasek Polytechnic, ditutup presentasi proyek otomasi lini perakitan.', pg_temp.wib('2026-07-22', '09:00'), 'approved', pg_temp.wib('2026-07-30', '14:00'));
+select pg_temp.bulk_pset(237, '{B13249805,B13249021,B13249069,B13249311}', '{}', '{PG681184}');
+select pg_temp.bulk_act(238, 'Inbound Short Program Lean Manufacturing Temasek Polytechnic 2026', 67, 23, 'inbound', '2026-08-03', '2026-08-28', 'offline', 'Laboratorium Teknik Industri Gedung P PCU', 'ID', 188, '{4,9,17}', 'Mahasiswa Temasek Polytechnic mengikuti program empat minggu tentang lean manufacturing dan rantai pasok UMKM Jawa Timur, termasuk studi lapangan di dua pabrik mitra.', pg_temp.wib('2026-09-07', '09:00'), 'approved', pg_temp.wib('2026-09-15', '14:00'));
+select pg_temp.bulk_pset(238, '{}', '{X05269005}', '{}');
+select pg_temp.bulk_act(239, 'Guest Lecture Industry 4.0 Readiness dari Chulalongkorn University', 67, 7, 'inbound', '2026-08-19', '2026-08-19', 'online', 'Zoom Meeting', null, 25, '{8,9}', 'Kuliah tamu daring mengenai pengukuran kesiapan Industri 4.0 pada industri manufaktur Thailand dan pelajaran yang relevan bagi industri Indonesia, diikuti 150 mahasiswa Teknik Industri.', pg_temp.wib('2026-08-26', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Somchai Rattanakul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}]');
+select pg_temp.bulk_act(240, 'Studi Ekskursi Smart Manufacturing ke Kanazawa Institute of Technology', 67, 24, 'outbound', '2026-09-14', '2026-09-19', 'offline', 'Kanazawa Institute of Technology, Ogigaoka Campus', 'JP', 105, '{4,9}', 'Studi ekskursi enam hari ke laboratorium mekatronika Kanazawa Institute of Technology dan dua pabrik manufaktur di Hokuriku untuk mengamati penerapan sistem produksi cerdas dan otomasi.', pg_temp.daysago(6, '09:00'), 'pending', pg_temp.daysago(6, '09:00'));
+select pg_temp.bulk_pset(240, '{B13259437,B13259187,B13249780,B13239273,B13239019}', '{}', '{PG660389}');
+select pg_temp.bulk_act(241, 'Magang AI Engineering di NTUST Artificial Intelligence Center', 68, 21, 'outbound', '2026-07-20', '2026-09-11', 'offline', 'NTUST Taipei Campus, Taiwan Building Technology Center', 'TW', 200, '{8,9}', 'Dua mahasiswa Informatika magang delapan minggu di pusat AI NTUST, mengembangkan pipeline pelabelan data dan model deteksi objek untuk inspeksi konstruksi.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'));
+select pg_temp.bulk_pset(241, '{B11239992,B11229772}', '{}', '{}');
+select pg_temp.bulk_act(242, 'Short Program Cyber-Physical Systems di Universiti Teknologi Malaysia', 68, 23, 'outbound', '2026-08-10', '2026-08-28', 'offline', 'UTM Johor Bahru Campus', 'MY', 107, '{4,9}', 'Program tiga minggu tentang sistem siber-fisik, edge computing, dan keamanan jaringan industri di UTM, dengan proyek kelompok pemantauan mesin berbasis sensor getaran.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(9, '14:00'), p_mnote => 'Mohon unggah transkrip nilai UTM untuk B11249376 yang belum ada di berkas mobility, dan sesuaikan tanggal selesai dengan sertifikat (27 Agustus 2026).');
+select pg_temp.bulk_pset(242, '{B11239558,B11249376,B11249731,B11249484}', '{}', '{PG557816}');
+select pg_temp.bulk_act(243, 'Publikasi Bersama Material Komposit Daur Ulang untuk Manufaktur Aditif dengan University of Melbourne', 69, 37, 'outbound', '2026-08-03', '2026-09-18', 'online', 'Microsoft Teams', null, 181, '{9,12}', 'Penulisan dan pengiriman artikel bersama ke jurnal internasional bereputasi tentang karakterisasi filamen komposit daur ulang untuk manufaktur aditif, melalui rapat daring dua mingguan.', pg_temp.wib('2026-09-24', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Sarah Mitchell", "institution": "University of Melbourne", "country_code": "AU", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(244, 'Kuliah Tamu Large Language Models untuk Rekayasa Perangkat Lunak dari Xiamen University', 68, 15, 'inbound', '2026-11-09', '2026-11-10', 'offline', 'Auditorium Gedung P PCU', 'ID', 184, '{4,9}', 'Rencana kuliah tamu tentang pemanfaatan large language model untuk pembangkitan kode dan pengujian otomatis, disertai lokakarya praktik bagi mahasiswa Informatika.', null, null, null, p_files => '{ia}', p_ext => '[{"full_name": "Prof. Dr. Lin Hao", "institution": "Xiamen University", "country_code": "CN", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(245, 'Penyusunan Joint Curriculum Industrial Engineering bersama Chulalongkorn University', 67, 32, 'inbound', '2026-12-07', '2026-12-09', 'hybrid', 'Ruang Rapat Dekanat FTI Gedung P PCU', 'ID', 34, '{4,17}', 'Rencana lokakarya penyusunan kurikulum bersama program Industrial Engineering untuk skema double degree, mencakup pemetaan mata kuliah dan mekanisme penjaminan mutu.', null, null, null, p_ext => '[{"full_name": "Asst. Prof. Dr. Napat Wongsuwan", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor"}]');
+
+select pg_temp.bulk_verify(221, 245);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_2.sql
+-- seed-supabase/10_kegiatan_tambahan_2 (simks-partnership): additional bulk kegiatan 246-270, adapted from the local
+-- demo seed supabase/seed/04_bulk_2.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 25, 30, 31, 72, 77, 95, 105, 107, 126, 134, 143, 151, 181, 193, 195, 200. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{25,30,31,72,77,95,105,107,126,134,143,151,181,193,195,200}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_2: SIM Kerjasama agreements missing, kegiatan 246-270 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(246, 'Inbound Exchange Teknik Elektro dari Technische Hochschule Deggendorf 2025', 65, 2, 'inbound', '2025-09-01', '2025-12-19', 'offline', 'Kampus PCU Siwalankerto', 'ID', 126, '{4,17}', 'Mahasiswa Technische Hochschule Deggendorf mengikuti satu semester perkuliahan di Prodi Teknik Elektro PCU, termasuk mata kuliah Sistem Tenaga Listrik dan Energi Terbarukan serta proyek laboratorium konversi energi. Kredit ditransfer ke program Elektrotechnik di Deggendorf.', pg_temp.wib('2025-12-23', '09:00'), 'approved', pg_temp.wib('2026-01-06', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(246, '{}', '{X06269006}', '{}');
+select pg_temp.bulk_act(247, 'Kuliah Tamu Proteksi Sistem Tenaga dari Universitas Brawijaya', 65, 15, 'inbound', '2025-09-17', '2025-09-17', 'hybrid', 'Gedung P PCU', 'ID', 193, '{4,7}', 'Kuliah tamu dosen Teknik Elektro Universitas Brawijaya mengenai koordinasi relai proteksi dan deteksi gangguan pada jaringan distribusi dengan penetrasi pembangkit tersebar tinggi. Diikuti mahasiswa mata kuliah Proteksi Sistem Tenaga secara luring dan daring.', pg_temp.wib('2025-09-24', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Hadi Suyono, S.T., M.T.", "institution": "Universitas Brawijaya", "country_code": "ID", "role": "visiting_lecturer"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(248, 'Riset Bersama Optimasi PLTS Atap Kampus dengan Universiti Teknologi Malaysia', 65, 4, 'outbound', '2025-10-13', '2025-10-17', 'offline', 'Universiti Teknologi Malaysia, Johor Bahru', 'MY', 77, '{7,13}', 'Dosen Teknik Elektro melakukan pengukuran dan pemodelan kinerja PLTS atap di kampus UTM sebagai pembanding instalasi PCU. Tim menyusun metodologi optimasi sudut kemiringan dan jadwal pembersihan panel untuk iklim tropis lembap.', pg_temp.wib('2025-10-28', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Mohd Hafiz Abdullah", "institution": "Universiti Teknologi Malaysia", "country_code": "MY", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(249, 'Short Program Robotika Otonom di Kanazawa Institute of Technology', 65, 23, 'outbound', '2025-11-03', '2025-11-14', 'offline', 'Kanazawa Institute of Technology, Ogigaoka Campus', 'JP', 105, '{4,9}', 'Program singkat dua minggu tentang navigasi robot bergerak otonom, sensor LiDAR, dan ROS 2 di Kanazawa Institute of Technology. Mahasiswa Teknik Elektro menyelesaikan proyek kelompok robot pengantar barang dan mempresentasikannya di laboratorium mitra.', pg_temp.wib('2025-11-21', '09:00'), 'approved', pg_temp.wib('2025-12-01', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(249, '{B12239256,B12229628,B12239294}', '{}', '{PG204517}');
+select pg_temp.bulk_act(250, 'Seminar Teknologi Baterai Kendaraan Listrik bersama Universitas Indonesia', 65, 10, 'outbound', '2025-11-26', '2025-11-26', 'offline', 'Fakultas Teknik Universitas Indonesia, Depok', 'ID', 134, '{7,9,11}', 'Seminar bersama Fakultas Teknik Universitas Indonesia tentang sistem manajemen baterai (BMS), keamanan sel lithium-ion, dan infrastruktur pengisian kendaraan listrik di Indonesia. Dosen Teknik Elektro PCU menjadi pembicara sesi estimasi state-of-charge.', pg_temp.wib('2025-12-03', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Feri Yusivar, M.Eng.", "institution": "Universitas Indonesia", "country_code": "ID", "role": "speaker"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(251, 'Kunjungan Akademik Laboratorium Sistem Tenaga Universitas Indonesia', 65, 27, 'outbound', '2025-12-08', '2025-12-10', 'offline', 'Departemen Teknik Elektro Universitas Indonesia, Depok', 'ID', 134, '{7,17}', 'Delegasi Teknik Elektro PCU mengunjungi laboratorium sistem tenaga dan elektronika daya Universitas Indonesia untuk menjajaki topik riset lanjutan serta pemanfaatan bersama fasilitas uji. Hasilnya berupa daftar topik riset bersama 2026.', pg_temp.wib('2025-12-18', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Ir. Rudy Setiabudy", "institution": "Universitas Indonesia", "country_code": "ID", "role": "staff_visitor"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(252, 'Riset Bersama Prakiraan Beban Listrik Berbasis Machine Learning dengan Universitas Gadjah Mada', 65, 4, 'outbound', '2025-08-18', '2025-10-31', 'online', 'Microsoft Teams', null, 72, '{7,9}', 'Riset daring bersama Departemen Teknik Elektro dan Teknologi Informasi UGM untuk membangun model prakiraan beban listrik jangka pendek pada jaringan distribusi kampus. Data smart meter PCU dibandingkan dengan data gardu kampus Bulaksumur; luaran berupa draf artikel jurnal dan model LSTM terbuka.', pg_temp.wib('2025-11-07', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Bambang Sugiyantoro, M.T.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(253, 'Credit Transfer Inbound Sistem Tertanam dari Kanazawa Institute of Technology 2025', 65, 33, 'inbound', '2025-10-01', '2026-01-23', 'offline', 'Laboratorium Sistem Tertanam PCU', 'ID', 105, '{4}', 'Mahasiswa Kanazawa Institute of Technology mengambil mata kuliah Sistem Tertanam, Mikrokontroler, dan Internet of Things di Teknik Elektro PCU dengan pengakuan kredit di institusi asal. Proyek akhir berupa node sensor kualitas udara berdaya rendah.', pg_temp.wib('2026-02-25', '09:00'), 'approved', pg_temp.wib('2026-03-05', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(253, '{}', '{X06269009}', '{}');
+select pg_temp.bulk_act(254, 'Student Exchange Semester Genap Teknik Elektro di Hochschule Bremen', 65, 2, 'outbound', '2026-03-02', '2026-07-17', 'offline', 'Hochschule Bremen, Campus Neustadtswall', 'DE', 195, '{4,7,17}', 'Tiga mahasiswa Teknik Elektro mengikuti satu semester di program Elektrotechnik Hochschule Bremen dengan fokus energi terbarukan dan elektronika daya. Mata kuliah yang diambil dikonversi ke kurikulum PCU.', pg_temp.wib('2026-07-24', '09:00'), 'approved', pg_temp.wib('2026-08-05', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(254, '{B12239153,B12249412,B12239792}', '{}', '{}');
+select pg_temp.bulk_act(255, 'Inbound Exchange Teknik Mesin dari University of Melbourne Semester Genap 2026', 69, 2, 'inbound', '2026-03-02', '2026-06-26', 'offline', 'Kampus PCU Siwalankerto', 'ID', 181, '{4,7,17}', 'Mahasiswa University of Melbourne menjalani semester pertukaran di Teknik Mesin PCU dan bergabung dalam proyek pengering surya hibrida di Laboratorium Konversi Energi. Kegiatan juga mencakup kelas bahasa dan budaya Indonesia.', pg_temp.wib('2026-07-02', '09:00'), 'approved', pg_temp.wib('2026-07-10', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(255, '{}', '{X05269007}', '{}');
+select pg_temp.bulk_act(256, 'Kuliah Tamu Keamanan Siber Smart Grid dari Universitas Gadjah Mada', 65, 15, 'inbound', '2026-03-11', '2026-03-11', 'offline', 'Gedung P PCU', 'ID', 72, '{4,9}', 'Kuliah tamu dosen UGM tentang ancaman siber pada sistem SCADA dan advanced metering infrastructure, termasuk standar IEC 62351. Mahasiswa Teknik Elektro melakukan studi kasus serangan pada gardu induk digital.', pg_temp.wib('2026-03-17', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Eng. Sigit Basuki Wibowo", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "visiting_lecturer"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(257, 'Riset Bersama Inverter Grid-Forming Mikrogrid dengan NTUST', 65, 4, 'outbound', '2026-04-20', '2026-04-24', 'offline', 'National Taiwan University of Science and Technology, Taipei', 'TW', 200, '{7,9}', 'Riset bersama National Taiwan University of Science and Technology untuk pengembangan kontrol inverter grid-forming berbasis mikrokontroler DSP pada mikrogrid kampus. Pengujian hardware-in-the-loop dilakukan di laboratorium elektronika daya mitra.', pg_temp.wib('2026-05-04', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Chen Wei-Lun", "institution": "National Taiwan University of Science and Technology", "country_code": "TW", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(258, 'Pelatihan Daring PLC dan SCADA bersama Universitas Brawijaya', 65, 69, 'outbound', '2026-08-17', '2026-08-19', 'online', 'Zoom Meeting', null, 193, '{4,9}', 'Pelatihan daring tiga hari oleh instruktur Universitas Brawijaya tentang pemrograman PLC IEC 61131-3 dan perancangan HMI SCADA untuk dosen dan laboran Teknik Elektro. Peserta menyelesaikan studi kasus kontrol stasiun pompa.', pg_temp.wib('2026-08-25', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rini Nur Hasanah, S.T., M.Sc.", "institution": "Universitas Brawijaya", "country_code": "ID", "role": "speaker"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(259, 'Magang Riset Robot Kolaboratif Berbasis Visi Komputer di Yonsei University', 65, 21, 'outbound', '2026-06-01', '2026-07-24', 'offline', 'Yonsei University, Sinchon Campus, Seoul', 'KR', 143, '{4,8,9}', 'Magang riset delapan minggu di laboratorium robotika Yonsei University untuk pengembangan lengan robot kolaboratif dengan kendali berbasis visi komputer. Mahasiswa Teknik Elektro menyusun laporan teknis dan demo akhir.', pg_temp.wib('2026-07-29', '09:00'), 'approved', pg_temp.wib('2026-08-07', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(259, '{B12249256,B12249376,B12239075}', '{}', '{}');
+select pg_temp.bulk_act(260, 'Inbound Short Program Energi Terbarukan Universiti Teknologi Malaysia 2026', 65, 23, 'inbound', '2026-07-06', '2026-07-17', 'offline', 'Laboratorium Konversi Energi PCU', 'ID', 107, '{4,7}', 'Program singkat dua minggu bagi mahasiswa Universiti Teknologi Malaysia tentang sistem PLTS, turbin angin skala kecil, dan audit energi bangunan. Peserta melakukan kunjungan lapangan ke instalasi PLTS atap di Surabaya.', pg_temp.wib('2026-07-22', '09:00'), 'approved', pg_temp.wib('2026-07-31', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(260, '{}', '{X06269010}', '{}');
+select pg_temp.bulk_act(261, 'Pengabdian Masyarakat PLTS Off-Grid Desa bersama Universitas Brawijaya', 65, 40, 'outbound', '2026-02-23', '2026-02-27', 'offline', 'Desa Sidomulyo, Kabupaten Pacitan', 'ID', 193, '{1,7}', 'Dosen dan mahasiswa Teknik Elektro PCU bersama tim Universitas Brawijaya memasang PLTS off-grid 3 kWp untuk balai desa dan pompa air, serta melatih warga melakukan perawatan dasar panel dan baterai. Luaran berupa sistem terpasang dan modul perawatan.', pg_temp.wib('2026-03-06', '09:00'), null, null, p_ext => '[{"full_name": "Ir. Teguh Utomo, M.T.", "institution": "Universitas Brawijaya", "country_code": "ID", "role": "other"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(262, 'Joint Curriculum Telekomunikasi 5G dengan Kanazawa Institute of Technology', 65, 32, 'inbound', '2026-04-13', '2026-04-15', 'hybrid', 'Gedung P PCU', 'ID', 95, '{4,9}', 'Lokakarya penyusunan mata kuliah bersama Jaringan 5G dan Antena Gelombang Milimeter dengan Kanazawa Institute of Technology. Kedua pihak menyepakati capaian pembelajaran, modul praktikum, dan skema kuliah bersama mulai Ganjil 2026/2027.', pg_temp.wib('2026-04-21', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Takeshi Nakamura", "institution": "Kanazawa Institute of Technology", "country_code": "JP", "role": "visiting_lecturer"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(263, 'Inbound Exchange Kendaraan Listrik Yonsei University Semester Genap 2026', 69, 2, 'inbound', '2026-02-09', '2026-07-24', 'offline', 'Kampus PCU Siwalankerto', 'ID', 31, '{4,17}', 'Mahasiswa Yonsei University mengikuti satu semester di Teknik Mesin PCU dengan mata kuliah Kendaraan Listrik dan Sistem Penggerak serta proyek konversi sepeda motor listrik. Pengakuan kredit dilakukan oleh Yonsei University.', pg_temp.wib('2026-08-04', '09:00'), 'approved', pg_temp.wib('2026-08-12', '14:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(263, '{}', '{X05269008}', '{}');
+select pg_temp.bulk_act(264, 'Kunjungan Akademik Fakultas Teknik Chulalongkorn University', 65, 27, 'outbound', '2026-08-24', '2026-08-26', 'offline', 'Chulalongkorn University Faculty of Engineering, Bangkok', 'TH', 151, '{4,17}', 'Kunjungan pimpinan Teknik Elektro ke Chulalongkorn University untuk menindaklanjuti MoU: peninjauan laboratorium smart grid dan telekomunikasi serta penyusunan rencana pertukaran mahasiswa dan dosen 2027.', pg_temp.wib('2026-09-02', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Somchai Wongsiri", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(265, 'Summer Program Robotics and Automation di Chulalongkorn University', 65, 23, 'outbound', '2026-08-03', '2026-08-14', 'offline', 'Chulalongkorn University Faculty of Engineering, Bangkok', 'TH', 25, '{4,9}', 'Program musim panas dua minggu tentang otomasi industri, PLC, dan robot industri. Mahasiswa Teknik Elektro mengerjakan proyek sel manufaktur otomatis bersama mahasiswa Chulalongkorn University.', pg_temp.daysago(6, '09:00'), 'pending', pg_temp.daysago(6, '09:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(265, '{B12239256,B12229628,B12239294,B12239153,B12249412}', '{}', '{PG707752}');
+select pg_temp.bulk_act(266, 'Studi Ekskursi Teknologi Telekomunikasi 5G ke National Taiwan University', 65, 24, 'outbound', '2026-09-07', '2026-09-11', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{4,9}', 'Studi ekskursi lima hari ke laboratorium komunikasi nirkabel National Taiwan University dan operator telekomunikasi di Taipei. Mahasiswa mengamati pengujian antena 5G dan menyusun laporan perbandingan infrastruktur jaringan.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(266, '{B12239792,B12249256,B12249376}', '{}', '{PG413450}');
+select pg_temp.bulk_act(267, 'Magang Riset Powertrain Kendaraan Listrik di University of Melbourne', 69, 21, 'outbound', '2026-07-06', '2026-08-28', 'offline', 'University of Melbourne, Parkville Campus', 'AU', 181, '{8,9,11}', 'Magang delapan minggu di laboratorium e-mobility University of Melbourne, mencakup pengujian motor traksi, manajemen termal baterai, dan pengisi daya DC cepat. Mahasiswa Teknik Mesin menyusun laporan magang dan poster hasil pengujian.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(8, '14:00'), p_mnote => 'Sertifikat magang dari University of Melbourne dan transkrip konversi SKS belum diunggah untuk kedua mahasiswa. Mohon lengkapi berkas mobilitas sebelum diajukan ulang.', p_co_units => '{28}');
+select pg_temp.bulk_pset(267, '{B14239757,B14229309}', '{}', '{}');
+select pg_temp.bulk_act(268, 'Seminar Internasional Transisi Energi Terbarukan bersama Universiti Teknologi Malaysia', 65, 10, 'inbound', '2026-09-16', '2026-09-16', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 77, '{7,13,17}', 'Seminar internasional tentang integrasi energi terbarukan ke jaringan listrik Indonesia dan Malaysia, penyimpanan energi, dan kebijakan net-zero. Menghadirkan pembicara UTM dan dosen Teknik Elektro PCU dengan lebih dari 200 peserta.', pg_temp.wib('2026-09-22', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Ahmad Faizal Rahman", "institution": "Universiti Teknologi Malaysia", "country_code": "MY", "role": "speaker"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(269, 'Workshop Persiapan Kontes Robot Sepak Bola Beroda bersama Universitas Gadjah Mada', 65, 35, 'inbound', '2026-11-09', '2026-11-11', 'offline', 'Laboratorium Robotika PCU', 'ID', 72, '{4,9}', 'Rencana lokakarya bersama persiapan kontes robot sepak bola beroda, meliputi desain mekanik, kendali motor, dan strategi multi-agen. Tim robotika UGM akan berbagi pengalaman mengikuti Kontes Robot Indonesia.', null, null, null, p_files => '{ia}', p_co_units => '{28}');
+select pg_temp.bulk_act(270, 'Credit Transfer Teknik Elektro ke Hochschule Bremen Ganjil 2026/2027', 65, 33, 'outbound', '2026-10-05', '2027-01-29', 'offline', 'Hochschule Bremen, Campus Neustadtswall', 'DE', 195, '{4,7}', 'Rencana program transfer kredit satu semester di Hochschule Bremen untuk mata kuliah Sistem Tenaga Lanjut dan Penyimpanan Energi. Draf menunggu konfirmasi letter of acceptance dari mitra.', null, null, null, p_files => '{}', p_co_units => '{28}');
+select pg_temp.bulk_pset(270, '{B12249585,B12239075}', '{}', '{}');
+
+select pg_temp.bulk_verify(246, 270);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_3.sql
+-- seed-supabase/10_kegiatan_tambahan_3 (simks-partnership): additional bulk kegiatan 271-295, adapted from the local
+-- demo seed supabase/seed/04_bulk_3.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 15, 25, 30, 31, 70, 100, 112, 127, 143, 156, 158, 159, 160, 166, 167, 174. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{15,25,30,31,70,100,112,127,143,156,158,159,160,166,167,174}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_3: SIM Kerjasama agreements missing, kegiatan 271-295 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(271, 'Riset Bersama Sustainability Reporting UMKM Manufaktur dengan Universitas Pelita Harapan', 6, 4, 'outbound', '2025-09-01', '2025-12-15', 'offline', 'Fakultas Ekonomi dan Bisnis Universitas Pelita Harapan, Tangerang', 'ID', 112, '{12,8,17}', 'Penelitian bersama untuk menyusun model pelaporan keberlanjutan sederhana berbasis standar GRI bagi UMKM manufaktur di Jawa Timur dan Banten. Luaran berupa instrumen pengungkapan ESG dan draf artikel jurnal bersama.', pg_temp.wib('2025-12-19', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rizky Aditya Wibisono, S.E., M.Ak.", "institution": "Universitas Pelita Harapan", "country_code": "ID", "role": "researcher", "notes": "Peneliti utama dari Program Studi Akuntansi FEB UPH"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(272, 'Student Exchange Akuntansi Yonsei School of Business Fall 2025', 6, 2, 'outbound', '2025-09-01', '2025-12-19', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 143, '{4,17}', 'Tiga mahasiswa Akuntansi mengikuti satu semester perkuliahan di Yonsei School of Business, termasuk mata kuliah International Financial Reporting dan Managerial Accounting. Nilai dikonversi ke kurikulum Prodi Akuntansi PCU.', pg_temp.wib('2026-01-06', '09:00'), 'approved', pg_temp.wib('2026-01-15', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(272, '{D32249150,D32259472,D32249331}', '{}', '{}');
+select pg_temp.bulk_act(273, 'Kuliah Tamu International Taxation and Transfer Pricing dari National Taiwan University', 5, 15, 'inbound', '2025-10-22', '2025-10-22', 'offline', 'Auditorium Gedung W PCU', 'ID', 30, '{4,8,17}', 'Kuliah tamu bagi mahasiswa Manajemen dan Akuntansi tentang perpajakan internasional, BEPS, dan dokumentasi transfer pricing pada grup usaha Taiwan–Indonesia. Diikuti sekitar 180 mahasiswa.', pg_temp.wib('2025-11-03', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Chen Wei-Ting", "institution": "National Taiwan University", "country_code": "TW", "role": "speaker", "notes": "Department of Accounting, College of Management"}]', p_co_units => '{6}');
+select pg_temp.bulk_act(274, 'Short Program Hospitality & Tourism Management di KMUTT Bangkok', 5, 23, 'outbound', '2025-11-10', '2025-11-21', 'offline', 'KMUTT Bangmod Campus, Bangkok', 'TH', 156, '{8,4}', 'Program singkat dua minggu tentang manajemen hospitality, revenue management hotel, dan pariwisata berkelanjutan di Thailand, dilengkapi kunjungan industri ke hotel dan operator wisata di Bangkok.', pg_temp.wib('2025-12-02', '09:00'), 'approved', pg_temp.wib('2025-12-10', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(274, '{D31249692,D31239726,D31229821,D31229027}', '{}', '{}');
+select pg_temp.bulk_act(275, 'Online Course Sustainable Finance and ESG Investing bersama University of Amsterdam', 5, 79, 'outbound', '2025-10-01', '2025-11-26', 'online', 'Microsoft Teams', null, 166, '{13,8,4}', 'Kursus daring delapan pertemuan mengenai keuangan berkelanjutan, analisis skor ESG, dan green bonds yang diampu dosen Amsterdam Business School. Peserta menyusun analisis portofolio ESG sebagai tugas akhir.', pg_temp.wib('2025-12-05', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Maarten de Vries", "institution": "University of Amsterdam", "country_code": "NL", "role": "visiting_lecturer", "notes": "Amsterdam Business School"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(276, 'International Conference on Accounting and Sustainable Finance (ICASF) 2025', 6, 10, 'inbound', '2025-11-27', '2025-11-28', 'hybrid', 'Gedung P PCU', 'ID', 112, '{8,12,17}', 'Konferensi internasional dua hari yang diselenggarakan School of Business and Management PCU bersama FEB Universitas Pelita Harapan dengan 64 makalah tentang akuntansi keberlanjutan, tata kelola, dan keuangan hijau. Prosiding terbit dengan ISBN.', pg_temp.wib('2025-12-08', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Dian Kartikasari, S.E., M.Si., Ak.", "institution": "Universitas Pelita Harapan", "country_code": "ID", "role": "speaker", "notes": "Keynote speaker"}, {"full_name": "Dr. Bagus Hendra Saputra, S.E., M.M.", "institution": "Universitas Pelita Harapan", "country_code": "ID", "role": "speaker"}]', p_co_units => '{5,4}');
+select pg_temp.bulk_act(277, 'Inbound Exchange Curtin Business School di Prodi Akuntansi Semester Ganjil 2025/2026', 6, 2, 'inbound', '2025-09-01', '2026-01-16', 'offline', 'Kampus PCU Siwalankerto', 'ID', 160, '{4,17}', 'Mahasiswa Curtin Business School mengikuti satu semester perkuliahan di PCU, termasuk mata kuliah Asian Business Environment, Akuntansi Keuangan Lanjutan, dan Bahasa Indonesia untuk Penutur Asing.', pg_temp.wib('2026-01-27', '09:00'), 'approved', pg_temp.wib('2026-02-05', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(277, '{}', '{X05259014}', '{}');
+select pg_temp.bulk_act(278, 'Pendampingan Pembukuan Digital UMKM Kuliner Siwalankerto bersama Universitas Negeri Surabaya', 5, 40, 'outbound', '2026-01-05', '2026-01-23', 'offline', 'Balai RW Kelurahan Siwalankerto, Surabaya', 'ID', 70, '{1,8,10}', 'Dosen dan mahasiswa Manajemen bersama tim Fakultas Ekonomika dan Bisnis Unesa mendampingi 25 pelaku UMKM kuliner menyusun pembukuan sederhana dengan aplikasi akuntansi gratis serta memisahkan keuangan usaha dan rumah tangga.', pg_temp.wib('2026-02-10', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Nurul Hidayati, S.E., M.Ak.", "institution": "Universitas Negeri Surabaya", "country_code": "ID", "role": "other", "notes": "Koordinator pengabdian masyarakat FEB Unesa"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(279, 'Inbound Exchange Yonsei University Spring 2026 di School of Business and Management', 6, 2, 'inbound', '2026-02-02', '2026-06-12', 'offline', 'Kampus PCU Siwalankerto', 'ID', 31, '{4,17}', 'Mahasiswa Yonsei University mengikuti semester genap di PCU dengan fokus pada akuntansi manajemen dan kewirausahaan di pasar Asia Tenggara, termasuk proyek konsultasi untuk UMKM Surabaya.', pg_temp.wib('2026-06-22', '09:00'), 'approved', pg_temp.wib('2026-06-30', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(279, '{}', '{X06259015}', '{}');
+select pg_temp.bulk_act(280, 'Kunjungan Akademik Chulalongkorn Business School ke PCU 2026', 5, 27, 'inbound', '2026-02-24', '2026-02-25', 'offline', 'Gedung P PCU', 'ID', 25, '{4,17}', 'Delegasi Chulalongkorn Business School membahas benchmarking kurikulum International Business, skema transfer kredit, dan rencana penambahan kuota pertukaran mahasiswa untuk tahun akademik 2026/2027.', pg_temp.wib('2026-03-06', '09:00'), null, null, p_ext => '[{"full_name": "Asst. Prof. Dr. Pornchai Wongsawat", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor", "notes": "International Affairs Coordinator, Chulalongkorn Business School"}, {"full_name": "Dr. Natthaya Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor", "notes": "Director, BBA International Program"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(281, 'Short Program Indonesian Business Culture untuk Mahasiswa Taylor''s University', 5, 23, 'inbound', '2026-03-02', '2026-03-13', 'offline', 'Gedung P PCU', 'ID', 167, '{4,8,17}', 'Program singkat dua minggu bagi mahasiswa Taylor''s Business School tentang budaya bisnis Indonesia, praktik bisnis keluarga Tionghoa-Indonesia, dan kunjungan perusahaan di Surabaya dan Gresik.', pg_temp.wib('2026-03-20', '09:00'), 'approved', pg_temp.wib('2026-03-27', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(281, '{}', '{X06269012}', '{}');
+select pg_temp.bulk_act(282, 'Magang Hospitality Management di Taipei melalui National Taiwan University', 5, 21, 'outbound', '2026-02-02', '2026-04-30', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{8,4}', 'Magang tiga bulan di hotel mitra National Taiwan University di Taipei pada divisi front office, F&B, dan revenue management. Mahasiswa menyusun laporan magang yang diakui sebagai mata kuliah Magang Industri.', pg_temp.wib('2026-05-12', '09:00'), 'approved', pg_temp.wib('2026-05-20', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(282, '{D31229451,D31239549,D31249207}', '{}', '{}');
+select pg_temp.bulk_act(283, 'Publikasi Bersama Kepatuhan Pajak UMKM Indonesia–Korea dengan Yonsei University', 5, 37, 'outbound', '2026-02-16', '2026-05-29', 'online', 'Microsoft Teams', null, 31, '{8,16,17}', 'Penulisan artikel bersama tentang faktor kepatuhan pajak UMKM di Indonesia dan Korea Selatan menggunakan data survei kedua negara. Naskah dikirim ke jurnal internasional bereputasi (Scopus Q2).', pg_temp.wib('2026-06-08', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Park Min-jae", "institution": "Yonsei University", "country_code": "KR", "role": "researcher", "notes": "Yonsei School of Business"}]', p_co_units => '{6}');
+select pg_temp.bulk_act(284, 'Workshop Lean Startup dan Business Model Validation bersama Fontys', 5, 35, 'inbound', '2026-03-18', '2026-03-19', 'hybrid', 'Gedung P PCU', 'ID', 159, '{8,9,4}', 'Workshop kewirausahaan dua hari bagi mahasiswa inkubator bisnis PCU tentang validasi model bisnis, customer discovery, dan penyusunan pitch deck, difasilitasi pelatih dari Fontys Centre for Entrepreneurship.', pg_temp.wib('2026-03-30', '09:00'), null, null, p_ext => '[{"full_name": "Lotte van den Berg, MBA", "institution": "Fontys University of Applied Sciences", "country_code": "NL", "role": "speaker", "notes": "Fontys Centre for Entrepreneurship"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(285, 'Pengembangan Kurikulum Bersama Akuntansi Keberlanjutan dengan National Taiwan University', 6, 11, 'outbound', '2026-04-13', '2026-04-17', 'offline', 'NTU College of Management, Taipei', 'TW', 15, '{4,12,13}', 'Tim dosen Akuntansi menyusun bersama silabus mata kuliah Sustainability Accounting and Assurance yang akan ditawarkan di kedua universitas, termasuk studi kasus perusahaan Taiwan dan Indonesia.', pg_temp.wib('2026-04-28', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Lin Hsiao-Mei", "institution": "National Taiwan University", "country_code": "TW", "role": "other", "notes": "Department of Accounting, NTU College of Management"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(286, 'Studi Ekskursi Pasar Modal dan Fintech Seoul bersama Yonsei University', 6, 24, 'outbound', '2026-05-11', '2026-05-16', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 31, '{8,9,4}', 'Kunjungan studi mahasiswa Akuntansi ke Korea Exchange, perusahaan fintech di Seoul, dan kelas bersama di Yonsei School of Business tentang regulasi pasar modal dan pelaporan keuangan digital.', pg_temp.wib('2026-05-26', '09:00'), 'approved', pg_temp.wib('2026-06-03', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(286, '{D32229204,D32239758,D32249505,D32259900,D32229279,D32249196,D32259976}', '{}', '{}');
+select pg_temp.bulk_act(287, 'Kuliah Tamu Forensic Accounting dan Pencegahan Fraud dari Universitas Surabaya', 6, 7, 'inbound', '2026-06-03', '2026-06-03', 'offline', 'Auditorium Gedung W PCU', 'ID', 158, '{16,4}', 'Kuliah tamu tentang teknik akuntansi forensik, red flag kecurangan laporan keuangan, dan studi kasus investigasi fraud di BUMN bagi mahasiswa Akuntansi semester enam.', pg_temp.wib('2026-07-28', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Hendra Gunawan Sutrisno, S.E., M.Ak., CFrA", "institution": "Universitas Surabaya", "country_code": "ID", "role": "speaker", "notes": "Fakultas Bisnis dan Ekonomika Ubaya"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(288, 'Short Program Global Supply Chain & Logistics di Chulalongkorn University', 5, 23, 'outbound', '2026-08-03', '2026-08-14', 'offline', 'Chulalongkorn Business School, Bangkok', 'TH', 25, '{9,8,4}', 'Program singkat dua minggu tentang manajemen rantai pasok global, logistik ASEAN, dan kunjungan ke Laem Chabang Port serta pusat distribusi di Bangkok bagi mahasiswa Manajemen.', pg_temp.wib('2026-08-24', '09:00'), 'approved', pg_temp.wib('2026-09-01', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(288, '{D31249692,D31239726,D31229821,D31229027,D31229451}', '{}', '{}');
+select pg_temp.bulk_act(289, 'Cultural Exchange Bisnis Keluarga Taiwan bersama National Taiwan University', 5, 29, 'outbound', '2026-08-24', '2026-09-04', 'offline', 'National Taiwan University, Taipei', 'TW', 30, '{4,8,17}', 'Pertukaran budaya dua minggu untuk mempelajari tata kelola dan suksesi bisnis keluarga Taiwan melalui kelas bersama, kunjungan perusahaan keluarga, dan homestay di Taipei.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(289, '{D31239726,D31229027,D31249207,D31249746}', '{}', '{}');
+select pg_temp.bulk_act(290, 'Academic Exchange Mahasiswa Universiti Brunei Darussalam di PCU 2026', 5, 28, 'inbound', '2026-08-17', '2026-09-18', 'offline', 'Gedung P PCU', 'ID', 174, '{4,17}', 'Mahasiswa UBD School of Business and Economics mengikuti perkuliahan Bisnis Internasional dan Akuntansi Perpajakan selama lima minggu serta proyek riset kecil tentang investasi Brunei di Jawa Timur.', pg_temp.daysago(6, '09:00'), 'pending', pg_temp.daysago(6, '09:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(290, '{}', '{X05259013}', '{}');
+select pg_temp.bulk_act(291, 'Program Imersi Accounting Analytics dan Audit Berbasis Data di Yonsei University', 5, 22, 'outbound', '2026-08-10', '2026-08-21', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 31, '{4,9}', 'Program imersi dua minggu tentang analitik data akuntansi, audit berbasis data, dan visualisasi keuangan dengan Python dan Power BI di Yonsei School of Business.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(9, '09:00'), p_mnote => 'Transkrip nilai dua mahasiswa belum diunggah dan surat keterangan selesai program dari Yonsei University belum ditandatangani. Mohon lengkapi bundel mobilitas lalu ajukan ulang.', p_co_units => '{6}');
+select pg_temp.bulk_pset(291, '{D31239549,D31249207,D31259757,D31249746,D31239185}', '{}', '{}');
+select pg_temp.bulk_act(292, 'Seminar Nasional Perpajakan Digital dan Coretax Administration System', 6, 10, 'inbound', '2026-09-09', '2026-09-09', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 158, '{16,8,17}', 'Seminar nasional tentang implementasi Coretax DJP, e-Faktur generasi baru, dan dampaknya bagi praktik akuntansi perusahaan, menghadirkan akademisi Ubaya dan praktisi perpajakan korporasi dari PT Sampoerna Strategic Square.', pg_temp.wib('2026-09-18', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Agus Widodo Prasetyo, S.E., M.Ak., BKP", "institution": "Universitas Surabaya", "country_code": "ID", "role": "speaker"}, {"full_name": "Yohanes Setiadi, S.E., M.Ak., BKP", "institution": "PT Sampoerna Strategic Square", "country_code": "ID", "role": "speaker", "notes": "Tax Manager"}]', p_co_units => '{5}');
+select pg_temp.bulk_act(293, 'Faculty Exchange Dosen Corporate Finance PCU di Fontys Venlo', 5, 31, 'outbound', '2026-09-14', '2026-09-25', 'offline', 'Fontys Venlo Campus', 'NL', 100, '{4,17}', 'Dua dosen Keuangan Prodi Manajemen mengajar modul Corporate Finance in Emerging Markets di Fontys Venlo dan menjajaki penelitian bersama tentang pembiayaan UKM di Indonesia dan Belanda.', pg_temp.wib('2026-09-29', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Thomas Janssen", "institution": "Fontys University of Applied Sciences", "country_code": "NL", "role": "other", "notes": "Host lecturer Fontys Venlo"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(294, 'Riset Bersama Integrated Reporting Perusahaan Keluarga dengan National Taiwan University', 6, 4, 'outbound', '2026-11-02', '2027-01-29', 'hybrid', 'NTU College of Management, Taipei', 'TW', 15, '{12,8,17}', 'Rencana riset bersama tentang penerapan integrated reporting dan pengungkapan keberlanjutan pada perusahaan keluarga tercatat di Bursa Efek Indonesia dan Taiwan Stock Exchange.', null, null, null, p_files => '{ia}', p_co_units => '{4}');
+select pg_temp.bulk_act(295, 'Kuliah Tamu Hotel Revenue Management dari KMUTT', 5, 15, 'inbound', '2026-09-30', '2026-09-30', 'online', 'Zoom Meeting', null, 127, '{8,4}', 'Kuliah tamu daring tentang strategi dynamic pricing, forecasting okupansi, dan distribusi kanal online pada industri perhotelan Thailand bagi mahasiswa Manajemen konsentrasi hospitality.', null, null, null, p_ext => '[{"full_name": "Asst. Prof. Dr. Siriporn Chaiyaporn", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "speaker"}]', p_co_units => '{4}');
+
+select pg_temp.bulk_verify(271, 295);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_4.sql
+-- seed-supabase/10_kegiatan_tambahan_4 (simks-partnership): additional bulk kegiatan 296-320, adapted from the local
+-- demo seed supabase/seed/04_bulk_4.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 12, 15, 25, 28, 30, 31, 62, 65, 123, 152, 166, 168, 174, 180. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{12,15,25,28,30,31,62,65,123,152,166,168,174,180}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_4: SIM Kerjasama agreements missing, kegiatan 296-320 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(296, 'Kuliah Tamu Digital Marketing Strategy in the K-Wave Era dari Yonsei School of Business', 5, 15, 'inbound', '2025-10-22', '2025-10-22', 'offline', 'Auditorium Gedung W PCU', 'ID', 31, '{4,8}', 'Kuliah tamu bagi mahasiswa mata kuliah Pemasaran Digital tentang strategi pemasaran merek Korea memanfaatkan Hallyu dan influencer marketing. Diikuti sekitar 180 mahasiswa Manajemen dan ditutup dengan studi kasus kampanye K-beauty di Asia Tenggara.', pg_temp.wib('2025-10-29', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Kim Jae-won, Ph.D.", "institution": "Yonsei University", "country_code": "KR", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(297, 'Student Exchange HKBU School of Business Semester Fall 2025', 5, 2, 'outbound', '2025-08-25', '2025-12-19', 'offline', 'Hong Kong Baptist University, Kowloon Tong', 'HK', 62, '{4,17}', 'Tiga mahasiswa Manajemen mengikuti satu semester perkuliahan di School of Business Hong Kong Baptist University dengan fokus mata kuliah International Marketing dan Consumer Behavior. Nilai dikonversi ke kurikulum Prodi Manajemen sebagai mata kuliah pilihan internasional.', pg_temp.wib('2026-01-07', '09:00'), 'approved', pg_temp.wib('2026-01-15', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(297, '{D31239083,D31239791,D31239881}', '{}', '{}');
+select pg_temp.bulk_act(298, 'Inbound Exchange University of Amsterdam di Prodi Manajemen PCU Semester Ganjil 2025', 5, 2, 'inbound', '2025-08-18', '2025-12-12', 'offline', 'Gedung P PCU', 'ID', 166, '{4,17}', 'Mahasiswa Amsterdam Business School, University of Amsterdam, mengikuti perkuliahan semester ganjil di Prodi Manajemen PCU, termasuk mata kuliah Indonesian Business Environment dan Entrepreneurship. Kegiatan dilengkapi program buddy dan kunjungan industri ke kawasan SIER Surabaya.', pg_temp.wib('2025-12-18', '09:00'), 'approved', pg_temp.wib('2025-12-29', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(298, '{}', '{X05259020}', '{}');
+select pg_temp.bulk_act(299, 'Riset Bersama Ketahanan Rantai Pasok UMKM Pangan Olahan dengan FEB UGM', 5, 4, 'outbound', '2025-10-20', '2025-12-31', 'hybrid', 'Fakultas Ekonomika dan Bisnis UGM', 'ID', 28, '{2,9,12}', 'Penelitian bersama mengenai ketahanan rantai pasok UMKM pangan olahan di Jawa Timur dan DIY melalui survei 120 pelaku usaha. Luaran berupa model pemetaan risiko pemasok dan draf artikel untuk jurnal terakreditasi SINTA 2.', pg_temp.wib('2026-02-10', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rangga Almahendra", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "researcher"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(300, 'Pengabdian Masyarakat Digitalisasi Pemasaran Kampung Batik Jetis bersama Unair', 5, 40, 'outbound', '2025-10-11', '2025-11-22', 'offline', 'Kampung Batik Jetis Sidoarjo', 'ID', 180, '{1,8,17}', 'Pendampingan 25 perajin batik Jetis dalam pembuatan katalog digital, pengelolaan akun marketplace, dan pencatatan penjualan sederhana. Dilaksanakan bersama dosen FEB Universitas Airlangga dalam enam kali pertemuan lapangan.', pg_temp.wib('2025-11-28', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Gancar Candra Premananto", "institution": "Universitas Airlangga", "country_code": "ID", "role": "other"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(301, 'Pelatihan Digital Business Analytics bersama Telkom Indonesia', 5, 69, 'inbound', '2025-10-15', '2025-10-16', 'offline', 'Lab Komputer Manajemen Gedung P PCU', 'ID', 152, '{4,9}', 'Pelatihan dua hari bagi mahasiswa dan dosen Manajemen tentang analitik data pelanggan, dashboard penjualan, dan pemanfaatan big data telekomunikasi untuk segmentasi pasar. Instruktur berasal dari unit Digital Business Telkom Indonesia.', pg_temp.wib('2025-10-20', '09:00'), null, null, p_ext => '[{"full_name": "Andika Pratama, M.M.", "institution": "PT Telkom Indonesia (Persero) Tbk", "country_code": "ID", "role": "staff_visitor"}, {"full_name": "Rizky Amalia, S.T., M.B.A.", "institution": "PT Telkom Indonesia (Persero) Tbk", "country_code": "ID", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(302, 'Magang Marketing & Customer Experience di Astra International Surabaya 2025', 5, 21, 'outbound', '2025-09-01', '2025-12-31', 'offline', 'PT Astra International Tbk, Kantor Wilayah Surabaya', 'ID', 123, '{8,9}', 'Tiga mahasiswa Manajemen tingkat akhir menjalani magang empat bulan di divisi Marketing dan Customer Experience Astra International wilayah Surabaya. Mahasiswa terlibat dalam analisis kepuasan pelanggan purnajual dan penyusunan materi kampanye produk korporat.', pg_temp.wib('2026-01-09', '09:00'), 'approved', pg_temp.wib('2026-01-20', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(302, '{D31229852,D31229748,D31229309}', '{}', '{}');
+select pg_temp.bulk_act(303, 'Kuliah Bersama Human Resource Analytics dengan Yonsei University', 5, 34, 'inbound', '2025-11-05', '2025-12-10', 'online', 'Zoom Meeting', null, 31, '{4,8}', 'Enam sesi kuliah bersama daring untuk mata kuliah Manajemen SDM Strategik yang membahas people analytics, prediksi turnover, dan desain sistem kinerja. Mahasiswa PCU dan Yonsei mengerjakan tugas kelompok lintas negara.', pg_temp.wib('2025-12-15', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Lee Min-ji, Ph.D.", "institution": "Yonsei University", "country_code": "KR", "role": "visiting_lecturer"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(304, 'Student Exchange Yonsei School of Business Spring Semester 2026', 5, 2, 'outbound', '2026-02-23', '2026-06-19', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 31, '{4,17}', 'Empat mahasiswa Manajemen mengikuti semester musim semi di Yonsei School of Business dengan mata kuliah Digital Business Strategy, Supply Chain Management, dan Korean Language I. Hasil studi diakui sebagai 20 SKS.', pg_temp.wib('2026-06-29', '09:00'), 'approved', pg_temp.wib('2026-07-08', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(304, '{D31249994,D31249546,D31239043,D31249493}', '{}', '{}');
+select pg_temp.bulk_act(305, 'Inbound Exchange National Taiwan University Spring 2026 di Prodi Manajemen', 5, 2, 'inbound', '2026-02-23', '2026-06-12', 'offline', 'Gedung P PCU', 'ID', 30, '{4,17}', 'Mahasiswa National Taiwan University mengikuti semester genap di Prodi Manajemen PCU dengan mata kuliah Marketing Management, Bahasa Indonesia untuk Penutur Asing, dan Family Business. Program dilengkapi pendampingan buddy mahasiswa.', pg_temp.wib('2026-06-19', '09:00'), 'approved', pg_temp.wib('2026-06-26', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(305, '{}', '{X06259017}', '{}');
+select pg_temp.bulk_act(306, 'Inbound Exchange HKBU dan Manipal Spring 2026 di Prodi Manajemen', 5, 2, 'inbound', '2026-02-09', '2026-06-12', 'offline', 'Gedung P PCU', 'ID', 62, '{4,17}', 'Mahasiswa Hong Kong Baptist University dan Manipal Academy of Higher Education mengikuti perkuliahan semester genap di Prodi Manajemen, khususnya mata kuliah Operations Management dan Southeast Asian Business, dalam kerangka MoU tiga pihak.', pg_temp.wib('2026-06-22', '09:00'), 'approved', pg_temp.wib('2026-07-02', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(306, '{}', '{X05269018,X05259019}', '{}');
+select pg_temp.bulk_act(307, 'Kuliah Tamu Sustainable Supply Chain Management dari FEB UGM', 5, 15, 'inbound', '2026-03-11', '2026-03-11', 'offline', 'Auditorium Gedung W PCU', 'ID', 28, '{9,12,17}', 'Kuliah tamu tentang praktik rantai pasok berkelanjutan, green procurement, dan pengukuran jejak karbon logistik bagi mahasiswa konsentrasi Operasi dan Rantai Pasok. Dihadiri sekitar 150 mahasiswa dan dosen.', pg_temp.wib('2026-03-16', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Eko Suwardi", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(308, 'Sertifikasi Digital Marketing Associate bersama Telkom Indonesia', 5, 44, 'inbound', '2026-04-18', '2026-04-19', 'offline', 'Lab Komputer Manajemen Gedung P PCU', 'ID', 152, '{4,8}', 'Program sertifikasi kompetensi pemasaran digital bagi 40 mahasiswa Manajemen yang mencakup SEO, iklan media sosial, dan analitik kampanye. Ujian sertifikasi diselenggarakan oleh asesor Telkom Corporate University.', pg_temp.wib('2026-04-24', '09:00'), null, null, p_ext => '[{"full_name": "Dimas Aditya, S.Kom., M.M.", "institution": "PT Telkom Indonesia (Persero) Tbk", "country_code": "ID", "role": "staff_visitor"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(309, 'Studi Ekskursi Manajemen Operasi ke Astra International Jakarta', 5, 24, 'outbound', '2026-05-12', '2026-05-15', 'offline', 'Kantor Pusat PT Astra International Tbk, Sunter Jakarta', 'ID', 12, '{4,9}', 'Kunjungan studi empat hari ke kantor pusat dan fasilitas produksi grup Astra di Jakarta untuk mempelajari manajemen operasi, lean production, dan layanan pelanggan. Mahasiswa menyusun laporan observasi proses bisnis.', pg_temp.wib('2026-05-22', '09:00'), 'approved', pg_temp.wib('2026-05-29', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(309, '{D31259442,D31239676,D31249971,D31249923,D31249797,D31239469}', '{}', '{}');
+select pg_temp.bulk_act(310, 'Publikasi Bersama Perilaku Konsumen Produk Halal dengan FEB UGM', 5, 37, 'outbound', '2026-02-02', '2026-05-29', 'online', 'Microsoft Teams', null, 28, '{4,12}', 'Penulisan artikel bersama tentang niat beli konsumen milenial terhadap produk makanan halal kemasan di Surabaya dan Yogyakarta. Naskah disusun bersama dosen FEB UGM dan dikirim ke Journal of Islamic Marketing.', pg_temp.wib('2026-06-08', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Sahabudin Sidiq, M.A.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "researcher"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(311, 'Pengembangan Kurikulum Kewirausahaan Digital MBKM bersama Binus University', 5, 11, 'inbound', '2026-03-02', '2026-04-30', 'hybrid', 'Ruang Rapat Prodi Manajemen Gedung P PCU', 'ID', 65, '{4,8}', 'Rangkaian lokakarya penyusunan paket mata kuliah Kewirausahaan Digital 20 SKS untuk skema MBKM yang dapat diambil lintas kampus bersama Binus Entrepreneurship Center. Luaran berupa RPS, rubrik penilaian proyek, dan skema rekognisi SKS bersama.', pg_temp.wib('2026-05-06', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rini Setiowati, S.E., M.M.", "institution": "Universitas Bina Nusantara", "country_code": "ID", "role": "visiting_lecturer"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(312, 'Yonsei International Summer School 2026 Global Marketing Track', 5, 23, 'outbound', '2026-06-29', '2026-07-24', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 31, '{4,17}', 'Empat mahasiswa Manajemen mengikuti program musim panas empat minggu di Yonsei University pada jalur Global Marketing, termasuk kunjungan perusahaan ke CJ ENM dan Amorepacific. Diakui sebagai 6 SKS mata kuliah pilihan.', pg_temp.wib('2026-08-04', '09:00'), 'approved', pg_temp.wib('2026-08-12', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(312, '{D31239820,D31249725,D31249029,D31239881}', '{}', '{}');
+select pg_temp.bulk_act(313, 'Seminar Manajemen SDM di Era Kecerdasan Buatan bersama Universiti Brunei Darussalam', 5, 10, 'inbound', '2026-05-20', '2026-05-20', 'offline', 'Auditorium Gedung W PCU', 'ID', 174, '{4,8}', 'Seminar yang membahas dampak kecerdasan buatan terhadap rekrutmen, pengembangan talenta, dan desain pekerjaan. Menghadirkan pembicara dari UBD School of Business and Economics dan praktisi HR Surabaya, diikuti 220 peserta dari kampus dan industri.', pg_temp.wib('2026-05-25', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Nur Amalina Haji Mohamad", "institution": "Universiti Brunei Darussalam", "country_code": "BN", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(314, 'Guest Lecture Circular Business Models dari Amsterdam Business School', 5, 15, 'inbound', '2026-09-02', '2026-09-02', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 166, '{9,12}', 'Kuliah tamu mengenai model bisnis sirkular dan contoh penerapannya pada UMKM di Belanda bagi mahasiswa mata kuliah Inovasi Model Bisnis. Sesi hybrid diikuti mahasiswa di auditorium dan peserta daring dari Amsterdam.', pg_temp.wib('2026-09-07', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Maarten de Vries", "institution": "University of Amsterdam", "country_code": "NL", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(315, 'Magang Digital Business Telkom Indonesia Batch Agustus 2026', 5, 21, 'outbound', '2026-08-03', '2026-09-25', 'offline', 'Gedung Telkom Ketintang Surabaya', 'ID', 152, '{8,9}', 'Dua mahasiswa Manajemen magang delapan minggu di unit Digital Business Telkom Regional V untuk mendukung riset pasar layanan Pijar dan analisis funnel penjualan digital UMKM.', pg_temp.daysago(6, '09:00'), 'pending', pg_temp.daysago(6, '09:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(315, '{D31239083,D31239791}', '{}', '{}');
+select pg_temp.bulk_act(316, 'Studi Ekskursi Rantai Pasok Sentra UMKM Kerajinan Yogyakarta bersama UGM', 5, 24, 'outbound', '2026-09-14', '2026-09-17', 'offline', 'Fakultas Ekonomika dan Bisnis UGM', 'ID', 28, '{8,12}', 'Kunjungan studi ke sentra kerajinan perak Kotagede dan gerabah Kasongan bersama dosen FEB UGM untuk memetakan rantai pasok dan saluran distribusi UMKM. Mahasiswa mempresentasikan rekomendasi perbaikan logistik di FEB UGM.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(316, '{D31259442,D31239676,D31249971,D31259588,D31249923}', '{}', '{}');
+select pg_temp.bulk_act(317, 'Indonesian Business Culture Immersion untuk Mahasiswa Chulalongkorn 2026', 5, 22, 'inbound', '2026-08-03', '2026-08-21', 'offline', 'Kampus PCU Siwalankerto', 'ID', 25, '{4,17}', 'Program imersi tiga minggu bagi mahasiswa Chulalongkorn Business School tentang budaya bisnis Indonesia, negosiasi lintas budaya, dan kunjungan ke perusahaan keluarga di Surabaya. Ditutup dengan presentasi rencana masuk pasar Indonesia.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(8, '14:00'), p_mnote => 'Transkrip nilai dan sertifikat program mahasiswa inbound belum dilampirkan pada berkas mobilitas; mohon unggah ulang beserta daftar hadir harian.', p_co_units => '{4}');
+select pg_temp.bulk_pset(317, '{}', '{X05259016}', '{}');
+select pg_temp.bulk_act(318, 'Pendampingan Pemasaran Digital UMKM Kampung Kue Rungkut bersama Telkom Indonesia', 5, 40, 'outbound', '2026-08-08', '2026-09-12', 'offline', 'Kampung Kue Rungkut Lor Surabaya', 'ID', 152, '{1,8,17}', 'Mahasiswa dan dosen Manajemen bersama relawan Telkom mendampingi 30 pelaku UMKM kue dalam foto produk, pemasaran WhatsApp Business, dan pembayaran QRIS. Luaran berupa peningkatan pesanan daring dan katalog bersama kampung.', pg_temp.wib('2026-09-18', '09:00'), null, null, p_ext => '[{"full_name": "Yudha Kurniawan, S.E.", "institution": "PT Telkom Indonesia (Persero) Tbk", "country_code": "ID", "role": "staff_visitor"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(319, 'Joint Research Digital Supply Chain Resilience dengan National Taiwan University', 5, 4, 'outbound', '2026-10-15', '2027-01-29', 'hybrid', 'National Taiwan University, Taipei', 'TW', 15, '{9,17}', 'Rencana penelitian bersama tentang adopsi platform digital untuk ketahanan rantai pasok eksportir furnitur Jawa Timur ke Taiwan. Tahap awal berupa penyusunan instrumen dan pengumpulan data wawancara.', null, null, null, p_files => '{ia}', p_ext => '[{"full_name": "Prof. Chen Yu-ting, Ph.D.", "institution": "National Taiwan University", "country_code": "TW", "role": "researcher"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(320, 'Studi Ekskursi Bisnis Digital ke Telkom Indonesia Jakarta', 5, 24, 'outbound', '2026-11-17', '2026-11-20', 'offline', 'Telkom Landmark Tower Jakarta', 'ID', 168, '{8,9}', 'Rencana kunjungan studi ke program inkubasi korporat Telkom Indonesia untuk mempelajari pengembangan produk digital dan corporate venture. Peserta dari Prodi Manajemen konsentrasi Bisnis Digital.', null, null, null, p_co_units => '{4}');
+select pg_temp.bulk_pset(320, '{D31249994,D31249546,D31249797,D31239469}', '{}', '{}');
+
+select pg_temp.bulk_verify(296, 320);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_5.sql
+-- seed-supabase/10_kegiatan_tambahan_5 (simks-partnership): additional bulk kegiatan 321-345, adapted from the local
+-- demo seed supabase/seed/04_bulk_5.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 64, 106, 117, 150, 156, 161, 174, 175, 177, 200, 205, 206. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{64,106,117,150,156,161,174,175,177,200,205,206}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_5: SIM Kerjasama agreements missing, kegiatan 321-345 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(321, 'Student Exchange Interior Architecture di Hochschule Bremen Semester Ganjil 2025', 59, 2, 'outbound', '2025-09-08', '2025-12-26', 'offline', 'School of Architecture, Civil and Environmental Engineering, Hochschule Bremen', 'DE', 205, '{4,9,17}', 'Pertukaran pelajar satu semester mahasiswa Desain Interior di Hochschule Bremen dengan mata kuliah studio interior architecture dan desain furnitur. Kredit yang diperoleh dikonversi ke kurikulum Desain Interior PCU.', pg_temp.wib('2026-01-09', '09:00'), 'approved', pg_temp.wib('2026-01-16', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(321, '{C22239024,C22239955,C22239188}', '{}', '{}');
+select pg_temp.bulk_act(322, 'Pameran dan Seminar Batik Kontemporer Motif Pesisiran Jawa Timur bersama UGM', 59, 35, 'inbound', '2025-10-02', '2025-10-03', 'offline', 'Galeri Gedung P PCU', 'ID', 117, '{4,11,12}', 'Pameran karya batik kontemporer bermotif pesisiran Jawa Timur yang diterapkan pada elemen interior, disertai seminar tentang reinterpretasi motif tradisional dalam desain tekstil modern bersama pembicara dari UGM.', pg_temp.wib('2025-10-20', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Dyah Ayu Pratiwi, M.A.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker", "notes": "Departemen Sejarah dan Seni, Fakultas Ilmu Budaya UGM"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(323, 'Kuliah Tamu Desain Interior Adaptif Iklim Tropis oleh Dosen University of Technology Sydney', 59, 15, 'inbound', '2025-10-20', '2025-10-22', 'hybrid', 'Studio Desain Interior Gedung P PCU', 'ID', 206, '{4,11,13}', 'Rangkaian kuliah tamu tiga hari tentang strategi desain interior pasif untuk iklim tropis lembap, termasuk studi kasus hunian di Australia utara dan sesi kritik studio mahasiswa.', pg_temp.wib('2025-11-05', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Sarah Whitfield", "institution": "University of Technology Sydney", "country_code": "AU", "role": "visiting_lecturer", "notes": "School of Design, Faculty of Design, Architecture and Building"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(324, 'Short Program Design Thinking for Social Innovation di KMUTT Bangkok', 59, 23, 'outbound', '2025-11-03', '2025-11-21', 'offline', 'School of Architecture and Design, KMUTT, Bangkok', 'TH', 156, '{4,10,17}', 'Program singkat tiga minggu di KMUTT yang melatih metode design thinking untuk inovasi sosial melalui proyek lapangan bersama komunitas di Bangkok. Luaran berupa prototipe ruang layanan dan presentasi akhir.', pg_temp.wib('2025-12-05', '09:00'), 'approved', pg_temp.wib('2025-12-12', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(324, '{C22249123,C22249999,C22229438,C22249635}', '{}', '{PG452412}');
+select pg_temp.bulk_act(325, 'Riset Bersama Dokumentasi Digital Wayang Kulit Jawa Timuran dengan Ateneo de Manila University', 57, 4, 'inbound', '2025-08-18', '2025-12-12', 'hybrid', 'Laboratorium Media Gedung P PCU', 'ID', 161, '{4,9,11}', 'Penelitian bersama untuk mendigitalkan koleksi wayang kulit gaya Jawa Timuran melalui fotogrametri dan pemodelan 3D, serta menyusun arsip daring yang dapat diakses peneliti di Indonesia dan Filipina.', pg_temp.wib('2026-01-12', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Maria Isabel Santos", "institution": "Ateneo de Manila University", "country_code": "PH", "role": "researcher", "notes": "Department of Communication, School of Social Sciences"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(326, 'Inbound Exchange Interior Architecture dari University of Technology Sydney Semester Ganjil 2025', 59, 2, 'inbound', '2025-08-25', '2025-12-12', 'offline', 'Kampus PCU Siwalankerto', 'ID', 206, '{4,17}', 'Mahasiswa pertukaran dari University of Technology Sydney mengikuti satu semester perkuliahan studio desain interior dan kelas budaya Indonesia di PCU.', pg_temp.wib('2025-12-19', '09:00'), 'approved', pg_temp.wib('2025-12-30', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(326, '{}', '{X05259022}', '{}');
+select pg_temp.bulk_act(327, 'Lomba Desain Produk Furnitur Rotan PCU–UKSW 2025', 59, 35, 'inbound', '2025-11-24', '2025-11-28', 'offline', 'Auditorium Gedung W PCU', 'ID', 106, '{8,9,12}', 'Kompetisi desain furnitur berbahan rotan untuk mahasiswa desain se-Jawa yang diselenggarakan bersama UKSW, dengan penjurian prototipe dan pameran karya finalis.', pg_temp.wib('2025-12-10', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Yohanes Kristiawan, M.Ds.", "institution": "Universitas Kristen Satya Wacana", "country_code": "ID", "role": "other", "notes": "Juri, Program Studi Desain Komunikasi Visual UKSW"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(328, 'Pengabdian Masyarakat Branding dan Kemasan Batik Tulis Tanjungbumi bersama UGM', 57, 40, 'outbound', '2026-01-12', '2026-01-16', 'offline', 'Sentra Batik Tulis Tanjungbumi, Bangkalan', 'ID', 64, '{1,8,12}', 'Pendampingan perajin batik tulis Tanjungbumi dalam merancang kemasan, identitas merek, dan konten media sosial agar produk siap dipasarkan secara daring, bersama tim pengabdian Departemen Ilmu Komunikasi UGM.', pg_temp.wib('2026-02-02', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Novi Kurnia, M.Si.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "other", "notes": "Pendamping pengabdian masyarakat, Departemen Ilmu Komunikasi Fisipol UGM"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(329, 'Student Exchange Desain Produk dan Interior di Ateneo de Manila University Semester Genap 2026', 59, 2, 'outbound', '2026-02-02', '2026-05-29', 'offline', 'Ateneo de Manila University, Loyola Heights, Quezon City', 'PH', 161, '{4,17}', 'Mahasiswa Desain Interior menempuh satu semester di Ateneo de Manila University dengan fokus mata kuliah information design dan fine arts. Hasil studi dialihkreditkan ke kurikulum Desain Interior PCU.', pg_temp.wib('2026-06-12', '09:00'), 'approved', pg_temp.wib('2026-06-22', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(329, '{C22249514,C22239208,C22249824}', '{}', '{}');
+select pg_temp.bulk_act(330, 'Credit Transfer Interior Architecture Temasek Polytechnic di PCU Semester Genap 2026', 59, 33, 'inbound', '2026-02-09', '2026-06-19', 'offline', 'Kampus PCU Siwalankerto', 'ID', 177, '{4,17}', 'Mahasiswa Temasek Polytechnic mengikuti program transfer kredit di PCU, mengambil studio desain interior, kriya kayu, dan kelas Bahasa Indonesia untuk penutur asing.', pg_temp.wib('2026-06-30', '09:00'), 'approved', pg_temp.wib('2026-07-08', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(330, '{}', '{X05259025}', '{}');
+select pg_temp.bulk_act(331, 'Pengembangan Kurikulum Bersama Desain Interior Berkelanjutan dengan Hochschule Bremen', 59, 32, 'outbound', '2026-02-16', '2026-04-24', 'online', 'Zoom Meeting', null, 205, '{4,12}', 'Serangkaian lokakarya daring untuk menyusun mata kuliah bersama tentang desain interior berkelanjutan, mencakup capaian pembelajaran, rubrik penilaian studio, dan modul material ramah lingkungan.', pg_temp.wib('2026-05-06', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Lisa Hartmann", "institution": "Hochschule Bremen", "country_code": "DE", "role": "other", "notes": "Koordinator program Architecture and Interior Design"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(332, 'Pameran Bersama Wayang Kontemporer Indonesia–Taiwan di NTUST', 57, 35, 'outbound', '2026-03-16', '2026-03-27', 'offline', 'NTUST Design Gallery, Taipei', 'TW', 200, '{4,11,17}', 'Pameran karya dosen dan mahasiswa yang menafsirkan ulang tokoh wayang dalam media ilustrasi, video, dan instalasi, berdampingan dengan karya puppetry kontemporer mahasiswa NTUST.', pg_temp.wib('2026-04-10', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Chen Kuo-Hsiang", "institution": "National Taiwan University of Science and Technology", "country_code": "TW", "role": "other", "notes": "Kurator pendamping, Department of Design"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(333, 'Studi Ekskursi Arsitektur Vernakular dan Interior Heritage ke UGM Yogyakarta', 59, 24, 'outbound', '2026-04-06', '2026-04-10', 'offline', 'Kampus UGM Bulaksumur, Yogyakarta', 'ID', 117, '{4,11}', 'Kunjungan studi mahasiswa ke Departemen Arsitektur UGM dan bangunan heritage di Yogyakarta untuk mempelajari arsitektur vernakular Jawa serta konservasi interior bangunan kolonial dan ndalem.', pg_temp.wib('2026-04-20', '09:00'), 'approved', pg_temp.wib('2026-04-28', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(333, '{C22239295,C22249177,C22229221,C22259857,C22229994,C22239024}', '{}', '{PG780858}');
+select pg_temp.bulk_act(334, 'Workshop Rekayasa Bambu untuk Desain Produk bersama KMUTT', 59, 43, 'inbound', '2026-05-11', '2026-05-13', 'offline', 'Workshop Kriya Gedung P PCU', 'ID', 156, '{9,12,13}', 'Pelatihan tiga hari teknik laminasi dan pembentukan bambu untuk furnitur dan produk rumah tangga, dipandu dosen KMUTT, dengan luaran prototipe kursi lipat bambu.', pg_temp.wib('2026-05-22', '09:00'), null, null, p_ext => '[{"full_name": "Asst. Prof. Dr. Pornchai Wongsuwan", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "visiting_lecturer", "notes": "School of Architecture and Design"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(335, 'Program Budaya Batik dan Wayang untuk Mahasiswa Kanazawa Institute of Technology 2026', 59, 29, 'inbound', '2026-07-06', '2026-07-24', 'offline', 'Kampus PCU Siwalankerto', 'ID', 175, '{4,11,17}', 'Program budaya tiga minggu bagi mahasiswa Kanazawa Institute of Technology: kelas membatik, pembuatan wayang kardus, kunjungan ke sanggar di Surabaya, dan pameran karya di akhir program.', pg_temp.wib('2026-08-05', '09:00'), 'approved', pg_temp.wib('2026-08-12', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(335, '{}', '{X05259023}', '{}');
+select pg_temp.bulk_act(336, 'Guest Lecture Speculative Product Design dari KMUTT', 59, 7, 'inbound', '2026-03-04', '2026-03-04', 'online', 'Microsoft Teams', null, 156, '{4,9}', 'Kuliah tamu daring tentang pendekatan desain spekulatif dalam pengembangan produk dan ruang masa depan, disertai diskusi proyek mahasiswa studio desain.', pg_temp.wib('2026-03-12', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Nattapong Srisuk", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "speaker", "notes": "Industrial Design Program"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(337, 'Creative Industries Study Tour Sydney bersama University of Technology Sydney', 57, 22, 'outbound', '2026-06-29', '2026-07-17', 'offline', 'UTS Faculty of Arts and Social Sciences, Ultimo, Sydney', 'AU', 206, '{4,11}', 'Program tiga minggu di UTS: studio produksi media dan komunikasi visual ruang publik, kunjungan ke museum dan agensi kreatif di Sydney, serta presentasi proyek kolaboratif bersama mahasiswa UTS.', pg_temp.wib('2026-07-31', '09:00'), 'approved', pg_temp.wib('2026-08-10', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(337, '{E42259904,E42249976,E42239200,E42249697,E42239001}', '{}', '{PG761401}');
+select pg_temp.bulk_act(338, 'Magang Desain Interior di Design Lab KMUTT Bangkok', 59, 21, 'outbound', '2026-08-03', '2026-09-11', 'offline', 'KMUTT Bangmod Campus, Bangkok', 'TH', 156, '{4,8}', 'Magang enam minggu di Design Lab KMUTT yang menangani proyek interior ruang belajar kampus, meliputi survei pengguna, gambar kerja, dan visualisasi 3D.', pg_temp.daysago(8, '09:00'), 'pending', pg_temp.daysago(8, '09:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(338, '{C22249123,C22249999}', '{}', '{}');
+select pg_temp.bulk_act(339, 'Inbound Short Program Kriya Nusantara untuk Mahasiswa Hochschule Bremen', 59, 23, 'inbound', '2026-08-10', '2026-08-28', 'offline', 'Kampus PCU Siwalankerto', 'ID', 205, '{4,17}', 'Program singkat tiga minggu bagi mahasiswa Hochschule Bremen untuk mempelajari kriya Nusantara (batik, anyaman, ukir kayu) melalui kelas praktik dan kunjungan ke sentra kerajinan Jawa Timur.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(9, '14:00'), p_mnote => 'Transkrip nilai peserta belum diunggah dan poster kegiatan masih memakai logo lama. Mohon lengkapi bundel transkrip/poster/dokumentasi lalu ajukan ulang.', p_co_units => '{32}');
+select pg_temp.bulk_pset(339, '{}', '{X06259021}', '{}');
+select pg_temp.bulk_act(340, 'Riset Terapan Panel Interior dari Material Daur Ulang untuk Ruang Publik bersama Pakuwon', 59, 4, 'inbound', '2026-08-03', '2026-09-18', 'hybrid', 'Laboratorium Material Desain Gedung P PCU', 'ID', 150, '{9,11,12}', 'Penelitian terapan pengembangan panel interior dari limbah plastik dan serbuk kayu untuk area publik pusat perbelanjaan Pakuwon, termasuk uji ketahanan dan purwarupa panel akustik.', pg_temp.wib('2026-09-25', '09:00'), null, null, p_ext => '[{"full_name": "Ir. Hendra Gunawan, M.T.", "institution": "PT Pakuwon Jati Tbk", "country_code": "ID", "role": "researcher", "notes": "Divisi Perencanaan dan Desain Interior"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(341, 'Kompetisi Poster Warisan Budaya Asia Tenggara bersama Universiti Brunei Darussalam', 57, 35, 'outbound', '2026-08-17', '2026-09-04', 'online', 'Zoom Meeting', null, 174, '{4,11,17}', 'Kompetisi poster daring bertema warisan budaya takbenda Asia Tenggara yang dijuri bersama dosen PCU dan Universiti Brunei Darussalam, ditutup dengan pengumuman pemenang dan pameran virtual.', pg_temp.wib('2026-09-14', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Siti Norhayati binti Haji Ahmad", "institution": "Universiti Brunei Darussalam", "country_code": "BN", "role": "other", "notes": "Juri, Faculty of Arts and Social Sciences"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(342, 'Academic Exchange Desain Pameran dan Kuratorial di Kanazawa Institute of Technology', 59, 28, 'outbound', '2026-08-24', '2026-09-18', 'offline', 'Kanazawa Institute of Technology, Nonoichi, Ishikawa', 'JP', 175, '{4,17}', 'Pertukaran akademik empat minggu untuk mempelajari desain ruang pameran dan praktik kuratorial di Kanazawa Institute of Technology, termasuk keterlibatan dalam penyiapan pameran tahunan mahasiswa.', pg_temp.daysago(4, '09:00'), 'pending', pg_temp.daysago(4, '09:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(342, '{C22229438,C22239955,C22249635}', '{}', '{}');
+select pg_temp.bulk_act(343, 'Seminar Nasional Pelestarian Interior Bangunan Kolonial Surabaya bersama UGM', 59, 10, 'inbound', '2026-09-09', '2026-09-10', 'offline', 'Auditorium Gedung W PCU', 'ID', 117, '{4,11}', 'Seminar dua hari tentang konservasi dan adaptasi interior bangunan kolonial di Surabaya, menghadirkan akademisi UGM dan praktisi cagar budaya, disertai tur lapangan ke kawasan Kota Lama.', pg_temp.wib('2026-09-21', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Ikaputra, M.Eng.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker", "notes": "Departemen Teknik Arsitektur dan Perencanaan UGM"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(344, 'Winter Program Craft Heritage dan Desain Kriya di NTUST 2027', 59, 23, 'outbound', '2027-01-11', '2027-01-29', 'offline', 'Department of Design, NTUST, Taipei', 'TW', 200, '{4,8,11}', 'Rencana program musim dingin di NTUST untuk mempelajari pengembangan kriya tradisional menjadi produk desain kontemporer, termasuk kunjungan ke sentra kerajinan di Taiwan.', null, null, null, p_files => '{ia}', p_co_units => '{32}');
+select pg_temp.bulk_pset(344, '{C22239188,C22249514}', '{}', '{}');
+select pg_temp.bulk_act(345, 'Pameran Dies Natalis Craft Heritage Batik dan Wayang bersama UKSW', 59, 35, 'inbound', '2026-11-16', '2026-11-20', 'offline', 'Galeri Gedung P PCU', 'ID', 106, '{4,11}', 'Rencana pameran Dies Natalis yang menampilkan karya batik dan wayang kontemporer hasil kolaborasi dosen dan mahasiswa Desain Interior PCU dengan UKSW.', null, null, null, p_files => '{}', p_co_units => '{32}');
+
+select pg_temp.bulk_verify(321, 345);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_6.sql
+-- seed-supabase/10_kegiatan_tambahan_6 (simks-partnership): additional bulk kegiatan 346-370, adapted from the local
+-- demo seed supabase/seed/04_bulk_6.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 156, 167, 177, 200, 204, 205, 206, 207, 208. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{156,167,177,200,204,205,206,207,208}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_6: SIM Kerjasama agreements missing, kegiatan 346-370 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(346, 'Pertukaran Pelajar Spring Session 2025 Visual Communication di University of Technology Sydney', 63, 2, 'outbound', '2025-08-04', '2025-11-21', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,17}', 'Tiga mahasiswa DKV mengikuti satu semester Spring Session di School of Design UTS, mengambil mata kuliah Visual Communication Studio dan Digital Media. Kredit dikonversi ke kurikulum DKV melalui skema transfer kredit.', pg_temp.wib('2025-12-03', '09:00'), 'approved', pg_temp.wib('2025-12-12', '14:00'));
+select pg_temp.bulk_pset(346, '{C21239954,C21239549,C21239991}', '{}', '{}');
+select pg_temp.bulk_act(347, 'Kuliah Tamu Motion Graphics untuk Narasi Data oleh UTS School of Design', 63, 15, 'inbound', '2025-09-17', '2025-09-17', 'hybrid', 'Auditorium Gedung P PCU', 'ID', 206, '{4,9}', 'Kuliah tamu tentang perancangan motion graphics untuk menyampaikan data kompleks secara naratif, dilengkapi studi kasus infografis animasi media berita Australia. Diikuti mahasiswa mata kuliah Desain Animasi secara luring dan daring.', pg_temp.wib('2025-09-24', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rachel Bennett", "institution": "University of Technology Sydney", "country_code": "AU", "role": "speaker"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(348, 'Inbound Short Program Batik Pesisir dan Arsip Visual Kota Lama Surabaya untuk Mahasiswa Hochschule Bremen', 63, 23, 'inbound', '2025-09-08', '2025-09-26', 'offline', 'Studio DKV Gedung P PCU', 'ID', 205, '{4,11}', 'Program singkat tiga minggu bagi mahasiswa Hochschule Bremen untuk mempelajari motif batik pesisir dan arsip visual kota lama Surabaya. Luaran berupa seri ilustrasi dan pola permukaan yang dipamerkan di akhir program.', pg_temp.wib('2025-10-06', '09:00'), 'approved', pg_temp.wib('2025-10-14', '14:00'));
+select pg_temp.bulk_pset(348, '{}', '{X05259028}', '{}');
+select pg_temp.bulk_act(349, 'Riset Bersama Tipografi Aksara Jawa untuk Antarmuka Digital dengan Hochschule Bremen', 63, 4, 'outbound', '2025-08-18', '2025-12-12', 'hybrid', 'Lab Tipografi DKV Gedung P PCU', 'ID', 205, '{4,9}', 'Penelitian bersama untuk merancang varian font aksara Jawa yang terbaca baik pada layar ponsel. Tim menguji keterbacaan pada antarmuka aplikasi dan menyiapkan draf artikel jurnal bersama peneliti desain Hochschule Bremen.', pg_temp.wib('2026-01-20', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Jan Hoffmann", "institution": "Hochschule Bremen", "country_code": "DE", "role": "researcher"}]');
+select pg_temp.bulk_act(350, 'Workshop Game Art dan Character Design bersama UTS Games Studio', 63, 35, 'inbound', '2025-10-20', '2025-10-22', 'offline', 'Lab Komputer Grafis Gedung P PCU', 'ID', 206, '{4,8}', 'Workshop tiga hari tentang pipeline game art mulai dari concept sketch, character sheet, hingga aset 2D siap pakai di game engine. Peserta menghasilkan satu karakter orisinal yang direview langsung oleh mentor UTS.', pg_temp.wib('2025-10-30', '09:00'), null, null, p_ext => '[{"full_name": "Mr. Thomas Nguyen", "institution": "University of Technology Sydney", "country_code": "AU", "role": "speaker", "notes": "Lecturer, Games Development"}]');
+select pg_temp.bulk_act(351, 'Pertukaran Budaya Fotografi Dokumenter Pasar Tradisional bersama Mahasiswa Taylor''s University', 63, 29, 'inbound', '2025-11-03', '2025-11-14', 'offline', 'Kampus PCU Siwalankerto', 'ID', 167, '{4,11}', 'Mahasiswa Taylor''s University mengikuti program pertukaran budaya dengan fokus fotografi dokumenter kehidupan pasar tradisional Surabaya bersama mahasiswa DKV. Hasil foto dikurasi menjadi e-zine bersama.', pg_temp.wib('2025-11-20', '09:00'), 'approved', pg_temp.wib('2025-11-28', '14:00'));
+select pg_temp.bulk_pset(351, '{}', '{X06269030}', '{}');
+select pg_temp.bulk_act(352, 'Online Course UX Research Fundamentals bersama UTS', 63, 79, 'inbound', '2025-10-06', '2025-11-28', 'online', 'Zoom Meeting', null, 206, '{4,9}', 'Kursus daring delapan minggu tentang metode riset pengguna: wawancara, usability testing, dan journey mapping. Materi disampaikan dosen UTS dan dipakai sebagai pengayaan mata kuliah Desain UI/UX.', pg_temp.wib('2025-12-05', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Priya Raman", "institution": "University of Technology Sydney", "country_code": "AU", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(353, 'Summer Program Ilustrasi dan Picture Book di University of Technology Sydney', 63, 23, 'outbound', '2026-01-05', '2026-01-23', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,17}', 'Empat mahasiswa DKV mengikuti program musim panas UTS tentang ilustrasi buku cerita anak, dari pengembangan karakter hingga storyboard dan dummy book. Didampingi satu dosen DKV.', pg_temp.wib('2026-02-02', '09:00'), 'approved', pg_temp.wib('2026-02-10', '14:00'));
+select pg_temp.bulk_pset(353, '{C21239626,C21239301,C21249196,C21249481}', '{}', '{}');
+select pg_temp.bulk_act(354, 'Pertukaran Pelajar Autumn Session 2026 Digital Media di University of Technology Sydney', 63, 2, 'outbound', '2026-02-23', '2026-06-19', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,17}', 'Pertukaran satu semester bagi tiga mahasiswa DKV di program Digital and Social Media UTS, dengan mata kuliah animasi, interaction design, dan media studies. Nilai dikonversi melalui transfer kredit.', pg_temp.wib('2026-06-29', '09:00'), 'approved', pg_temp.wib('2026-07-08', '14:00'));
+select pg_temp.bulk_pset(354, '{C21239888,C21239659,C21249776}', '{}', '{}');
+select pg_temp.bulk_act(355, 'Semester Pertukaran Mahasiswa UTS di Prodi DKV Genap 2025/2026', 63, 2, 'inbound', '2026-02-09', '2026-06-12', 'offline', 'Kampus PCU Siwalankerto', 'ID', 206, '{4,17}', 'Dua mahasiswa UTS mengikuti satu semester di Prodi DKV, mengambil mata kuliah Desain Komunikasi Visual Nusantara, Fotografi, dan Bahasa Indonesia untuk Penutur Asing.', pg_temp.wib('2026-06-22', '09:00'), 'approved', pg_temp.wib('2026-07-01', '14:00'));
+select pg_temp.bulk_pset(355, '{}', '{X06269026,X06269027}', '{}');
+select pg_temp.bulk_act(356, 'Guest Lecture Brand Identity untuk Destinasi Wisata oleh UTS', 63, 7, 'inbound', '2026-03-11', '2026-03-11', 'offline', 'Auditorium Gedung W PCU', 'ID', 206, '{8,11}', 'Kuliah umum tentang perancangan identitas merek destinasi wisata, membahas kasus rebranding kawasan kota di New South Wales dan peluang penerapannya untuk kawasan Kota Lama Surabaya.', pg_temp.wib('2026-03-18', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Sarah Mitchell", "institution": "University of Technology Sydney", "country_code": "AU", "role": "speaker"}]');
+select pg_temp.bulk_act(357, 'Seminar Internasional Visualisasi Informasi dan Desain Interaksi bersama NTUST', 63, 10, 'inbound', '2026-04-15', '2026-04-16', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 200, '{4,9,17}', 'Seminar dua hari yang mempertemukan peneliti Fakultas Humaniora dan Industri Kreatif dengan NTUST untuk membahas visualisasi informasi, dashboard publik, dan desain interaksi. Mahasiswa DKV mempresentasikan poster karya riset.', pg_temp.wib('2026-04-24', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Chen Wei-Lun", "institution": "National Taiwan University of Science and Technology", "country_code": "TW", "role": "speaker"}]', p_co_units => '{32}');
+select pg_temp.bulk_act(358, 'Pengembangan Kurikulum Peminatan Animasi 2D dan 3D bersama UTS', 63, 11, 'inbound', '2026-03-02', '2026-05-29', 'hybrid', 'Ruang Rapat Prodi DKV Gedung P PCU', 'ID', 206, '{4}', 'Penyusunan ulang capaian pembelajaran dan rencana studi peminatan animasi dengan membandingkan struktur mata kuliah animasi UTS. Luaran berupa dokumen RPS baru untuk empat mata kuliah.', pg_temp.wib('2026-06-05', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Hannah Brooks", "institution": "University of Technology Sydney", "country_code": "AU", "role": "other", "notes": "Program coordinator, Animation"}]');
+select pg_temp.bulk_act(359, 'Pengabdian Masyarakat Rebranding UMKM Kampung Kue Rungkut bersama Pemerintah Kota Surabaya', 63, 40, 'inbound', '2026-04-20', '2026-05-15', 'offline', 'Kampung Kue Rungkut Lor, Surabaya', 'ID', 207, '{1,8,11}', 'Dosen dan mahasiswa DKV bersama Dinas Koperasi dan UMKM Pemerintah Kota Surabaya mendampingi pelaku usaha kue di Rungkut Lor merancang ulang logo, kemasan, dan konten media sosial. Sebanyak dua belas usaha menerima paket identitas visual baru.', pg_temp.wib('2026-05-25', '09:00'), null, null, p_ext => '[{"full_name": "Ibu Retno Wulandari, S.E.", "institution": "Pemerintah Kota Surabaya", "country_code": "ID", "role": "staff_visitor"}]');
+select pg_temp.bulk_act(360, 'Studi Ekskursi Film Dokumenter ke Institut Teknologi Bandung', 63, 24, 'outbound', '2026-05-11', '2026-05-15', 'offline', 'Kampus ITB Ganesha, Bandung', 'ID', 208, '{4,11}', 'Mahasiswa peminatan film mengunjungi studio dan laboratorium Fakultas Seni Rupa dan Desain ITB, mengikuti kelas produksi dokumenter, serta merekam film pendek tentang ruang publik Bandung.', pg_temp.wib('2026-05-22', '09:00'), 'approved', pg_temp.wib('2026-06-02', '14:00'));
+select pg_temp.bulk_pset(360, '{C21249147,C21229377,C21229391,C21239562,C21249999,C21229931}', '{}', '{}');
+select pg_temp.bulk_act(361, 'Publikasi Bersama Kajian Visual Kampanye Iklim di Media Sosial dengan Temasek Polytechnic', 63, 5, 'outbound', '2026-02-02', '2026-07-17', 'online', 'Microsoft Teams', null, 177, '{13,4}', 'Kolaborasi penulisan artikel yang menganalisis strategi visual kampanye perubahan iklim di Instagram Indonesia dan Singapura bersama dosen Temasek Polytechnic School of Design. Naskah dikirim ke jurnal desain bereputasi.', pg_temp.wib('2026-08-24', '09:00'), null, null, p_ext => '[{"full_name": "Ms. Megan Tan Hui Ling", "institution": "Temasek Polytechnic", "country_code": "SG", "role": "researcher"}]');
+select pg_temp.bulk_act(362, 'Magang Desain UX/UI di Temasek Polytechnic Design School', 63, 21, 'outbound', '2026-06-29', '2026-07-31', 'offline', 'Temasek Polytechnic, Tampines, Singapore', 'SG', 177, '{8,9}', 'Tiga mahasiswa DKV magang di unit pengembangan pembelajaran digital Temasek Polytechnic, merancang prototipe antarmuka modul e-learning dan melakukan usability test bersama tim produk.', pg_temp.wib('2026-08-07', '09:00'), 'approved', pg_temp.wib('2026-08-17', '14:00'));
+select pg_temp.bulk_pset(362, '{C21249451,C21239724,C21239896}', '{}', '{}');
+select pg_temp.bulk_act(363, 'Short Program Desain Kemasan Berkelanjutan di KMUTT Bangkok', 63, 23, 'outbound', '2026-08-03', '2026-08-14', 'offline', 'KMUTT Bang Mod Campus, Bangkok', 'TH', 156, '{9,12}', 'Program singkat dua minggu di King Mongkut''s University of Technology Thonburi tentang desain kemasan ramah lingkungan, material alternatif, dan komunikasi visual label produk. Diikuti mahasiswa DKV dengan pendamping dari fakultas.', pg_temp.wib('2026-08-20', '09:00'), 'approved', pg_temp.wib('2026-08-31', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(363, '{C21259848,C21259343,C21259948}', '{}', '{}');
+select pg_temp.bulk_act(364, 'Kuliah Tamu Sinematografi dan Color Grading dari UTS Film Studies', 63, 15, 'inbound', '2026-09-02', '2026-09-02', 'offline', 'Auditorium Gedung P PCU', 'ID', 206, '{4,8}', 'Kuliah tamu tentang bahasa visual sinematografi dan alur color grading untuk film pendek, disertai demo langsung penyuntingan warna pada footage karya mahasiswa DKV.', pg_temp.wib('2026-09-09', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Benjamin Clarke", "institution": "University of Technology Sydney", "country_code": "AU", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(365, 'Inbound Short Program Ilustrasi Cerita Rakyat Jawa Timur untuk Mahasiswa Calvin University', 63, 23, 'inbound', '2026-08-10', '2026-09-04', 'offline', 'Studio Ilustrasi Gedung P PCU', 'ID', 204, '{4,11,17}', 'Mahasiswa Calvin University mempelajari cerita rakyat Jawa Timur dan menerjemahkannya menjadi ilustrasi naratif bersama mahasiswa DKV. Karya akhir dihimpun dalam buku digital dwibahasa.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(365, '{}', '{X05259029}', '{}');
+select pg_temp.bulk_act(366, 'Short Program Animasi dan Visual Effects di University of Technology Sydney', 63, 23, 'outbound', '2026-08-24', '2026-09-18', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,9}', 'Tiga mahasiswa DKV mengikuti program singkat empat minggu tentang compositing, motion tracking, dan efek visual untuk animasi pendek di studio media UTS.', pg_temp.daysago(7, '09:00'), 'pending', pg_temp.daysago(7, '09:00'));
+select pg_temp.bulk_pset(366, '{C21259543,C21259428,C21259142}', '{}', '{}');
+select pg_temp.bulk_act(367, 'Inbound Academic Exchange Desain Game Edukasi dari University of Technology Sydney', 63, 28, 'inbound', '2026-08-03', '2026-09-11', 'offline', 'Lab Game Art Gedung P PCU', 'ID', 206, '{4,9}', 'Dua mahasiswa UTS bergabung dengan studio game art DKV selama enam minggu untuk mengembangkan prototipe game edukasi bertema budaya Surabaya bersama mahasiswa PCU.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(6, '09:00'), p_mnote => 'Mohon unggah Letter of Acceptance untuk Hamish Clarke dan perbaiki nomor mahasiswa asal Mia Robertson sesuai transkrip UTS.');
+select pg_temp.bulk_pset(367, '{}', '{X06269026,X06269027}', '{}');
+select pg_temp.bulk_act(368, 'Pameran Bersama Poster Tipografi Eksperimental PCU dan Hochschule Bremen', 63, 35, 'inbound', '2026-09-14', '2026-09-19', 'hybrid', 'Galeri Gedung P PCU', 'ID', 205, '{4,11,17}', 'Pameran enam hari yang menampilkan 60 poster tipografi eksperimental karya mahasiswa DKV dan Hochschule Bremen, dilengkapi tur virtual dan diskusi kuratorial daring bersama dosen Bremen.', pg_temp.wib('2026-09-25', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Jan Hoffmann", "institution": "Hochschule Bremen", "country_code": "DE", "role": "speaker", "notes": "Kurator tamu"}]');
+select pg_temp.bulk_act(369, 'Riset Bersama Visual Storytelling Edukasi Mitigasi Banjir dengan UTS', 63, 4, 'outbound', '2026-11-02', '2027-01-29', 'hybrid', 'Lab Riset DKV Gedung P PCU', 'ID', 206, '{11,13}', 'Rencana riset bersama untuk merancang komik dan animasi pendek edukasi mitigasi banjir bagi siswa sekolah dasar di Surabaya, diuji efektivitasnya bersama tim UTS.', null, null, null, p_files => '{ia}');
+select pg_temp.bulk_act(370, 'Staff Exchange Dosen DKV ke UTS School of Design', 63, 3, 'outbound', '2026-11-16', '2026-11-27', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,17}', 'Dua dosen DKV direncanakan mengajar bersama di kelas Visual Communication UTS dan mempelajari tata kelola studio kreatif kampus sebagai bahan pengembangan laboratorium DKV.', null, null, null, p_ext => '[{"full_name": "Prof. Sarah Mitchell", "institution": "University of Technology Sydney", "country_code": "AU", "role": "other", "notes": "Tuan rumah program"}]');
+
+select pg_temp.bulk_verify(346, 370);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_7.sql
+-- seed-supabase/10_kegiatan_tambahan_7 (simks-partnership): additional bulk kegiatan 371-395, adapted from the local
+-- demo seed supabase/seed/04_bulk_7.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 25, 30, 31, 38, 62, 100, 105, 107, 108, 112, 117, 133, 137, 156, 158, 166, 188, 190, 191, 200, 205, 206. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{25,30,31,38,62,100,105,107,108,112,117,133,137,156,158,166,188,190,191,200,205,206}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_7: SIM Kerjasama agreements missing, kegiatan 371-395 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(371, 'Program Imersi Lintas Disiplin Design Thinking & Business Innovation di Hong Kong Baptist University', 5, 22, 'outbound', '2025-08-11', '2025-08-22', 'offline', 'HKBU Kowloon Tong Campus, Hong Kong', 'HK', 62, '{4,8,9}', 'Program imersi gabungan SBM dan Fakultas Humaniora dan Industri Kreatif di Hong Kong Baptist University: mahasiswa Manajemen, Akuntansi, dan DKV bekerja dalam tim lintas disiplin merancang prototipe bisnis kreatif dengan metode design thinking, ditutup dengan pitching di depan mentor HKBU.', pg_temp.wib('2025-08-29', '09:00'), 'approved', pg_temp.wib('2025-09-05', '14:00'), p_co_units => '{4,32}');
+select pg_temp.bulk_pset(371, '{D31239877,D31239764,D32249932,C21229456,C21239107}', '{}', '{PG818524}');
+select pg_temp.bulk_act(372, 'Pameran Bersama Desain Produk Berkelanjutan FTI–FHIK bersama ITB', 67, 35, 'inbound', '2025-09-15', '2025-09-19', 'offline', 'Galeri Gedung P PCU', 'ID', 137, '{9,12}', 'Pameran karya bersama mahasiswa Teknik Industri, Teknik Elektro, dan program desain PCU dengan Fakultas Seni Rupa dan Desain ITB yang menampilkan 40 prototipe produk ramah lingkungan, dilengkapi sesi kurasi dan diskusi panel tentang material daur ulang.', pg_temp.wib('2025-09-25', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Andar Bagus Sriwarno, M.Ds.", "institution": "Institut Teknologi Bandung", "country_code": "ID", "role": "speaker"}, {"full_name": "Prof. Dr. Imam Santosa, M.Sn.", "institution": "Institut Teknologi Bandung", "country_code": "ID", "role": "speaker"}]', p_co_units => '{28,32,65}');
+select pg_temp.bulk_act(373, 'International Conference on Applied Computing, Embedded Systems and Smart Manufacturing (ICACES) 2025 bersama Temasek Polytechnic', 67, 10, 'inbound', '2025-10-08', '2025-10-09', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 188, '{4,9,17}', 'Konferensi internasional yang diselenggarakan Prodi Teknik Industri bersama FTI, Prodi Informatika, Teknik Elektro, dan Kantor Kerja Sama dan Urusan Internasional dengan Temasek Polytechnic; menghadirkan 62 makalah tentang sistem tertanam, IoT, dan manufaktur cerdas serta keynote dari School of Engineering TP.', pg_temp.wib('2025-10-20', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Lim Wei Sheng", "institution": "Temasek Polytechnic", "country_code": "SG", "role": "speaker"}, {"full_name": "Ms. Tan Hui Min", "institution": "Temasek Polytechnic", "country_code": "SG", "role": "speaker"}]', p_co_units => '{28,68,65,2}');
+select pg_temp.bulk_act(374, 'Student Exchange Semester Ganjil Informatika dan DKV di NTUST Taipei', 68, 2, 'outbound', '2025-09-01', '2026-01-16', 'offline', 'NTUST Gongguan Campus, Taipei', 'TW', 200, '{4,9}', 'Pertukaran satu semester bagi mahasiswa Informatika dan DKV di National Taiwan University of Science and Technology; peserta mengambil mata kuliah Human-Computer Interaction dan Interactive Media Design yang diakui melalui transfer kredit.', pg_temp.wib('2026-01-26', '09:00'), 'approved', pg_temp.wib('2026-02-04', '14:00'), p_co_units => '{28,32,63}');
+select pg_temp.bulk_pset(374, '{B11229965,B11239432,C21249850}', '{}', '{}');
+select pg_temp.bulk_act(375, 'Inbound Academic Exchange Kanazawa Institute of Technology di Laboratorium Sistem Kontrol', 65, 28, 'inbound', '2025-10-01', '2025-12-19', 'offline', 'Laboratorium Sistem Kontrol Gedung P PCU', 'ID', 105, '{4,9}', 'Mahasiswa Kanazawa Institute of Technology mengikuti pertukaran akademik di Prodi Teknik Elektro dengan pembimbingan bersama dosen Teknik Elektro dan Informatika, mengerjakan proyek sistem kontrol robot pemindah barang berbasis visi komputer.', pg_temp.wib('2025-12-29', '09:00'), 'approved', pg_temp.wib('2026-01-08', '14:00'), p_co_units => '{28,68}');
+select pg_temp.bulk_pset(375, '{}', '{X05269034}', '{PG413450}');
+select pg_temp.bulk_act(376, 'Kuliah Bersama Brand Strategy & Visual Identity dengan University of Amsterdam', 5, 34, 'inbound', '2025-11-04', '2025-11-25', 'online', 'Zoom Meeting', null, 166, '{4,8}', 'Empat sesi kuliah bersama daring antara SBM, Prodi Manajemen, dan Prodi DKV dengan Amsterdam Business School, University of Amsterdam, tentang strategi merek dan identitas visual; mahasiswa lintas prodi menyusun brand audit untuk UMKM Surabaya.', pg_temp.wib('2025-12-02', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Femke van Horen", "institution": "University of Amsterdam", "country_code": "NL", "role": "visiting_lecturer"}]', p_co_units => '{4,63}');
+select pg_temp.bulk_act(377, 'Batik dan Desain Nusantara: Program Budaya Mahasiswa Hochschule Bremen', 63, 29, 'inbound', '2025-11-10', '2025-11-28', 'offline', 'Kampus PCU Siwalankerto', 'ID', 205, '{4,11}', 'Program pertukaran budaya tiga minggu untuk mahasiswa Hochschule Bremen yang dikelola Prodi DKV, Fakultas Humaniora dan Industri Kreatif, serta Kantor Kerja Sama dan Urusan Internasional: lokakarya batik, kunjungan sentra kriya Madura, dan proyek desain motif kontemporer bersama mahasiswa DKV.', pg_temp.wib('2025-12-05', '09:00'), 'approved', pg_temp.wib('2025-12-12', '14:00'), p_co_units => '{32,2}');
+select pg_temp.bulk_pset(377, '{}', '{X05269035}', '{PG780858}');
+select pg_temp.bulk_act(378, 'Service Learning Digitalisasi UMKM Kampung Lontong bersama Universitas Pelita Harapan', 6, 40, 'outbound', '2025-12-01', '2025-12-12', 'offline', 'Kampung Lontong Banyu Urip, Surabaya', 'ID', 112, '{1,8,17}', 'Pengabdian masyarakat Prodi Akuntansi bersama SBM, Prodi Manajemen, dan Prodi Informatika dengan Universitas Pelita Harapan: pendampingan pencatatan keuangan sederhana, katalog digital, dan pembayaran QRIS bagi 25 pelaku UMKM lontong.', pg_temp.wib('2025-12-18', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rahmat Setiawan, S.E., M.M.", "institution": "Universitas Pelita Harapan", "country_code": "ID", "role": "other"}]', p_co_units => '{4,5,68}');
+select pg_temp.bulk_act(379, 'Winter Short Program Smart Factory & Electrical Engineering di Kanazawa Institute of Technology', 65, 23, 'outbound', '2026-02-02', '2026-02-20', 'offline', 'Kanazawa Institute of Technology, Ogigaoka Campus', 'JP', 105, '{4,7,9}', 'Program singkat tiga minggu bagi mahasiswa Teknik Elektro dan Informatika di Kanazawa Institute of Technology: kuliah otomasi pabrik, praktikum PLC dan sensor, serta kunjungan ke fasilitas manufaktur di wilayah Hokuriku.', pg_temp.wib('2026-03-02', '09:00'), 'approved', pg_temp.wib('2026-03-10', '14:00'), p_co_units => '{28,68}');
+select pg_temp.bulk_pset(379, '{B12239310,B12249808,B12259428,B11229081}', '{}', '{PG204517}');
+select pg_temp.bulk_act(380, 'Inbound Student Exchange National Taiwan University Genap 2026 di Prodi Manajemen', 5, 2, 'inbound', '2026-02-09', '2026-06-26', 'offline', 'Gedung T PCU', 'ID', 30, '{4,17}', 'Mahasiswa National Taiwan University mengikuti satu semester di Prodi Manajemen dengan mata kuliah pilihan dari SBM (Pemasaran Digital, Kewirausahaan Asia Tenggara) dan didampingi buddy mahasiswa Manajemen.', pg_temp.wib('2026-07-06', '09:00'), 'approved', pg_temp.wib('2026-07-15', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(380, '{}', '{X06269031}', '{PG295222}');
+select pg_temp.bulk_act(381, 'Inbound Study Abroad Monash: International Business in Southeast Asia', 5, 20, 'inbound', '2026-02-16', '2026-06-12', 'offline', 'Gedung T PCU', 'ID', 108, '{4,8,17}', 'Program study abroad satu semester untuk mahasiswa Monash University yang dikelola Prodi Manajemen, SBM, dan Kantor Kerja Sama dan Urusan Internasional; mencakup modul bisnis internasional Asia Tenggara, kunjungan industri Surabaya, dan proyek konsultasi bersama mahasiswa lokal.', pg_temp.wib('2026-06-22', '09:00'), 'approved', pg_temp.wib('2026-07-01', '14:00'), p_co_units => '{4,2}');
+select pg_temp.bulk_pset(381, '{}', '{X06259033}', '{PG974721}');
+select pg_temp.bulk_act(382, 'Petra–KMUTT International Week 2026: Sustainable Business and Creative Economy', 63, 10, 'inbound', '2026-03-09', '2026-03-13', 'hybrid', 'Auditorium Gedung W PCU', 'ID', 156, '{8,12,17}', 'Pekan internasional tingkat universitas yang diselenggarakan Prodi DKV, Fakultas Humaniora dan Industri Kreatif, SBM, Kantor Kerja Sama dan Urusan Internasional, dan Rektorat bersama KMUTT: seminar ekonomi kreatif, lokakarya kemasan berkelanjutan, dan pameran startup mahasiswa kedua kampus.', pg_temp.wib('2026-03-20', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Suthep Wongsawat", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "speaker"}, {"full_name": "Dr. Pimchanok Rattanakul", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "speaker"}]', p_co_units => '{32,4,2,1}');
+select pg_temp.bulk_act(383, 'Riset Bersama Antarmuka Augmented Reality untuk Museum dengan University of Amsterdam', 68, 4, 'inbound', '2026-02-02', '2026-06-30', 'hybrid', 'Laboratorium Multimedia Gedung P PCU', 'ID', 191, '{9,11}', 'Penelitian bersama Prodi Informatika, Fakultas Humaniora dan Industri Kreatif, dan Prodi DKV dengan University of Amsterdam untuk merancang antarmuka AR pemandu koleksi Museum House of Sampoerna; luaran berupa prototipe aplikasi, uji pengguna dengan 60 pengunjung, dan draf artikel jurnal.', pg_temp.wib('2026-08-05', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Julia Noordegraaf", "institution": "University of Amsterdam", "country_code": "NL", "role": "researcher"}]', p_co_units => '{28,32,63}');
+select pg_temp.bulk_act(384, 'Magang Industri Kreatif dan Teknologi di Pusat Inovasi Temasek Polytechnic', 68, 21, 'outbound', '2026-06-01', '2026-07-24', 'offline', 'Temasek Polytechnic, Tampines Campus', 'SG', 188, '{4,8}', 'Magang delapan minggu bagi mahasiswa Informatika dan DKV di pusat inovasi Temasek Polytechnic, mengerjakan proyek aplikasi interaktif untuk klien industri di bawah supervisi bersama FTI dan Prodi DKV.', pg_temp.wib('2026-08-03', '09:00'), 'approved', pg_temp.wib('2026-08-12', '14:00'), p_co_units => '{28,63}');
+select pg_temp.bulk_pset(384, '{B11259395,B11249182,C21249850}', '{}', '{PG564518}');
+select pg_temp.bulk_act(385, 'Pengembangan Kurikulum Bersama Minor Technopreneurship FTI–SBM dengan UTM', 67, 11, 'inbound', '2026-04-06', '2026-04-08', 'online', 'Microsoft Teams', null, 107, '{4,8,9}', 'Lokakarya daring tiga hari antara Prodi Teknik Industri, FTI, SBM, dan Prodi Manajemen dengan Universiti Teknologi Malaysia untuk menyusun capaian pembelajaran dan struktur 20 SKS minor technopreneurship lintas fakultas.', pg_temp.wib('2026-04-15', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Nor Haslinda Ismail", "institution": "Universiti Teknologi Malaysia", "country_code": "MY", "role": "other"}]', p_co_units => '{28,4,5}');
+select pg_temp.bulk_act(386, 'Workshop Bersama Desain Interior dan Rekayasa Material Bambu di UGM', 59, 35, 'outbound', '2026-05-11', '2026-05-13', 'offline', 'Kampus UGM Bulaksumur, Yogyakarta', 'ID', 117, '{9,12}', 'Lokakarya tiga hari dosen Desain Interior, DKV, dan FTI bersama Departemen Teknik Mesin dan Industri UGM tentang pemanfaatan limbah tekstil dan bambu sebagai material interior, menghasilkan rencana proyek bersama 2026/2027.', pg_temp.wib('2026-05-20', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Ratna Kusumawardani, M.T.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "speaker"}]', p_co_units => '{32,63,28}');
+select pg_temp.bulk_act(387, 'Pelatihan Akuntansi Digital dan Analitik Bisnis bersama Universitas Surabaya', 6, 43, 'outbound', '2026-07-13', '2026-07-17', 'offline', 'Fakultas Bisnis dan Ekonomika Ubaya, Kampus Tenggilis Surabaya', 'ID', 158, '{4,8}', 'Pelatihan lima hari bagi dosen dan asisten Prodi Akuntansi, SBM, dan Prodi Manajemen di Fakultas Bisnis dan Ekonomika Universitas Surabaya tentang otomasi akuntansi berbasis cloud dan dashboard analitik bisnis, ditutup dengan sertifikasi internal.', pg_temp.wib('2026-07-27', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Yie Ke Feliana, S.E., M.Comm., Ak.", "institution": "Universitas Surabaya", "country_code": "ID", "role": "speaker"}]', p_co_units => '{4,5}');
+select pg_temp.bulk_act(388, 'Yonsei International Summer School 2026 Business and Culture Track', 5, 23, 'outbound', '2026-08-03', '2026-08-21', 'offline', 'Yonsei University Sinchon Campus, Seoul', 'KR', 31, '{4,8,17}', 'Summer school internasional yang dikoordinasikan Kantor Kerja Sama dan Urusan Internasional bersama SBM dan Prodi Manajemen; mahasiswa Manajemen dan Akuntansi mengikuti modul Korean business culture dan corporate visit ke Seoul.', pg_temp.wib('2026-08-28', '09:00'), 'approved', pg_temp.wib('2026-09-07', '14:00'), p_co_units => '{4,6,2}');
+select pg_temp.bulk_pset(388, '{D31249852,D31229441,D32239280,D32239903}', '{}', '{PG214411}');
+select pg_temp.bulk_act(389, 'Inbound Summer Program Chulalongkorn University: Akuntansi dan Bisnis Digital Indonesia', 5, 23, 'inbound', '2026-08-03', '2026-08-28', 'offline', 'Gedung T PCU', 'ID', 25, '{4,8}', 'Program singkat empat minggu untuk mahasiswa Chulalongkorn University yang diselenggarakan Prodi Manajemen, Prodi Akuntansi, SBM, dan Kantor Kerja Sama dan Urusan Internasional: kuliah akuntansi dan ekosistem bisnis digital Indonesia serta kunjungan ke startup Surabaya.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{4,6,2}');
+select pg_temp.bulk_pset(389, '{}', '{X05269032}', '{PG637448}');
+select pg_temp.bulk_act(390, 'Short Course Teknologi Energi Terbarukan dan IoT di Universiti Teknologi Malaysia', 65, 22, 'outbound', '2026-08-24', '2026-09-04', 'offline', 'Universiti Teknologi Malaysia, Johor Bahru', 'MY', 107, '{4,7,13}', 'Program imersi dua minggu bagi mahasiswa Teknik Elektro dan Informatika di UTM tentang sistem panel surya, manajemen energi berbasis IoT, dan kunjungan ke pembangkit tenaga surya di Johor.', pg_temp.daysago(8, '09:00'), 'pending', pg_temp.daysago(8, '09:00'), p_co_units => '{28,68}');
+select pg_temp.bulk_pset(390, '{B12239310,B12239803,B11229081}', '{}', '{PG703063}');
+select pg_temp.bulk_act(391, 'Pertukaran Budaya Desain dan Bisnis Kreatif di Ateneo de Manila University', 63, 29, 'outbound', '2026-08-10', '2026-08-21', 'offline', 'Ateneo de Manila University, Loyola Heights, Quezon City', 'PH', 133, '{4,8,11}', 'Pertukaran budaya dua minggu mahasiswa DKV, Manajemen, dan Akuntansi di Ateneo de Manila University dengan lokakarya ekonomi kreatif Filipina, kunjungan komunitas seniman Intramuros, dan presentasi proyek kolaboratif.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(9, '14:00'), p_mnote => 'Sertifikat partisipasi dari Ateneo de Manila University untuk D31249140 dan D32249413 belum ada di bundel mobilitas, dan dosen pendamping belum dicantumkan; mohon lengkapi lalu ajukan ulang.', p_co_units => '{32,4}');
+select pg_temp.bulk_pset(391, '{C21229874,C21239176,D31249140,D32249413}', '{}', '{}');
+select pg_temp.bulk_act(392, 'Kuliah Tamu Internet of Things untuk Smart Building dari Chulalongkorn University', 65, 15, 'inbound', '2026-09-08', '2026-09-08', 'hybrid', 'Auditorium Gedung P PCU', 'ID', 38, '{7,9,11}', 'Kuliah tamu gabungan Prodi Teknik Elektro, FTI, dan Prodi Informatika tentang integrasi IoT dan sistem manajemen energi gedung, dihadiri 180 mahasiswa luring dan daring.', pg_temp.wib('2026-09-14', '09:00'), null, null, p_ext => '[{"full_name": "Asst. Prof. Dr. Kittipong Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "speaker"}]', p_co_units => '{28,68}');
+select pg_temp.bulk_act(393, 'Kunjungan Akademik Pimpinan Universitas ke Kanazawa Institute of Technology untuk Penjajakan Joint Lab', 69, 27, 'outbound', '2026-09-14', '2026-09-17', 'offline', 'Kanazawa Institute of Technology, Yatsukaho Campus', 'JP', 190, '{9,17}', 'Kunjungan delegasi Prodi Teknik Mesin dan FTI bersama Rektorat serta Kantor Kerja Sama dan Urusan Internasional ke Kanazawa Institute of Technology untuk meninjau fasilitas riset material komposit dan robotika serta menyepakati rencana joint laboratory.', pg_temp.wib('2026-09-24', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Takahiro Nakamura", "institution": "Kanazawa Institute of Technology", "country_code": "JP", "role": "other"}]', p_co_units => '{28,1,2}');
+select pg_temp.bulk_act(394, 'Joint Exhibition Petra–UTS Visual Storytelling 2026', 63, 35, 'inbound', '2026-11-16', '2026-11-20', 'offline', 'Galeri Gedung P PCU', 'ID', 206, '{4,11}', 'Rencana pameran bersama karya visual storytelling mahasiswa DKV PCU dan University of Technology Sydney, didukung Kantor Kerja Sama dan Urusan Internasional, dengan sesi artist talk dan lokakarya komik digital.', null, null, null, p_files => '{ia}', p_co_units => '{32,2}');
+select pg_temp.bulk_act(395, 'Fontys Winter School International Marketing 2027', 5, 23, 'outbound', '2027-01-11', '2027-01-22', 'offline', 'Fontys University of Applied Sciences, Eindhoven', 'NL', 100, '{4,8}', 'Rencana winter school dua minggu di Fontys bagi mahasiswa Manajemen dan Akuntansi yang dikoordinasikan SBM dan Kantor Kerja Sama dan Urusan Internasional, berfokus pada pemasaran internasional dan riset pasar Eropa.', null, null, null, p_co_units => '{4,6,2}');
+select pg_temp.bulk_pset(395, '{D31239877,D32249932}', '{}', '{}');
+
+select pg_temp.bulk_verify(371, 395);
+
+-- >>> supabase/seed-supabase/10_kegiatan_tambahan_8.sql
+-- seed-supabase/10_kegiatan_tambahan_8 (simks-partnership): additional bulk kegiatan 396-420, adapted from the local
+-- demo seed supabase/seed/04_bulk_8.sql to the real SIM Kerjasama units (Program Studi submitters) and agreements.
+-- Generated from a reviewed JSON list; every row passes the guards below (agreement valid for the dates, submission
+-- after the end date, Mobility decision after the submission, participant set for every submitted mobility kegiatan,
+-- no student in two overlapping kegiatan, unique names). Needs 03_accounts.sql and 09_registries_tambahan.sql.
+-- Self-contained and idempotent (existing rows are skipped), so it can be run on its own: Supabase SQL Editor or one
+-- statement batch. Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+-- The kegiatan reference SIM Kerjasama agreements 11, 19, 25, 28, 30, 31, 42, 72, 105, 107, 126, 133, 151, 156, 158, 166, 174, 188, 191, 195, 205, 206, 208. Where any is missing (e.g. the local
+-- --rehearse fixture, which only mirrors agreements 11-52) the whole file is skipped with a notice instead of failing.
+drop table if exists pg_temp.tambahan_skip;
+create temp table tambahan_skip as
+select exists (select 1 from unnest('{11,19,25,28,30,31,42,72,105,107,126,133,151,156,158,166,174,188,191,195,205,206,208}'::int[]) d where not exists (select 1 from kerjasama.documents k where k.id = d)) as skip;
+do $$ begin if (select skip from pg_temp.tambahan_skip) then
+  raise notice '10_kegiatan_tambahan_8: SIM Kerjasama agreements missing, kegiatan 396-420 skipped'; end if; end $$;
+
+
+create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
+  select ('b5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.gid(n int) returns uuid language sql immutable as $$
+  select ('e5000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
+create or replace function pg_temp.akun(p_akun int) returns uuid language sql stable as $$
+  select id from kerjasama.profiles where akun_id = p_akun $$;
+create or replace function pg_temp.pdf() returns bytea language sql immutable as $$
+  select decode('255044462d312e340a312030206f626a0a3c3c2f547970652f436174616c6f672f50616765732032203020523e3e0a656e646f626a0a322030206f626a0a3c3c2f547970652f50616765732f4b6964735b33203020525d2f436f756e7420313e3e0a656e646f626a0a332030206f626a0a3c3c2f547970652f506167652f506172656e742032203020522f4d65646961426f785b30203020323030203230305d2f436f6e74656e74732034203020522f5265736f75726365733c3c3e3e3e3e0a656e646f626a0a342030206f626a0a3c3c2f4c656e67746820303e3e73747265616d0a0a656e6473747265616d0a656e646f626a0a787265660a3020350a303030303030303030302036353533352066200a30303030303030303039203030303030206e200a30303030303030303534203030303030206e200a30303030303030313035203030303030206e200a30303030303030313939203030303030206e200a747261696c65720a3c3c2f53697a6520352f526f6f742031203020523e3e0a7374617274787265660a3234350a2525454f460a', 'hex') $$;
+create or replace function pg_temp.wib(d date, t time default '09:00') returns timestamptz language sql immutable as $$
+  select (d + t) at time zone 'Asia/Jakarta' $$;
+create or replace function pg_temp.daysago(n int, t time default '09:00') returns timestamptz language sql stable as $$
+  select ((realisasi.today() - n) + t) at time zone 'Asia/Jakarta' $$;
+
+create or replace function pg_temp.blob(p_path text, p_by uuid, p_at timestamptz) returns void language sql as $$
+  insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_by, created_at)
+  values (p_path, split_part(p_path, '/', 1), pg_temp.pdf(), 'application/pdf', length(pg_temp.pdf()), p_by, p_at)
+  on conflict (path) do nothing $$;
+
+create or replace function pg_temp.log(p_n int, p_kind text, p_track text, p_action text, p_actor uuid, p_at timestamptz,
+                                       p_note text default null, p_diff jsonb default null)
+returns void language sql as $$
+  insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
+  values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
+
+-- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+create or replace function pg_temp.bulk_act(
+  p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
+  p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
+  p_files text[] default '{ia,ir}', p_mnote text default null, p_ext jsonb default '[]', p_co_units int[] default '{}')
+returns void language plpgsql as $$
+declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text;
+        v_creator uuid; v_created timestamptz; k text; v_path text; e jsonb; v_mob boolean; u int;
+        c_mob uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
+  -- guards
+  if p_n not between 221 and 420 then raise exception 'bulk %: number outside 221..420', p_n; end if;
+  if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then raise exception 'bulk %: unit % is not a Program Studi', p_n, p_unit; end if;
+  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
+    raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
+  if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
+    raise exception 'bulk %: document % not valid for % .. %', p_n, p_doc, p_start, p_end; end if;
+  if p_country is not null and not exists (select 1 from kerjasama.countries where code = p_country) then
+    raise exception 'bulk %: country % missing', p_n, p_country; end if;
+  if p_country is null and p_mode <> 'online' then raise exception 'bulk %: country required unless online', p_n; end if;
+  if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
+    raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
+  if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
+  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  if p_submitted is not null then
+    if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
+    if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
+    if v_mob and coalesce(p_mstatus, '') not in ('approved', 'pending', 'revision_requested') then
+      raise exception 'bulk %: mobility kegiatan needs p_mstatus approved/pending/revision_requested', p_n; end if;
+    if not v_mob and p_mstatus is not null then raise exception 'bulk %: non-mobility kegiatan takes p_mstatus null', p_n; end if;
+    if p_mstatus in ('approved', 'revision_requested') and (p_msince is null or p_msince <= p_submitted) then
+      raise exception 'bulk %: p_msince must follow p_submitted', p_n; end if;
+    if p_mstatus = 'revision_requested' and p_mnote is null then raise exception 'bulk %: revision needs p_mnote', p_n; end if;
+    if not p_files @> '{ia,ir}' then raise exception 'bulk %: a submitted kegiatan needs IA and IR', p_n; end if;
+  end if;
+
+  -- creator as in 06/07: the Prodi Manajemen submitter (akun 4) for unit 5, otherwise IO Admin (akun 1) for the prodi
+  v_creator := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
+  v_created := coalesce(p_submitted, pg_temp.wib(p_end)) - interval '3 days';
+  v_code := 'RL-' || to_char(v_created at time zone 'Asia/Jakarta', 'YYYY') || '-' || lpad(p_n::text, 4, '0');
+  insert into realisasi.event_groups (id, created_by, created_at) values (v_g, v_creator, v_created) on conflict do nothing;
+  insert into realisasi.activities (id, code, name, agenda_id, direction, start_date, end_date, mode, venue, country_code,
+              sks_recognized, description, submitter_unit_id, created_by, submitted_at, verified_at,
+              mobility_status, mobility_since, event_group_id, created_at)
+  values (v_id, v_code, p_name, p_agenda, p_dir::realisasi.direction, p_start, p_end, p_mode::realisasi.activity_mode, p_venue,
+          p_country, case when v_mob and p_dir = 'outbound' then case when p_end - p_start >= 60 then 20 when p_end - p_start >= 14 then 6 else 3 end end,
+          p_desc, p_unit, v_creator, p_submitted,
+          case when p_submitted is not null and (not v_mob or p_mstatus = 'approved')
+               then coalesce(case when v_mob then p_msince end, p_submitted) end,
+          case when p_submitted is null or not v_mob then 'not_required' else p_mstatus end::realisasi.track_status,
+          coalesce(p_msince, p_submitted, v_created), v_g, v_created);
+  insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, p_unit, true);
+  foreach u in array p_co_units loop
+    if u = p_unit or not exists (select 1 from kerjasama.units where id = u) then raise exception 'bulk %: bad co-unit %', p_n, u; end if;
+    insert into realisasi.activity_units (activity_id, unit_id, is_submitter) values (v_id, u, false);
+  end loop;
+  insert into realisasi.activity_documents (activity_id, original_document_id, out_of_scope_warning)
+  values (v_id, p_doc, not exists (select 1 from kerjasama.document_scope_units su where su.document_id = p_doc and su.unit_id = p_unit));
+  insert into realisasi.activity_sdgs (activity_id, sdg_id) select distinct v_id, s from unnest(p_sdgs) s;
+  for e in select * from jsonb_array_elements(p_ext) loop
+    insert into realisasi.activity_external_persons (activity_id, full_name, institution, country_code, role, notes)
+    values (v_id, e ->> 'full_name', e ->> 'institution', e ->> 'country_code', (e ->> 'role')::realisasi.person_role, e ->> 'notes');
+  end loop;
+  foreach k in array p_files || case when v_mob and p_submitted is not null then '{mobility_bundle}'::text[] else '{}' end loop
+    v_path := case when k = 'mobility_bundle' then 'realisasi-transcripts/' else 'realisasi-files/' end
+              || v_id || '/' || k || '/' || md5(v_id::text || k)::uuid || '.pdf';
+    perform pg_temp.blob(v_path, v_creator, v_created + interval '1 day');
+    insert into realisasi.activity_files (activity_id, kind, version, storage_path, filename, size_bytes, mime, is_current, uploaded_by, uploaded_at)
+    values (v_id, k::realisasi.file_kind, 1, v_path,
+            case when k = 'mobility_bundle' then 'Transkrip_Poster_Dokumentasi_' else upper(k) || '_' end || v_code || '.pdf',
+            length(pg_temp.pdf()), 'application/pdf', true, v_creator, v_created + interval '1 day');
+  end loop;
+
+  perform pg_temp.log(p_n, 'system', null, 'create', v_creator, v_created);
+  if p_submitted is null then return; end if;
+  perform pg_temp.log(p_n, 'system', null, 'submit', v_creator, p_submitted);
+  if v_mob and p_mstatus = 'approved' then perform pg_temp.log(p_n, 'verification', 'mobility', 'approve', c_mob, p_msince, null, '{"version":1}'); end if;
+  if v_mob and p_mstatus = 'revision_requested' then perform pg_temp.log(p_n, 'verification', 'mobility', 'request_revision', c_mob, p_msince, p_mnote); end if;
+end $$;
+
+-- Participant set v1 of a mobility kegiatan; status follows the activity's Mobility track (draft for a draft kegiatan).
+create or replace function pg_temp.bulk_pset(p_n int, p_internal text[], p_inbound text[] default '{}', p_staff text[] default '{}')
+returns void language plpgsql as $$
+declare v_act uuid := pg_temp.aid(p_n); v_id uuid := md5(pg_temp.aid(p_n)::text || ':v1')::uuid; a realisasi.activities; v_bad text;
+        v_status text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
+  select * into a from realisasi.activities where id = v_act;
+  if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
+  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
+  if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
+  if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_internal) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'regular' and s.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active regular students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_inbound) x
+   where not exists (select 1 from mock_baak.students s where s.nrp = x and s.category = 'inbound_exchange');
+  if v_bad is not null then raise exception 'bulk_pset %: not inbound students: %', p_n, v_bad; end if;
+  select string_agg(x, ',') into v_bad from unnest(p_staff) x
+   where not exists (select 1 from mock_hr.employees e where e.employee_id = x and e.status = 'active');
+  if v_bad is not null then raise exception 'bulk_pset %: not active employees: %', p_n, v_bad; end if;
+  select string_agg(distinct ps.nrp || ' (' || o.code || ')', ', ') into v_bad
+    from realisasi.participant_students ps
+    join realisasi.participant_set_versions v on v.id = ps.set_version_id and v.status <> 'superseded'
+    join realisasi.activities o on o.id = v.activity_id and o.id <> v_act
+   where ps.nrp = any (p_internal || p_inbound) and o.start_date <= a.end_date and a.start_date <= o.end_date;
+  if v_bad is not null then raise exception 'bulk_pset %: students already in an overlapping kegiatan: %', p_n, v_bad; end if;
+
+  v_status := case when a.submitted_at is null then 'draft' else a.mobility_status::text end;
+  insert into realisasi.participant_set_versions (id, activity_id, version, status, submitted_by, submitted_at, reviewed_by, reviewed_at, review_note)
+  values (v_id, v_act, 1, v_status::realisasi.pset_status, a.created_by, a.submitted_at,
+          case when v_status in ('approved', 'revision_requested') then pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end) end,
+          case when v_status in ('approved', 'revision_requested') then a.mobility_since end,
+          case when v_status = 'revision_requested'
+               then (select note from realisasi.activity_log where activity_id = v_act and action = 'request_revision' limit 1) end);
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name)
+  select v_id, 'internal', s.nrp, s.full_name, s.faculty_name, s.prodi_name
+    from unnest(p_internal) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_students (set_version_id, section, nrp, full_name, faculty_name, prodi_name,
+              home_institution, home_student_number, home_country_code)
+  select v_id, 'inbound', s.nrp, s.full_name, s.faculty_name, s.prodi_name, s.home_institution,
+         'HS-' || right(s.nrp, 4), s.home_country_code
+    from unnest(p_inbound) with ordinality x(nrp, o) join mock_baak.students s on s.nrp = x.nrp order by o;
+  insert into realisasi.participant_staff (set_version_id, employee_id, full_name, unit_name)
+  select v_id, e.employee_id, e.full_name, e.unit_name
+    from unnest(p_staff) with ordinality x(id, o) join mock_hr.employees e on e.employee_id = x.id order by o;
+end $$;
+
+-- End-of-file check for one bulk file: exactly the expected rows exist and every submitted mobility kegiatan has its
+-- participant set.
+create or replace function pg_temp.bulk_verify(p_from int, p_to int) returns void language plpgsql as $$
+declare v_n int; v_bad text;
+begin
+  if (select skip from pg_temp.tambahan_skip) then return; end if;
+  select count(*) into v_n from realisasi.activities a where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g);
+  if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
+  select string_agg(a.code, ', ') into v_bad from realisasi.activities a
+   where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
+     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
+  if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
+  perform setval('realisasi.activity_code_seq', greatest(420, (select last_value from realisasi.activity_code_seq)));
+end $$;
+
+select pg_temp.bulk_act(396, 'Riset Bersama Sensor Getaran Struktur Jembatan dengan Universitas Gadjah Mada', 65, 4, 'outbound', '2025-10-20', '2026-01-30', 'offline', 'Laboratorium Struktur, Fakultas Teknik UGM, Yogyakarta', 'ID', 28, '{9,11}', 'Riset bersama pengembangan sensor getaran berbasis MEMS untuk pemantauan kesehatan struktur jembatan. Tim Teknik Elektro melakukan kalibrasi prototipe di laboratorium struktur UGM dan menyusun draf artikel bersama sebelum perjanjian kerja sama tersebut diarsipkan.', pg_temp.wib('2026-02-12', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr. Ir. Bambang Suhendro, M.Sc.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "researcher"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(397, 'Kuliah Tamu Lean Production 4.0 dari Technische Hochschule Deggendorf', 67, 7, 'inbound', '2025-11-12', '2025-11-12', 'offline', 'Auditorium Gedung P PCU', 'ID', 126, '{8,9}', 'Kuliah tamu tentang penerapan lean production yang terintegrasi dengan sensor IoT di industri manufaktur Bavaria, diikuti mahasiswa Teknik Industri dan Informatika.', pg_temp.wib('2025-11-20', '09:00'), null, null, p_ext => '[{"full_name": "Prof. Dr.-Ing. Markus Hofbauer", "institution": "Technische Hochschule Deggendorf", "country_code": "DE", "role": "speaker"}]', p_co_units => '{28,68}');
+select pg_temp.bulk_act(398, 'Short Program Power Electronics di Hochschule Bremen', 65, 23, 'outbound', '2025-10-13', '2025-10-31', 'offline', 'Hochschule Bremen, Campus Neustadtswall', 'DE', 195, '{4,7}', 'Program singkat tiga minggu tentang desain konverter daya dan inverter untuk sistem energi terbarukan. Mahasiswa Teknik Elektro mengikuti kuliah, praktikum laboratorium, dan kunjungan ke industri turbin angin di Bremerhaven.', pg_temp.wib('2026-01-20', '09:00'), 'approved', pg_temp.wib('2026-01-29', '14:00'));
+select pg_temp.bulk_pset(398, '{B12239276,B12239596}', '{}', '{PG204517}');
+select pg_temp.bulk_act(399, 'Kuliah Tamu Daring Motion Graphics untuk Kampanye Sosial bersama University of Technology Sydney', 63, 7, 'inbound', '2025-12-03', '2025-12-03', 'online', 'Zoom Meeting', null, 206, '{4,17}', 'Kuliah tamu daring tentang perancangan motion graphics untuk kampanye kesadaran sosial, termasuk studi kasus kampanye kesehatan publik di New South Wales dan sesi tanya jawab portofolio.', pg_temp.wib('2025-12-10', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Emma Fitzgerald", "institution": "University of Technology Sydney", "country_code": "AU", "role": "speaker"}]');
+select pg_temp.bulk_act(400, 'Inbound Exchange University of Amsterdam di Prodi Manajemen Semester Ganjil 2025/2026', 5, 2, 'inbound', '2025-09-01', '2026-01-16', 'offline', 'Kampus PCU Siwalankerto', 'ID', 166, '{4,17}', 'Mahasiswa pertukaran dari University of Amsterdam mengikuti satu semester perkuliahan reguler Manajemen, termasuk mata kuliah Bisnis Internasional dan kelas Bahasa Indonesia untuk penutur asing.', pg_temp.wib('2026-01-26', '09:00'), 'approved', pg_temp.wib('2026-02-04', '14:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(400, '{}', '{X06269040}', '{PG818524}');
+select pg_temp.bulk_act(401, 'Joint Webinar Manajemen Operasi Rantai Halal Asia Tenggara bersama KMUTT', 5, 10, 'inbound', '2025-11-25', '2025-11-25', 'hybrid', 'Ruang Seminar Gedung T PCU', 'ID', 156, '{8,12}', 'Webinar hibrida yang membahas tantangan sertifikasi dan logistik produk halal di Thailand dan Indonesia, dengan pembicara dari KMUTT dan dosen Manajemen PCU.', pg_temp.wib('2025-12-02', '09:00'), null, null, p_ext => '[{"full_name": "Assoc. Prof. Dr. Somchai Prasertsri", "institution": "King Mongkut''s University of Technology Thonburi", "country_code": "TH", "role": "speaker"}]');
+select pg_temp.bulk_act(402, 'Staff Exchange Laboratorium Mekatronika ke Universitas Gadjah Mada', 65, 3, 'outbound', '2026-05-11', '2026-05-22', 'offline', 'Departemen Teknik Elektro dan Teknologi Informasi, Fakultas Teknik UGM, Yogyakarta', 'ID', 72, '{4,9}', 'Dua dosen Teknik Elektro menjalani program pertukaran staf di laboratorium mekatronika UGM untuk mempelajari tata kelola laboratorium riset dan merancang praktikum bersama di bawah perjanjian yang masih berlaku.', pg_temp.wib('2026-06-03', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Ir. Adha Imam Cahyadi, M.Eng.", "institution": "Universitas Gadjah Mada", "country_code": "ID", "role": "staff_visitor"}]', p_co_units => '{28}');
+select pg_temp.bulk_act(403, 'Program Budaya Seni Tradisi Jawa untuk Mahasiswa Yonsei University', 63, 29, 'inbound', '2026-02-09', '2026-03-20', 'offline', 'Studio Desain Gedung P PCU', 'ID', 31, '{4,11}', 'Mahasiswa Yonsei University mengikuti program enam minggu tentang batik, wayang, dan ragam hias Jawa Timur, ditutup dengan pameran karya kolaboratif bersama mahasiswa Desain Komunikasi Visual.', pg_temp.wib('2026-05-04', '09:00'), 'approved', pg_temp.wib('2026-05-12', '14:00'), p_co_units => '{32}');
+select pg_temp.bulk_pset(403, '{}', '{X05269037}', '{PG761401}');
+select pg_temp.bulk_act(404, 'Online Course Cloud Native Development dari Temasek Polytechnic', 68, 79, 'inbound', '2026-03-02', '2026-04-24', 'online', 'Microsoft Teams', null, 188, '{4,9}', 'Kursus daring delapan minggu tentang container, Kubernetes, dan CI/CD yang diampu dosen Temasek Polytechnic untuk mahasiswa Informatika, dengan proyek akhir deployment aplikasi mikroservis.', pg_temp.wib('2026-05-06', '09:00'), null, null, p_ext => '[{"full_name": "Mr. Lim Wei Jie", "institution": "Temasek Polytechnic", "country_code": "SG", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(405, 'Pameran Bersama Tipografi Nusantara bersama ITB', 63, 35, 'outbound', '2026-04-20', '2026-04-25', 'offline', 'Galeri Soemardja, Institut Teknologi Bandung', 'ID', 208, '{4,11}', 'Pameran karya tipografi berbasis aksara daerah hasil kolaborasi mahasiswa DKV PCU dan FSRD ITB, disertai diskusi kuratorial tentang digitalisasi aksara Nusantara.', pg_temp.wib('2026-05-02', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Andi Wiranata, M.Sn.", "institution": "Institut Teknologi Bandung", "country_code": "ID", "role": "other"}]');
+select pg_temp.bulk_act(406, 'Pengabdian Masyarakat Pembukuan Digital UMKM Kampung Lawas Maspati bersama Universitas Surabaya', 6, 40, 'outbound', '2026-06-15', '2026-06-19', 'offline', 'Kampung Lawas Maspati, Surabaya', 'ID', 158, '{1,8}', 'Dosen dan mahasiswa Akuntansi bersama tim Universitas Surabaya mendampingi pelaku UMKM kampung wisata dalam pencatatan keuangan sederhana menggunakan aplikasi kasir digital.', pg_temp.wib('2026-08-10', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Rahmawati Santoso, S.E., M.Ak.", "institution": "Universitas Surabaya", "country_code": "ID", "role": "other"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(407, 'Inbound Credit Transfer Informatika Universiti Teknologi Malaysia 2026', 68, 33, 'inbound', '2026-07-20', '2026-09-11', 'offline', 'Laboratorium Informatika Gedung P PCU', 'ID', 107, '{4,9}', 'Mahasiswa Universiti Teknologi Malaysia mengambil dua mata kuliah Informatika (Pemrograman Mobile dan Data Mining) dengan pengakuan kredit di kampus asal.', pg_temp.daysago(2, '09:00'), 'pending', pg_temp.daysago(2, '09:00'));
+select pg_temp.bulk_pset(407, '{}', '{X06269039}', '{PG564518}');
+select pg_temp.bulk_act(408, 'Academic Exchange Sistem Kendali Cerdas National University of Singapore 2026', 65, 28, 'inbound', '2026-08-03', '2026-09-25', 'offline', 'Laboratorium Teknik Elektro Gedung W PCU', 'ID', 19, '{4,7}', 'Mahasiswa National University of Singapore melakukan pertukaran akademik di laboratorium Teknik Elektro, mengerjakan proyek kendali cerdas untuk sistem panel surya skala kecil.', pg_temp.daysago(5, '09:00'), 'pending', pg_temp.daysago(5, '09:00'));
+select pg_temp.bulk_pset(408, '{}', '{X06269036}', '{PG703063}');
+select pg_temp.bulk_act(409, 'Magang Akuntansi dan Logistik Internasional di KMUTT Bangkok', 6, 21, 'outbound', '2026-08-03', '2026-09-11', 'offline', 'KMUTT Bang Mod Campus, Bangkok', 'TH', 156, '{8,17}', 'Mahasiswa Akuntansi magang enam minggu di unit keuangan dan logistik KMUTT serta mitra industrinya, mempelajari pelaporan biaya rantai pasok lintas negara.', pg_temp.daysago(8, '09:00'), 'pending', pg_temp.daysago(8, '09:00'), p_co_units => '{4}');
+select pg_temp.bulk_pset(409, '{D32239187,D32249796}', '{}', '{PG818524}');
+select pg_temp.bulk_act(410, 'Short Program Animation and Game Art di University of Technology Sydney', 63, 23, 'outbound', '2026-08-17', '2026-09-11', 'offline', 'UTS City Campus, Ultimo, Sydney', 'AU', 206, '{4,9}', 'Program singkat empat minggu tentang animasi 3D dan desain aset gim, ditutup dengan presentasi prototipe gim pendek di depan dosen UTS.', pg_temp.daysago(11, '09:00'), 'pending', pg_temp.daysago(11, '09:00'));
+select pg_temp.bulk_pset(410, '{C21229761,C21239657,C21239466}', '{}', '{PG452412}');
+select pg_temp.bulk_act(411, 'Studi Ekskursi Industri Otomotif Thailand bersama Chulalongkorn University', 68, 24, 'outbound', '2026-08-24', '2026-08-29', 'offline', 'Faculty of Engineering, Chulalongkorn University', 'TH', 151, '{9,12}', 'Kunjungan studi ke Chulalongkorn University dan kawasan industri otomotif Rayong untuk mempelajari otomasi lini perakitan dan sistem informasi manufaktur.', pg_temp.daysago(12, '09:00'), 'pending', pg_temp.daysago(12, '09:00'), p_co_units => '{28}');
+select pg_temp.bulk_pset(411, '{B11239024,B11239809,B11229632}', '{}', '{PG707752}');
+select pg_temp.bulk_act(412, 'Credit Transfer Kewirausahaan Sosial di Chulalongkorn University', 5, 33, 'outbound', '2026-08-10', '2026-09-11', 'offline', 'Sasin School of Management, Chulalongkorn University, Bangkok', 'TH', 25, '{4,8}', 'Mahasiswa Manajemen mengikuti mata kuliah Kewirausahaan Sosial di Chulalongkorn University selama lima minggu dengan pengakuan kredit, termasuk proyek lapangan bersama koperasi petani di Nakhon Pathom.', pg_temp.daysago(15, '09:00'), 'revision_requested', pg_temp.daysago(6, '14:00'), p_mnote => 'NRP peserta D31239267 pada daftar peserta tidak sama dengan NRP di surat tugas (tertulis D31239276). Mohon periksa kembali NRP dan unggah ulang surat tugas yang benar.');
+select pg_temp.bulk_pset(412, '{D31239924,D31239267}', '{}', '{PG295222}');
+select pg_temp.bulk_act(413, 'Program Imersi Budaya Visual Filipina bersama Ateneo de Manila University', 63, 22, 'outbound', '2026-08-17', '2026-09-04', 'offline', 'Ateneo de Manila University, Loyola Heights, Quezon City', 'PH', 133, '{4,11}', 'Program imersi tiga minggu tentang budaya visual Filipina: kunjungan museum, lokakarya ilustrasi jeepney art, dan kolaborasi poster dengan mahasiswa Ateneo.', pg_temp.daysago(18, '09:00'), 'revision_requested', pg_temp.daysago(9, '14:00'), p_mnote => 'Transkrip nilai C21249938 hanya memuat halaman 1 dari 2; halaman rincian mata kuliah dan tanda tangan registrar Ateneo belum ada. Mohon unggah transkrip lengkap.');
+select pg_temp.bulk_pset(413, '{C21259377,C21249938}', '{}', '{PG780858}');
+select pg_temp.bulk_act(414, 'Academic Exchange Laboratorium Robotika Kanazawa Institute of Technology', 65, 28, 'outbound', '2026-08-31', '2026-09-18', 'offline', 'Ogigaoka Campus, Kanazawa Institute of Technology', 'JP', 105, '{4,9}', 'Mahasiswa Teknik Elektro bergabung dengan laboratorium robotika Kanazawa Institute of Technology selama tiga minggu untuk mengembangkan pengendali lengan robot berbasis visi komputer.', pg_temp.daysago(9, '09:00'), 'revision_requested', pg_temp.daysago(3, '14:00'), p_mnote => 'Tanggal kegiatan (31 Agustus - 18 September 2026) tidak sesuai dengan surat tugas No. 412/FTI/VIII/2026 yang mencantumkan 1 - 19 September 2026. Mohon sesuaikan tanggal kegiatan atau unggah surat tugas revisi.');
+select pg_temp.bulk_pset(414, '{B12239147,B12239970}', '{}', '{PG413450}');
+select pg_temp.bulk_act(415, 'Pelatihan Daring Analitik Data Pelanggan bersama Universiti Brunei Darussalam', 5, 69, 'inbound', '2026-08-18', '2026-08-20', 'online', 'Microsoft Teams', null, 174, '{4,8}', 'Pelatihan daring tiga hari tentang segmentasi pelanggan dan analitik churn menggunakan data ritel anonim, dibawakan dosen UBD School of Business and Economics untuk mahasiswa dan dosen Manajemen.', pg_temp.wib('2026-08-27', '09:00'), null, null, p_ext => '[{"full_name": "Dr. Nurul Aisyah binti Haji Abdullah", "institution": "Universiti Brunei Darussalam", "country_code": "BN", "role": "speaker"}]');
+select pg_temp.bulk_act(416, 'Kuliah Tamu Cybersecurity Operations Center dari University of Amsterdam', 68, 15, 'inbound', '2026-08-12', '2026-08-12', 'offline', 'Auditorium Gedung P PCU', 'ID', 191, '{4,9}', 'Kuliah tamu tentang operasional Security Operations Center, simulasi penanganan insiden, dan jalur karier keamanan siber bagi mahasiswa Informatika.', null, null, null, p_ext => '[{"full_name": "Dr. Pieter van der Berg", "institution": "University of Amsterdam", "country_code": "NL", "role": "speaker"}]');
+select pg_temp.bulk_act(417, 'Seminar Bersama Ekonomi Digital Taiwan-Indonesia dengan National Taiwan University', 5, 10, 'inbound', '2026-09-22', '2026-09-22', 'hybrid', 'Ruang Seminar Gedung T PCU', 'ID', 30, '{8,17}', 'Seminar hibrida yang membandingkan ekosistem platform digital dan regulasi e-commerce di Taiwan dan Indonesia, dengan pembicara dari National Taiwan University.', null, null, null, p_files => '{ia}', p_ext => '[{"full_name": "Prof. Dr. Chen Wei-ting", "institution": "National Taiwan University", "country_code": "TW", "role": "speaker"}]', p_co_units => '{4}');
+select pg_temp.bulk_act(418, 'Penyusunan Kurikulum Bersama Desain Interaktif dengan Hochschule Bremen', 63, 32, 'inbound', '2026-09-14', '2026-09-25', 'offline', 'Ruang Rapat Gedung P PCU', 'ID', 205, '{4,17}', 'Lokakarya penyusunan kurikulum bersama mata kuliah Desain Interaktif dan UX, menyelaraskan capaian pembelajaran DKV PCU dengan program Hochschule Bremen untuk rencana pengakuan kredit.', null, null, null, p_files => '{ia}', p_ext => '[{"full_name": "Prof. Dr. Katrin Schulte", "institution": "Hochschule Bremen", "country_code": "DE", "role": "visiting_lecturer"}]');
+select pg_temp.bulk_act(419, 'Winter Program Renewable Energy Systems di Kyoto Sangyo University', 65, 23, 'outbound', '2026-11-23', '2026-12-04', 'offline', 'Kamigamo Campus, Kyoto Sangyo University', 'JP', 11, '{7,13}', 'Program musim dingin dua minggu tentang integrasi energi surya dan penyimpanan baterai, termasuk praktikum laboratorium dan kunjungan ke fasilitas smart grid di Kyoto.', null, null, null, p_files => '{}');
+select pg_temp.bulk_pset(419, '{B12239276,B12239596}', '{}', '{PG204517}');
+select pg_temp.bulk_act(420, 'Kuliah Tamu Model Bisnis Industrie 4.0 dari Ludwig Maximilian University of Munich', 5, 7, 'inbound', '2026-12-08', '2026-12-08', 'offline', 'Auditorium Gedung W PCU', 'ID', 42, '{8,9}', 'Kuliah tamu perdana dalam kerja sama baru dengan Ludwig Maximilian University of Munich tentang model bisnis berbasis Industrie 4.0 dan transformasi digital UKM manufaktur Jerman.', null, null, null, p_files => '{}', p_ext => '[{"full_name": "Prof. Dr. Thomas Weber", "institution": "Ludwig Maximilian University of Munich", "country_code": "DE", "role": "speaker"}]', p_co_units => '{4}');
+
+select pg_temp.bulk_verify(396, 420);
+
+-- >>> supabase/seed-supabase/11_refreeze_tambahan.sql
+-- seed-supabase/11_refreeze_tambahan (simks-partnership): re-freezes the AY 2025/2026 snapshots once more after the
+-- additional bulk kegiatan (10_kegiatan_tambahan_1..8, R-58), as of their original freeze moments, so Ganjil and Setahun
+-- include them; the earlier snapshots stay as superseded. No-op on a fresh install (90_freeze.sql freezes later), when
+-- the additional kegiatan are absent, and when already done.
+-- Self-contained and idempotent, so it can be run on its own: Supabase SQL Editor or one statement batch.
+-- Writes only realisasi.*; SIM Kerjasama tables are only read.
+
+do $$
+declare s realisasi.kpi_snapshots; v_reason text := 'Bekukan ulang setelah impor kegiatan tambahan 2025/2026';
+begin
+  for s in select * from realisasi.kpi_snapshots
+            where academic_year_id = 1 and superseded_by is null and refreeze_reason is distinct from v_reason
+              and exists (select 1 from realisasi.activities a where a.id = ('b5000000-0000-4000-8000-' || lpad('221', 12, '0'))::uuid)
             order by frozen_at
   loop
     perform realisasi._freeze(s.academic_year_id, s.kind, s.frozen_at, (select id from kerjasama.profiles where akun_id = 1),

@@ -131,6 +131,16 @@ Genap 132, Setahun 297, YTD 2026/2027 40. **Still to run once in the SQL Editor:
 then the live awards functions are the previous version; their results are the same, only slower. Afterwards the live
 fingerprint equals the one below.
 
+## Additional kegiatan import (2026-10-04)
+
+The 200 bulk kegiatan of the local demo seed (`supabase/seed/04_bulk_*`) were adapted to the real SIM Kerjasama data
+(Program Studi submitters, real agreements valid for the dates, partner names/speakers to match) and applied through the
+connector: `seed-supabase/09` (240 mock students, disjoint per file), `10_kegiatan_tambahan_1`-`8` (kegiatan 221-420,
+each file one atomic batch ending in a content-fingerprint check) and `11` (re-freeze of AY 2025/2026). Result: 333
+kegiatan (200 new: 152 verified, 19 waiting for Mobility, 10 in revision, 19 drafts), no new student conflicts; KPI 1.1
+Setahun 2025/2026 449, YTD 2026/2027 53. The `10_*` files reference agreements beyond the `--rehearse` fixture (11-52)
+and skip themselves with a notice there.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files

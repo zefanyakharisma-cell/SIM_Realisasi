@@ -1,6 +1,7 @@
 // Read-model queries for the dashboard, Laporan page, exports and SIM Kerjasama tab.
 // Never compute KPIs here — every number comes from the SQL read RPCs (CONTRACTS §3.9, §6.7).
 import type { Tx } from '@/lib/db';
+import { topRanked } from '@/lib/realisasi/awards';
 import type {
   AgreementFlag,
   AgreementRealization,
@@ -22,11 +23,18 @@ export async function getDashboard(tx: Tx, p: PeriodParams): Promise<DashboardDa
   return row!.r as DashboardData;
 }
 
-/** International Awards leaderboards (Revisi V.1 dashboard tab). */
+/** International Awards leaderboards (Revisi V.1 dashboard tab); each board keeps only the top 3 (screen and export). */
 export async function getAwards(tx: Tx, p: PeriodParams): Promise<AwardsData> {
   const [row] = await tx`
     select realisasi.international_awards(${p.ay ?? null}::int, ${p.period}::text, ${p.unit ?? null}::int) as r`;
-  return row!.r as AwardsData;
+  const aw = row!.r as AwardsData;
+  return {
+    ...aw,
+    inbound: topRanked(aw.inbound ?? []),
+    outbound_domestic: topRanked(aw.outbound_domestic ?? []),
+    outbound_international: topRanked(aw.outbound_international ?? []),
+    initiatives: topRanked(aw.initiatives ?? []),
+  };
 }
 
 /** Student conflicts for the Mobility team (Revisi V.1 rule 2.1). status null = open and resolved. */

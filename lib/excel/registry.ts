@@ -9,17 +9,17 @@ import type {
   DrilldownKpi,
   ExportKind,
   KpiCharts,
-  PeriodInfo,
   Period,
+  PersonRole,
 } from '@/lib/realisasi/types';
 import {
   ACTIVITY_STATUS_LABEL,
-  CONFLICT_STATUS_LABEL,
   PSET_STATUS_LABEL,
+  PERSON_ROLE_LABEL,
   DIRECTION_LABEL,
 } from '@/lib/realisasi/status';
-import { formatDate, formatDateTime } from '@/lib/realisasi/format';
-import { parseActivityFilters, describeActivityFilters } from '@/lib/realisasi/schemas/filters';
+import { fileHref } from '@/lib/storage';
+import { parseActivityFilters } from '@/lib/realisasi/schemas/filters';
 import { listActivities } from '@/lib/realisasi/queries/activities';
 import {
   CHART_LABEL,
@@ -31,7 +31,6 @@ import {
   parseRealizationStatus,
   parseRenstraParams,
   realizationStatusToBucket,
-  renstraLabel,
   type ChartKey,
   type RenstraDef,
   type PeriodParams,
@@ -46,12 +45,11 @@ import {
   getSnapshotDetail,
   getSnapshotList,
 } from '@/lib/realisasi/queries/reports';
-import { addInfoSheet, addTableSheet, createWorkbook, type Column } from '@/lib/excel/workbook';
+import { addTableSheet, createWorkbook, type Column } from '@/lib/excel/workbook';
 import {
   ACTIVITY_COLUMNS,
   AWARDS_INITIATIVE_COLUMNS,
   AWARDS_STUDENT_COLUMNS,
-  CHAIN_STATUS_LABEL,
   CONFLICT_COLUMNS,
   LATE_ADDITION_COLUMNS,
   POST_FREEZE_COLUMNS,
@@ -64,14 +62,12 @@ import {
   KPI_S4_OVERALL_COLUMNS,
   SUMMARY_COLUMNS,
   addKpiSheet,
-  dataAsOf,
   isChainRow,
   joinList,
   label,
   ranked,
   rollupColumns,
   rollupSheetRows,
-  snapshotAsOf,
   summaryRows,
   withFacultyColumn,
 } from '@/lib/excel/sheets';
@@ -81,6 +77,8 @@ export interface ExportContext {
   tx: Tx;
   user: SessionUser;
   params: URLSearchParams;
+  /** Absolute origin of the request (e.g. https://realisasi.petra.ac.id), for file links in the workbook. */
+  origin: string;
 }
 export interface ExportResult {
   workbook: ExcelJS.Workbook;
@@ -100,10 +98,6 @@ export class ExportParamError extends Error {
 
 const everyone = () => true;
 
-function generatedBy(u: SessionUser): string {
-  return `${u.displayName} (${u.email})`;
-}
-
 /** Submitters are always scoped to their own unit for KPI/dashboard kinds (CONTRACTS §8.2). */
 function scopedPeriod(user: SessionUser, params: URLSearchParams): PeriodParams {
   const p = parsePeriodParams(params);
@@ -114,63 +108,11 @@ function scopedPeriod(user: SessionUser, params: URLSearchParams): PeriodParams 
   return p;
 }
 
-function periodFilters(period: PeriodInfo, scopeName: string | null): Array<[string, string]> {
-  return [
-    ['Tahun Akademik', period.ay_label],
-    ['Periode', period.label],
-    ['Lingkup', scopeName ?? 'Universitas'],
-  ];
-}
-
 function periodRecord(p: PeriodParams): Record<string, unknown> {
   return { ay: p.ay ?? null, period: p.period, unit: p.unit ?? null, snapshot: p.snapshot ?? null };
 }
 
-function lookupName<T extends { id: number; name: string }>(rows: T[]) {
-  const m = new Map(rows.map((r) => [r.id, r.name]));
-  return (id: number) => m.get(id) ?? String(id);
-}
-
-async function nameLookups(tx: Tx) {
-  const [agendas, units, years, sems] = await Promise.all([
-    tx`select id, name from kerjasama.agendas`,
-    tx`select id, name from kerjasama.units`,
-    tx`select id, label as name from realisasi.academic_years`,
-    tx`select id, realisasi.semester_label(id) as name from realisasi.semesters`,
-  ]);
-  const toOpts = (rows: typeof agendas) => rows.map((r) => ({ id: Number(r.id), name: String(r.name) }));
-  return {
-    agendaName: lookupName(toOpts(agendas)),
-    unitName: lookupName(toOpts(units)),
-    ayLabel: lookupName(toOpts(years)),
-    semesterLabel: lookupName(toOpts(sems)),
-  };
-}
-
-// ---------------------------------------------------------------- activities
-async function buildActivities({ tx, user, params }: ExportContext): Promise<ExportResult> {
-  const f = parseActivityFilters(params);
-  const [rows, names] = await Promise.all([listActivities(tx, user, f), nameLookups(tx)]);
-  const wb = createWorkbook();
-  addInfoSheet(wb, {
-    kind: 'activities',
-    title: 'Daftar Kegiatan',
-    filters: describeActivityFilters(f, names),
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount: rows.length,
-  });
-  addTableSheet(wb, 'Kegiatan', ACTIVITY_COLUMNS, rows);
-  return { workbook: wb, periodLabel: activitiesPeriodLabel(rows, f.ay), rowCount: rows.length, containsPersonal: false, filters: { ...f } };
-}
-
-function activitiesPeriodLabel(rows: ActivityListRow[], ay: number | undefined): string {
-  if (ay === undefined) return 'semua';
-  return rows.find((r) => r.academic_year_id === ay)?.ay_label ?? `TA-${ay}`;
-}
-
-// ---------------------------------------------------------------- participants
+// ---------------------------------------------------------------- participant loading (shared)
 interface StudentExportRow {
   activity: ActivityListRow;
   version: number;
@@ -187,19 +129,24 @@ interface StudentExportRow {
 interface StaffExportRow {
   activity: ActivityListRow;
   version: number;
+  version_status: string;
   employee_id: string;
   full_name: string;
   unit_name: string | null;
 }
 
-async function buildParticipants({ tx, user, params }: ExportContext): Promise<ExportResult> {
-  const f = parseActivityFilters(params);
-  const versionMode = getParam(params, 'version') === 'latest' ? 'latest' : 'approved';
-  const [acts, names] = await Promise.all([listActivities(tx, user, f), nameLookups(tx)]);
+/**
+ * Students and staff of the chosen participant-set version per activity, in the order of `acts`.
+ * 'approved' = the approved version; 'latest' = the latest non-draft (= reported) version.
+ * RLS: participant rows are only visible where can_view_participants().
+ */
+async function loadParticipants(
+  tx: Tx,
+  acts: ActivityListRow[],
+  versionMode: 'approved' | 'latest',
+): Promise<{ students: StudentExportRow[]; staff: StaffExportRow[] }> {
   const byId = new Map(acts.map((a) => [a.id, a]));
   const ids = acts.map((a) => a.id);
-
-  // Chosen version per activity (RLS: participant rows only visible where can_view_participants()).
   const versions = ids.length
     ? versionMode === 'approved'
       ? await tx`
@@ -251,12 +198,171 @@ async function buildParticipants({ tx, user, params }: ExportContext): Promise<E
     const meta = vMeta.get(String(s.set_version_id));
     const activity = meta && byId.get(meta.activity_id);
     if (!meta || !activity) continue;
-    staffRows.push({ activity, version: meta.version, employee_id: String(s.employee_id), full_name: String(s.full_name), unit_name: (s.unit_name as string | null) ?? null });
+    staffRows.push({
+      activity,
+      version: meta.version,
+      version_status: meta.status,
+      employee_id: String(s.employee_id),
+      full_name: String(s.full_name),
+      unit_name: (s.unit_name as string | null) ?? null,
+    });
   }
   const byActivity = (a: { activity: ActivityListRow }, b: { activity: ActivityListRow }) =>
     (order.get(a.activity.id) ?? 0) - (order.get(b.activity.id) ?? 0);
   studentRows.sort(byActivity);
   staffRows.sort(byActivity);
+  return { students: studentRows, staff: staffRows };
+}
+
+// ---------------------------------------------------------------- activities
+/** One "Peserta" row of the Kegiatan export: a student, staff member or external person of a reported activity. */
+interface ActivityParticipantRow {
+  activity: ActivityListRow;
+  version: number | null;
+  kind: string;
+  id: string | null;
+  full_name: string;
+  faculty: string | null;
+  prodi_or_unit: string | null;
+  institution: string | null;
+  country: string | null;
+}
+
+const ACTIVITY_PARTICIPANT_COLUMNS: Column<ActivityParticipantRow>[] = [
+  { header: 'Kode Kegiatan', key: 'code', value: (r) => r.activity.code },
+  { header: 'Nama Kegiatan', key: 'name', value: (r) => r.activity.name },
+  { header: 'Unit Pengaju', key: 'unit', value: (r) => r.activity.submitter_unit_name },
+  { header: 'Versi Peserta', key: 'v', value: (r) => r.version, format: 'int' },
+  { header: 'Jenis Peserta', key: 'kind', value: (r) => r.kind },
+  { header: 'NRP / ID Pegawai', key: 'pid', value: (r) => r.id, format: 'text' },
+  { header: 'Nama', key: 'fn', value: (r) => r.full_name },
+  { header: 'Fakultas', key: 'fac', value: (r) => r.faculty },
+  { header: 'Program Studi / Unit', key: 'prodi', value: (r) => r.prodi_or_unit },
+  { header: 'Institusi Asal', key: 'inst', value: (r) => r.institution },
+  { header: 'Negara Asal', key: 'cc', value: (r) => r.country },
+];
+
+/** Per activity: the SDGs and absolute links to the current IA / IR (Revisi V.1). */
+async function activityExtras(tx: Tx, ids: string[], origin: string) {
+  const [sdgs, files] = ids.length
+    ? await Promise.all([
+        tx<Array<{ activity_id: string; sdgs: string }>>`
+          select x.activity_id::text as activity_id,
+                 string_agg('SDG ' || s.id || ' ' || s.name, '; ' order by s.id) as sdgs
+            from realisasi.activity_sdgs x join realisasi.sdgs s on s.id = x.sdg_id
+           where x.activity_id = any(${ids}::uuid[])
+           group by x.activity_id`,
+        tx<Array<{ activity_id: string; kind: string; storage_path: string | null; url: string | null }>>`
+          select distinct on (activity_id, kind) activity_id::text as activity_id, kind::text as kind, storage_path, url
+            from realisasi.activity_files
+           where activity_id = any(${ids}::uuid[]) and is_current and kind in ('ia', 'ir')
+           order by activity_id, kind, version desc, id desc`,
+      ])
+    : [[], []];
+  const sdgOf = new Map(sdgs.map((r) => [r.activity_id, r.sdgs]));
+  const linkOf = new Map(
+    files.map((f) => [`${f.activity_id}:${f.kind}`, f.storage_path ? `${origin}${fileHref(f.storage_path)}` : f.url]),
+  );
+  return {
+    sdg: (id: string) => sdgOf.get(id) ?? null,
+    link: (id: string, kind: 'ia' | 'ir') => linkOf.get(`${id}:${kind}`) ?? null,
+  };
+}
+
+async function buildActivities({ tx, user, params, origin }: ExportContext): Promise<ExportResult> {
+  const f = parseActivityFilters(params);
+  const rows = await listActivities(tx, user, f);
+  const extras = await activityExtras(tx, rows.map((r) => r.id), origin);
+  const columns: Column<ActivityListRow>[] = [
+    ...ACTIVITY_COLUMNS,
+    { header: 'SDG', key: 'sdg', value: (r) => extras.sdg(r.id) },
+    { header: 'Link IA', key: 'ia', value: (r) => extras.link(r.id, 'ia'), format: 'link' },
+    { header: 'Link IR', key: 'ir', value: (r) => extras.link(r.id, 'ir'), format: 'link' },
+  ];
+  const wb = createWorkbook();
+  addTableSheet(wb, 'Kegiatan', columns, rows);
+
+  // Sheet 2: every participant of each reported activity (latest non-draft version) — personal data, logged.
+  const withParticipants = can(user, 'export.participants');
+  let participantCount = 0;
+  if (withParticipants) {
+    const ids = rows.map((r) => r.id);
+    const [{ students, staff }, externals] = await Promise.all([
+      loadParticipants(tx, rows, 'latest'),
+      ids.length
+        ? tx<Array<{ activity_id: string; full_name: string; institution: string; country_code: string; role: PersonRole }>>`
+            select activity_id::text as activity_id, full_name, institution, country_code, role::text as role
+              from realisasi.activity_external_persons
+             where activity_id = any(${ids}::uuid[]) order by id`
+        : Promise.resolve([]),
+    ]);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const people: ActivityParticipantRow[] = [
+      ...students.map((s) => ({
+        activity: s.activity,
+        version: s.version,
+        kind: s.section === 'inbound' ? 'Mahasiswa Inbound' : 'Mahasiswa PETRA',
+        id: s.section === 'inbound' ? s.home_student_number : s.nrp,
+        full_name: s.full_name,
+        faculty: s.faculty_name,
+        prodi_or_unit: s.prodi_name,
+        institution: s.section === 'inbound' ? s.home_institution : null,
+        country: s.section === 'inbound' ? s.home_country_code : null,
+      })),
+      ...staff.map((s) => ({
+        activity: s.activity,
+        version: s.version,
+        kind: 'Pegawai',
+        id: s.employee_id,
+        full_name: s.full_name,
+        faculty: null,
+        prodi_or_unit: s.unit_name,
+        institution: null,
+        country: null,
+      })),
+      ...externals.flatMap((e) => {
+        const activity = byId.get(e.activity_id);
+        return activity
+          ? [{
+              activity,
+              version: null,
+              kind: `Eksternal (${PERSON_ROLE_LABEL[e.role] ?? e.role})`,
+              id: null,
+              full_name: e.full_name,
+              faculty: null,
+              prodi_or_unit: null,
+              institution: e.institution,
+              country: e.country_code,
+            }]
+          : [];
+      }),
+    ];
+    const order = new Map(rows.map((r, i) => [r.id, i]));
+    people.sort((a, b) => (order.get(a.activity.id) ?? 0) - (order.get(b.activity.id) ?? 0));
+    addTableSheet(wb, 'Peserta', ACTIVITY_PARTICIPANT_COLUMNS, people);
+    participantCount = people.length;
+  }
+  return {
+    workbook: wb,
+    periodLabel: activitiesPeriodLabel(rows, f.ay),
+    rowCount: rows.length + participantCount,
+    containsPersonal: withParticipants,
+    filters: { ...f, participants: withParticipants },
+  };
+}
+
+function activitiesPeriodLabel(rows: ActivityListRow[], ay: number | undefined): string {
+  if (ay === undefined) return 'semua';
+  return rows.find((r) => r.academic_year_id === ay)?.ay_label ?? `TA-${ay}`;
+}
+
+// ---------------------------------------------------------------- participants
+async function buildParticipants({ tx, user, params }: ExportContext): Promise<ExportResult> {
+  const f = parseActivityFilters(params);
+  const versionMode = getParam(params, 'version') === 'latest' ? 'latest' : 'approved';
+  const acts = await listActivities(tx, user, f);
+  const { students: studentRows, staff: staffRows } = await loadParticipants(tx, acts, versionMode);
+
 
   const studentCols: Column<StudentExportRow>[] = [
     { header: 'Kode Kegiatan', key: 'code', value: (r) => r.activity.code },
@@ -287,16 +393,6 @@ async function buildParticipants({ tx, user, params }: ExportContext): Promise<E
 
   const rowCount = studentRows.length + staffRows.length;
   const wb = createWorkbook();
-  addInfoSheet(wb, {
-    kind: 'participants',
-    title: 'Daftar Peserta (data pribadi — UU PDP)',
-    filters: [...describeActivityFilters(f, names), ['Versi peserta', versionMode === 'approved' ? 'Versi disetujui' : 'Versi terbaru (non-draf)']],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount,
-    extra: [['Catatan', 'Berisi data pribadi. Ekspor ini dicatat (export_log).']],
-  });
   addTableSheet(wb, 'Mahasiswa', studentCols, studentRows);
   addTableSheet(wb, 'Pegawai', staffCols, staffRows);
   return {
@@ -323,15 +419,6 @@ async function buildKpiSummary({ tx, user, params }: ExportContext): Promise<Exp
   let rowCount = summary.length;
   SUMMARY_KPIS.forEach((kpi, i) => {
     rowCount += addKpiSheet(wb, kpi, drills[i]!);
-  });
-  addInfoSheet(wb, {
-    kind: 'kpi-summary',
-    title: 'Ringkasan Capaian RENSTRA',
-    filters: periodFilters(dash.period, dash.scope.unit_name),
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: dataAsOf(dash.period),
-    rowCount,
   });
   return { workbook: wb, periodLabel: dash.period.label, rowCount, containsPersonal: false, filters: periodRecord(p) };
 }
@@ -389,27 +476,6 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
     rowCount += students.length;
   }
 
-  addInfoSheet(wb, {
-    kind: 'kpi-drilldown',
-    title: `RENSTRA ${renstraLabel(key)}`,
-    filters: periodFilters(rep.period, rep.scope.unit_name),
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: dataAsOf(rep.period),
-    rowCount,
-    position: 'last',
-    extra: [
-      ...(rep.rollup
-        ? ([
-            ['Nilai per unit', 'Fakultas = kegiatan unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program'],
-            ['Kegiatan bersama', 'Kegiatan dengan beberapa unit dihitung pada setiap unit yang terlibat; total lingkup dihitung sekali'],
-          ] as Array<[string, string]>)
-        : ([['Perhitungan', 'Satuan = rantai perpanjangan MoU/MoA; masa tenggang dikecualikan dari penyebut']] as Array<[string, string]>)),
-      ...(def.kpi === '1.1'
-        ? ([[`Sheet ${key} Mahasiswa`, withStudents ? 'Disertakan (data pribadi, dicatat)' : 'Tidak disertakan untuk peran Anda']] as Array<[string, string]>)
-        : []),
-    ],
-  });
   return {
     workbook: wb,
     periodLabel: `${key}-${rep.period.label}`,
@@ -466,15 +532,6 @@ async function buildChart({ tx, user, params }: ExportContext): Promise<ExportRe
   const rows = ((charts[chart] ?? []) as unknown as ChartRow[]).slice();
   const wb = createWorkbook();
   addTableSheet(wb, CHART_LABEL[chart], CHART_COLUMNS[chart], rows);
-  addInfoSheet(wb, {
-    kind: 'chart',
-    title: `Grafik: ${CHART_LABEL[chart]}`,
-    filters: [...periodFilters(dash.period, dash.scope.unit_name), ['Grafik', CHART_LABEL[chart]]],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: dataAsOf(dash.period),
-    rowCount: rows.length,
-  });
   return { workbook: wb, periodLabel: dash.period.label, rowCount: rows.length, containsPersonal: false, filters: { ...periodRecord(p), chart } };
 }
 
@@ -513,31 +570,6 @@ async function buildSnapshot({ tx, user, params }: ExportContext): Promise<Expor
     );
     rowCount += participants.length;
   }
-  const settings = Object.entries(detail.settings_used ?? {})
-    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-    .join('; ');
-  addInfoSheet(wb, {
-    kind: 'snapshot',
-    title: `Snapshot Capaian RENSTRA ${s.label}`,
-    filters: [
-      ['Snapshot', s.label],
-      ['Tahun Akademik', s.ay_label],
-      ['Jendela', `${formatDate(s.window_start)} – ${formatDate(s.window_end)}`],
-      ['Cutoff', formatDate(s.cutoff_date)],
-    ],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: snapshotAsOf(s),
-    rowCount,
-    extra: [
-      ['Dibekukan pada', formatDateTime(s.frozen_at)],
-      ['Dibekukan oleh', s.frozen_by_name ?? 'Job terjadwal'],
-      ['Status', s.is_live ? 'Berlaku' : `Digantikan (oleh ${s.superseded_by ?? '–'})`],
-      ['Alasan bekukan ulang', s.refreeze_reason ?? '–'],
-      ['Pengaturan yang dipakai', settings || '–'],
-      ['Sheet 1.1 Peserta', withParticipants ? 'Disertakan (data pribadi, dicatat)' : 'Tidak disertakan untuk peran Anda'],
-    ],
-  });
   return {
     workbook: wb,
     periodLabel: s.label,
@@ -548,21 +580,12 @@ async function buildSnapshot({ tx, user, params }: ExportContext): Promise<Expor
 }
 
 // ---------------------------------------------------------------- snapshot-archive
-async function buildSnapshotArchive({ tx, user, params }: ExportContext): Promise<ExportResult> {
+async function buildSnapshotArchive({ tx, params }: ExportContext): Promise<ExportResult> {
   const ay = parsePositiveInt(getParam(params, 'ay'));
   const rows = await getSnapshotList(tx, ay);
   const wb = createWorkbook();
   addTableSheet(wb, 'Arsip Snapshot', SNAPSHOT_ARCHIVE_COLUMNS, rows);
   const ayLabel = ay !== undefined ? (rows[0]?.ay_label ?? `TA-${ay}`) : 'Semua';
-  addInfoSheet(wb, {
-    kind: 'snapshot-archive',
-    title: 'Arsip Snapshot Capaian RENSTRA',
-    filters: [['Tahun Akademik', ayLabel]],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Daftar snapshot saat ekspor',
-    rowCount: rows.length,
-  });
   return { workbook: wb, periodLabel: ayLabel, rowCount: rows.length, containsPersonal: false, filters: { ay: ay ?? null } };
 }
 
@@ -574,15 +597,6 @@ async function buildRealization({ tx, user, params }: ExportContext): Promise<Ex
   const rows = (dd.rows as unknown[]).filter(isChainRow) as ChainKpiRow[];
   const wb = createWorkbook();
   addTableSheet(wb, 'Realisasi per Kerja Sama', REALIZATION_COLUMNS, rows);
-  addInfoSheet(wb, {
-    kind: 'realization-by-agreement',
-    title: 'Realisasi per Kerja Sama (1.19.S4)',
-    filters: [...periodFilters(dd.period, dd.scope.unit_name), ['Status', status ? (CHAIN_STATUS_LABEL[status] ?? status) : 'Semua']],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: dataAsOf(dd.period),
-    rowCount: rows.length,
-  });
   return { workbook: wb, periodLabel: dd.period.label, rowCount: rows.length, containsPersonal: false, filters: { ...periodRecord(p), status: status ?? null } };
 }
 
@@ -604,45 +618,21 @@ async function buildAwards({ tx, user, params }: ExportContext): Promise<ExportR
   }
   addTableSheet(wb, 'Inisiatif Intl Tertinggi', AWARDS_INITIATIVE_COLUMNS, ranked(aw.initiatives));
   rowCount += aw.initiatives.length;
-  addInfoSheet(wb, {
-    kind: 'awards',
-    title: 'International Awards',
-    filters: periodFilters(aw.period, aw.scope.unit_name),
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: dataAsOf(aw.period),
-    rowCount,
-    extra: [
-      ['Pengelompokan', 'Per unit pengaju kegiatan'],
-      ['Dalam negeri / internasional', 'Menurut negara tempat kegiatan (Indonesia = dalam negeri)'],
-      ['Kegiatan Internasional (<14 hari)', 'Mahasiswa kegiatan mobilitas lain yang berlangsung kurang dari 14 hari'],
-    ],
-  });
   return { workbook: wb, periodLabel: aw.period.label, rowCount, containsPersonal: false, filters: periodRecord(p) };
 }
 
 // ---------------------------------------------------------------- conflicts (Verifikasi Mobilitas)
-async function buildConflicts({ tx, user, params }: ExportContext): Promise<ExportResult> {
+async function buildConflicts({ tx, params }: ExportContext): Promise<ExportResult> {
   const raw = getParam(params, 'status');
   const status = raw === 'open' || raw === 'resolved' ? raw : raw === 'all' ? null : 'open';
   const rows = await getConflicts(tx, { status });
   const wb = createWorkbook();
   addTableSheet(wb, 'Duplikat Mahasiswa', CONFLICT_COLUMNS, rows);
-  addInfoSheet(wb, {
-    kind: 'conflicts',
-    title: 'Duplikat Mahasiswa antar-Unit (data pribadi)',
-    filters: [['Status', status ? (label(CONFLICT_STATUS_LABEL, status) ?? status) : 'Semua']],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount: rows.length,
-    extra: [['Catatan', 'Berisi NRP dan nama mahasiswa. Ekspor ini dicatat (export_log).']],
-  });
   return { workbook: wb, periodLabel: status ?? 'semua', rowCount: rows.length, containsPersonal: true, filters: { status: status ?? 'all' } };
 }
 
 // ---------------------------------------------------------------- agreement-activities
-async function buildAgreementActivities({ tx, user, params }: ExportContext): Promise<ExportResult> {
+async function buildAgreementActivities({ tx, params }: ExportContext): Promise<ExportResult> {
   const documentId = parsePositiveInt(getParam(params, 'document_id'));
   if (documentId === undefined) throw new ExportParamError('Parameter document_id tidak valid.');
   const ar = await getAgreementRealization(tx, documentId);
@@ -661,18 +651,6 @@ async function buildAgreementActivities({ tx, user, params }: ExportContext): Pr
   const rows = ar.activities ?? [];
   const wb = createWorkbook();
   addTableSheet(wb, 'Realisasi Kerja Sama', cols, rows);
-  addInfoSheet(wb, {
-    kind: 'agreement-activities',
-    title: `Realisasi Kerja Sama ${ar.document.doc_number}`,
-    filters: [
-      ['Dokumen', `${ar.document.doc_number} — ${ar.document.title}`],
-      ['Rantai perpanjangan', (ar.chain?.documents ?? []).map((d) => d.doc_number).join(' → ')],
-    ],
-    generatedBy: generatedBy(user),
-    generatedAt: new Date(),
-    dataAsOf: 'Live (data saat ekspor)',
-    rowCount: rows.length,
-  });
   return { workbook: wb, periodLabel: ar.document.doc_number, rowCount: rows.length, containsPersonal: false, filters: { document_id: documentId } };
 }
 

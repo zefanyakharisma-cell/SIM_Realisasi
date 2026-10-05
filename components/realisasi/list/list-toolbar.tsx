@@ -23,7 +23,7 @@ export interface ListToolbarProps {
 }
 
 /**
- * Saved filter chips (Design §3.2: Perlu tindakan saya · Terlambat · Semester ini), sort order,
+ * Quick filter chip (Revisi V.1: only "Perlu tindakan saya" = what awaits my action/approval), sort order,
  * "Hapus filter" and the live row counter (`list-total`, used by AT-12).
  */
 export function ListToolbar({ filters, presets = PRESETS, total, limited }: ListToolbarProps) {

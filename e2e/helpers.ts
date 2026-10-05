@@ -24,7 +24,7 @@ export async function loginAs(page: Page, email: AccountEmail | string): Promise
   await expect(page.getByTestId('user-menu')).toBeVisible();
 }
 
-/** Rebuilds the database from migrations + seeds (scripts/db-reset.sh). */
+/** Rebuilds the database from migrations + the scenario seeds (scripts/db-reset.sh, without the bulk Kegiatan). */
 export function resetDb(): void {
-  execFileSync('bash', ['scripts/db-reset.sh'], { stdio: 'inherit', env: process.env });
+  execFileSync('bash', ['scripts/db-reset.sh'], { stdio: 'inherit', env: { ...process.env, SEED_BULK: '0' } });
 }

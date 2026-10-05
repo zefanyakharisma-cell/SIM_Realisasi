@@ -24,6 +24,9 @@
 \set as_system 'reset role; select set_config(''request.jwt.claims'', '''', true);'
 
 begin;
+-- Since Revisi V.1 (2026-10-05) every KUI account is io_admin in the demo seed. The acceptance tests still cover the
+-- io_staff role (Mobility team without admin rights): PART and MOB act as io_staff inside this rolled-back transaction.
+update realisasi.account_roles set app_role = 'io_staff' where akun_id in (2, 3);
 -- assertion: raises on failure, NOTICE 'ok - <name>' on success (counted by scripts/db-test.sh)
 create function pg_temp.ok(p_cond boolean, p_name text) returns void language plpgsql as $$
 begin

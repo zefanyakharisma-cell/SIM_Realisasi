@@ -37,10 +37,11 @@ export async function GET(request: Request, props: { params: Promise<{ kind: str
     );
   }
 
-  const params = new URL(request.url).searchParams;
+  const url = new URL(request.url);
+  const params = url.searchParams;
   try {
     const { buffer, filename } = await withUser(user.id, async (tx) => {
-      const result = await def.build({ tx, user, params });
+      const result = await def.build({ tx, user, params, origin: url.origin });
       // Same transaction: if logging fails, nothing is served (personal-data audit must not be skipped).
       await tx`select realisasi.log_export(${kind}::text, ${tx.json(result.filters as Parameters<typeof tx.json>[0])}::jsonb,
                                            ${result.rowCount}::int, ${result.containsPersonal}::boolean)`;

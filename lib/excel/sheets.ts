@@ -13,7 +13,6 @@ import type {
   KpiParticipantRow,
   KpiValues,
   LateAdditionRow,
-  PeriodInfo,
   PostFreezeChangeRow,
   SnapshotListRow,
 } from '@/lib/realisasi/types';
@@ -28,7 +27,7 @@ import {
   TRACK_LABEL,
   TRACK_STATUS_LABEL,
 } from '@/lib/realisasi/status';
-import { formatDate, formatDateTime } from '@/lib/realisasi/format';
+import { formatDate } from '@/lib/realisasi/format';
 import { addTableSheet, type Column } from '@/lib/excel/workbook';
 import type { RollupRow } from '@/lib/realisasi/unit-rollup';
 
@@ -40,18 +39,6 @@ export function label<K extends string>(map: Partial<Record<K, string>> | undefi
 export const joinList = (xs: ReadonlyArray<string | null | undefined> | null | undefined): string =>
   (xs ?? []).filter((x): x is string => typeof x === 'string' && x !== '').join(', ');
 export const yesNo = (b: boolean | null | undefined): string => (b ? 'Ya' : 'Tidak');
-
-export function dataAsOf(period: PeriodInfo): string {
-  if (period.frozen && period.snapshot_id) {
-    return `Snapshot ${period.label} · dibekukan ${formatDateTime(period.frozen_at)} · id ${period.snapshot_id}`;
-  }
-  if (period.frozen) return `${period.label} · per pembekuan ${formatDateTime(period.frozen_at)}`;
-  return `${period.label} · data s.d. ${formatDate(period.window_end)} (live)`;
-}
-
-export function snapshotAsOf(s: SnapshotListRow): string {
-  return `Snapshot ${s.label} · dibekukan ${formatDateTime(s.frozen_at)} · id ${s.id}`;
-}
 
 export function isActivityRow(r: unknown): r is ActivityKpiRow {
   return (r as { row_type?: string }).row_type === 'activity';

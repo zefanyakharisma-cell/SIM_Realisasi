@@ -1,5 +1,6 @@
 /**
- * International Awards tab (Revisi V.1): four leaderboards per Program Studi, ranked by total.
+ * International Awards tab (Revisi V.1): four leaderboards per Program Studi, ranked by total; each shows only the
+ * top 3 (ties at rank 3 included, units with 0 hidden — see lib/realisasi/awards.ts).
  * Server-safe; every number comes from realisasi.international_awards().
  */
 import { Trophy } from 'lucide-react';
@@ -126,7 +127,7 @@ export function AwardsTables({ data, exportQuery }: { data: AwardsData; exportQu
       <Leaderboard
         id="inbound"
         title="Mahasiswa Inbound"
-        description="Mahasiswa inbound pada kegiatan mobilitas inbound, per unit pengaju."
+        description="3 teratas: mahasiswa inbound pada kegiatan mobilitas inbound, per unit pengaju."
         rows={data.inbound}
         columns={STUDENT_COLUMNS}
         exportHref={exportHref}
@@ -134,7 +135,7 @@ export function AwardsTables({ data, exportQuery }: { data: AwardsData; exportQu
       <Leaderboard
         id="outbound-domestic"
         title="Mahasiswa Outbound Dalam Negeri"
-        description="Mahasiswa PETRA pada kegiatan outbound di Indonesia, per unit pengaju."
+        description="3 teratas: mahasiswa PETRA pada kegiatan outbound di Indonesia, per unit pengaju."
         rows={data.outbound_domestic}
         columns={STUDENT_COLUMNS}
         exportHref={exportHref}
@@ -142,7 +143,7 @@ export function AwardsTables({ data, exportQuery }: { data: AwardsData; exportQu
       <Leaderboard
         id="outbound-international"
         title="Mahasiswa Outbound Internasional"
-        description="Mahasiswa PETRA pada kegiatan outbound di luar negeri, per unit pengaju."
+        description="3 teratas: mahasiswa PETRA pada kegiatan outbound di luar negeri, per unit pengaju."
         rows={data.outbound_international}
         columns={STUDENT_COLUMNS}
         exportHref={exportHref}
@@ -150,7 +151,7 @@ export function AwardsTables({ data, exportQuery }: { data: AwardsData; exportQu
       <Leaderboard
         id="initiatives"
         title="Inisiatif Internasional"
-        description="Jumlah kegiatan internasional terverifikasi (inbound, outbound, dan kegiatan lain), per unit pengaju."
+        description="3 teratas: jumlah kegiatan internasional terverifikasi (inbound, outbound, dan kegiatan lain), per unit pengaju."
         rows={data.initiatives}
         columns={INITIATIVE_COLUMNS}
         exportHref={exportHref}
