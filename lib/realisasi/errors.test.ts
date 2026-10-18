@@ -7,6 +7,16 @@ function pgError(message: string, detail = '', code = 'P0001') {
 
 afterEach(() => vi.restoreAllMocks());
 
+describe('connection-limit errors (Supavisor pool exhausted)', () => {
+  it('maps EMAXCONNSESSION / too_many_connections to DB_BUSY (503)', () => {
+    const supavisor = Object.assign(new Error('(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15'), { code: 'XX000' });
+    expect(parseDbError(supavisor)).toEqual({ code: 'DB_BUSY', message: ERROR_MESSAGES.DB_BUSY });
+    expect(parseDbError(Object.assign(new Error('sorry, too many clients already'), { code: '53300' })).code).toBe('DB_BUSY');
+    expect(httpStatusFor('DB_BUSY')).toBe(503);
+    expect(parseDbError(Object.assign(new Error('boom'), { code: 'XX000' })).code).toBe('INTERNAL');
+  });
+});
+
 describe('parseDbError', () => {
   it('extracts code and Indonesian message', () => {
     expect(parseDbError(pgError('R15_NOT_DRAFT: Hanya draf yang dapat dihapus.'))).toEqual({

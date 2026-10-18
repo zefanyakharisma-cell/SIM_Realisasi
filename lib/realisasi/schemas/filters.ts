@@ -27,8 +27,13 @@ export interface ActivityListFilters {
   late?: boolean;
   from?: DateString;
   to?: DateString;
-  preset?: 'mine' | 'late' | 'this_semester';
-  queue?: 'mobility';
+  /** Revisi V.1: one quick filter only, "Perlu tindakan saya". */
+  preset?: 'mine';
+  /**
+   * mobility = KUI verification queue (pending); mobility_revision = sent back to the unit (Revisi);
+   * mobility_mine = the submitter's own mobility kegiatan still in verification or revision.
+   */
+  queue?: 'mobility' | 'mobility_revision' | 'mobility_mine';
   sort?: 'start_desc' | 'start_asc' | 'code' | 'waiting';
 }
 
@@ -46,14 +51,13 @@ export const TRACK_STATUSES = [
   'approved',
 ] as const satisfies readonly TrackStatus[];
 
-export const PRESETS = ['mine', 'late', 'this_semester'] as const;
+export const PRESETS = ['mine'] as const;
+export const QUEUES = ['mobility', 'mobility_revision', 'mobility_mine'] as const;
 export const SORTS = ['start_desc', 'start_asc', 'code', 'waiting'] as const;
 export const DIRECTIONS = ['inbound', 'outbound'] as const satisfies readonly Direction[];
 
 export const PRESET_LABEL: Record<NonNullable<ActivityListFilters['preset']>, string> = {
   mine: 'Perlu tindakan saya',
-  late: 'Terlambat',
-  this_semester: 'Semester ini',
 };
 
 export const SORT_LABEL: Record<NonNullable<ActivityListFilters['sort']>, string> = {
@@ -93,7 +97,7 @@ export const activityListFiltersSchema: z.ZodType<ActivityListFilters> = z.objec
   from: dateString.optional(),
   to: dateString.optional(),
   preset: z.enum(PRESETS).optional(),
-  queue: z.enum(['mobility']).optional(),
+  queue: z.enum(QUEUES).optional(),
   sort: z.enum(SORTS).optional(),
 }) as z.ZodType<ActivityListFilters>;
 
@@ -182,10 +186,14 @@ export function hasActiveFilters(f: ActivityListFilters): boolean {
   return Object.values(rest).some((v) => v !== undefined && !(Array.isArray(v) && v.length === 0));
 }
 
-const QUEUE_LABEL = { mobility: 'Antrean Verifikasi Mobilitas' } as const;
+const QUEUE_LABEL: Record<NonNullable<ActivityListFilters['queue']>, string> = {
+  mobility: 'Antrean Verifikasi Mobilitas',
+  mobility_revision: 'Dikembalikan untuk Revisi',
+  mobility_mine: 'Status Verifikasi Mobilitas unit saya',
+};
 
 /**
- * Human-readable filter list for the Excel Info sheet ("Filter: <label>" → value).
+ * Human-readable filter list (formerly the Excel Info sheet) ("Filter: <label>" → value).
  * Extra optional resolvers (`ayLabel`, `semesterLabel`, `countryName`) are additive to the contract.
  */
 export function describeActivityFilters(

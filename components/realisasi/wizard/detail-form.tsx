@@ -601,7 +601,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             {...aria('end_date', endAfterToday ? 'f-end-hint' : undefined)}
           />
           {endAfterToday && (
-            <p id="f-end-hint" className="text-xs text-amber-800">
+            <p id="f-end-hint" className="text-xs text-warning-fg">
               Kegiatan belum selesai. Draf dapat disimpan, tetapi baru dapat diajukan setelah {formatDate(state.end_date)} (R-08).
             </p>
           )}
@@ -618,7 +618,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
                 {period.semester?.label ?? '–'} · TA {period.year.label}
               </span>
             ) : (
-              <span className="font-medium text-amber-800">
+              <span className="font-medium text-warning-fg">
                 Di luar tahun akademik terdaftar — tidak dapat diajukan. Hubungi Admin IO (R-09).
               </span>
             )}

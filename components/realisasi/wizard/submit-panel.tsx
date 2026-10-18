@@ -149,12 +149,12 @@ export function SubmitPanel({
             >
               {c.ok ? (
                 <CheckCircle2
-                  className="mt-0.5 h-4 w-4 shrink-0 text-green-700"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-success-fg"
                   aria-hidden
                 />
               ) : (
                 <XCircle
-                  className="mt-0.5 h-4 w-4 shrink-0 text-red-700"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-danger-fg"
                   aria-hidden
                 />
               )}
@@ -162,15 +162,15 @@ export function SubmitPanel({
                 <span className="sr-only">
                   {c.ok ? "Terpenuhi: " : "Belum terpenuhi: "}
                 </span>
-                <span className={c.ok ? "" : "font-medium text-red-800"}>
+                <span className={c.ok ? "" : "font-medium text-danger-fg"}>
                   {CHECK_LABEL[c.code] ?? c.code}
                 </span>
                 {!c.ok && (
-                  <span className="block text-red-800">{c.message}</span>
+                  <span className="block text-danger-fg">{c.message}</span>
                 )}
                 {!c.ok && c.fields && c.fields.length > 0 && (
                   <span
-                    className="block text-red-800"
+                    className="block text-danger-fg"
                     data-testid="checklist-fields"
                   >
                     Belum diisi: {c.fields.map(diffFieldLabel).join(", ")}

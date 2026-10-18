@@ -30,7 +30,7 @@ export function SnapshotTimeline({ rows, selectedId }: { rows: SnapshotListRow[]
                   aria-hidden="true"
                   className={cn(
                     'absolute -left-[27px] top-4 h-3 w-3 rounded-full border-2 border-background',
-                    s.is_live ? 'bg-blue-600' : 'bg-slate-400',
+                    s.is_live ? 'bg-info' : 'bg-status-draft',
                   )}
                 />
                 <Card className={cn('p-4', selectedId === s.id && 'ring-2 ring-ring', !s.is_live && 'bg-muted/40')}>
