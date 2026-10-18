@@ -112,7 +112,7 @@ export const SHELL_TOUR: Tour = {
     {
       target: tid('nav-laporan'),
       title: 'Laporan & Ekspor',
-      body: 'Semua laporan RENSTRA, daftar kegiatan, peserta, International Awards, realisasi per kerja sama, dan arsip snapshot, masing-masing dapat diunduh sebagai Excel.',
+      body: 'Semua laporan RENSTRA, International Awards, realisasi per kerja sama, dan arsip snapshot, masing-masing dapat diunduh sebagai Excel.',
       side: 'right',
     },
     {
@@ -565,7 +565,7 @@ const REPORTS_TOUR: Tour = {
     {
       target: 'nav[aria-label="Daftar laporan"]',
       title: 'Daftar laporan',
-      body: 'Pilih laporan di sini. Daftar menyesuaikan peran: misalnya daftar peserta hanya untuk pemilik data dan Tim Mobilitas.',
+      body: 'Pilih laporan di sini. Daftar menyesuaikan peran: misalnya arsip snapshot hanya untuk Tim IO dan pimpinan.',
       side: 'right',
     },
     {
@@ -577,13 +577,7 @@ const REPORTS_TOUR: Tour = {
     {
       target: tid('report-kpi'),
       title: 'Laporan per RENSTRA',
-      body: 'Pilih satu indikator untuk melihat nilai tiap unit (Fakultas → Program Studi → Program) beserta data pendukungnya.',
-      side: 'right',
-    },
-    {
-      target: tid('report-peserta'),
-      title: 'Daftar peserta',
-      body: 'Nama dan NRP peserta. Ini data pribadi: setiap unduhan dicatat (siapa, filter, jumlah baris).',
+      body: 'Pilih satu indikator untuk melihat nilai dan target tiap unit (Fakultas → Program Studi → Program) beserta data pendukungnya.',
       side: 'right',
     },
     {

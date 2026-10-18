@@ -28,6 +28,14 @@ describe('buildUnitRollup', () => {
     expect(rows.every((r) => r.total === 0)).toBe(true);
   });
 
+  it('attaches each unit its own target (not rolled up), null where none is set', () => {
+    const rows = buildUnitRollup(tree, new Map([[11, 2]]), new Map([[10, 40], [11, 15], [999, 7]]));
+    const get = (id: number) => rows.find((r) => r.unit_id === id)!;
+    expect(get(10).target).toBe(40);
+    expect(get(11).target).toBe(15);
+    expect(get(111).target).toBeNull();
+  });
+
   it('skips a university container and keeps numbers of unknown units in "Lainnya"', () => {
     const withRoot: UnitNode[] = [
       { id: 1, name: 'Universitas', parent_id: null, kind: 'up' },

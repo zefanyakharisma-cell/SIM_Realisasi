@@ -441,7 +441,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
 
   // Sheet 1: Rekap
   if (rep.rollup) {
-    const rows = rollupSheetRows(rep.rollup, `Total ${scopeName}`, rep.scopeValue);
+    const rows = rollupSheetRows(rep.rollup, `Total ${scopeName}`, rep.scopeValue, rep.scopeTarget);
     const ws = addTableSheet(wb, `${key} Rekap`, rollupColumns(RENSTRA_VALUE_HEADER[def.unit]), rows);
     rows.forEach((r, i) => {
       if (r.level === 'Fakultas' || r.isTotal) ws.getRow(i + 2).font = { bold: true };
@@ -450,7 +450,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
   } else {
     const t = rep.overall!;
     addTableSheet(wb, `${key} Rekap`, KPI_S4_OVERALL_COLUMNS, [
-      { desc: `${def.title} — ${scopeName}`, num: t.numerator, den: t.denominator, grace: t.grace_excluded, pct: t.pct },
+      { desc: `${def.title} — ${scopeName}`, num: t.numerator, den: t.denominator, grace: t.grace_excluded, pct: t.pct, target: rep.scopeTarget },
     ]);
     rowCount += 1;
   }

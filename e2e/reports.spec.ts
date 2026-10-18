@@ -111,7 +111,7 @@ test('Revisi V.2: Laporan per RENSTRA rolls Program Studi into Fakultas and expo
     // seed: FTI (10) → Program Studi Informatika (11), Program Studi Teknik Elektro (12); every academic unit is listed
     await expect(rows).toHaveCount(7);
     const total = async (id: number) => Number(await rows.and(page.locator(`[data-unit-id="${id}"]`)).getAttribute('data-total'));
-    const own10 = Number((await rows.and(page.locator('[data-unit-id="10"]')).locator('td').nth(2).textContent())!.replace(/\D/g, '') || 0);
+    const own10 = Number(await rows.and(page.locator('[data-unit-id="10"]')).getAttribute('data-own'));
     expect(await total(10)).toBe(own10 + (await total(11)) + (await total(12)));
 
     const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
@@ -163,9 +163,48 @@ test('AT-11: viewer has no participant report and the API returns 403', async ({
   expect(res.status()).toBe(403);
 });
 
-test('AT-12: Laporan activity export rows equal the on-screen total', async ({ page }) => {
+test('Laporan no longer lists Daftar kegiatan / Daftar peserta; old links fall back to Ringkasan', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
-  await page.goto('/realisasi/laporan?report=kegiatan&status=verified&ay=1');
+  await page.goto('/realisasi/laporan?report=kegiatan');
+  await expect(page.getByTestId('report-kegiatan')).toHaveCount(0);
+  await expect(page.getByTestId('report-peserta')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ringkasan RENSTRA', level: 2 })).toBeVisible();
+});
+
+test('Target RENSTRA: set in Pengaturan, shown in Laporan per RENSTRA and its workbook', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi/pengaturan?tab=target&renstra=1.1');
+  const ay = await page.locator('#t-ay').inputValue();
+  await page.locator('#target-0').fill('120');
+  await page.locator('#target-10').fill('40');
+  await page.getByTestId('save-targets').click();
+  await expect(page.getByText('Target disimpan.')).toBeVisible();
+
+  await page.goto(`/realisasi/laporan?report=kpi&renstra=1.1&ay=${ay}&period=full`);
+  const fti = page.getByTestId('rollup-row').and(page.locator('[data-unit-id="10"]'));
+  await expect(fti.getByTestId('rollup-target')).toHaveText('40');
+  await expect(page.getByTestId('rollup-row').and(page.locator('[data-unit-id="11"]')).getByTestId('rollup-target')).toHaveText('–');
+  await expect(page.getByTestId('rollup-total')).toContainText('120');
+  await expect(page.getByRole('columnheader', { name: 'Unit sendiri' })).toHaveCount(0);
+  const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
+  const rekap = wb.getWorksheet('1.1 Rekap')!;
+  const headers = (rekap.getRow(1).values as unknown[]).slice(1);
+  expect(headers).toContain('Target');
+  const col = headers.indexOf('Target') + 1;
+  expect(rekap.getRow(rekap.rowCount).getCell(col).value).toBe(120);
+
+  await page.goto(`/realisasi/pengaturan?tab=target&renstra=1.19.S4&ay=${ay}`);
+  await expect(page.getByTestId('target-row')).toHaveCount(1);
+  await page.locator('#target-0').fill('80');
+  await page.getByTestId('save-targets').click();
+  await expect(page.getByText('Target disimpan.')).toBeVisible();
+  await page.goto(`/realisasi/laporan?report=kpi&renstra=1.19.S4&ay=${ay}&period=full`);
+  await expect(page.getByTestId('renstra-overall-target')).toContainText('80,0%');
+});
+
+test('AT-12: Kegiatan list export rows equal the on-screen total', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.kepalaIo);
+  await page.goto('/realisasi/kegiatan?status=verified&ay=1');
   const total = Number(await page.getByTestId('list-total').textContent());
   const wb = await downloadWorkbook(page, () => page.getByTestId('export-excel').click());
   expect(wb.getWorksheet('Kegiatan')!.rowCount - 1).toBe(total);
