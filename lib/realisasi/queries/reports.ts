@@ -134,6 +134,13 @@ export async function listUnitTree(tx: Tx): Promise<Array<UnitOption & { parent_
   }));
 }
 
+/** Target RENSTRA per unit for one academic year and indicator (unit id 0 = Universitas). */
+export async function getRenstraTargets(tx: Tx, ayId: number, key: string): Promise<Map<number, number>> {
+  const rows = await tx`
+    select unit_id, target from realisasi.renstra_targets where academic_year_id = ${ayId}::int and renstra_key = ${key}::text`;
+  return new Map(rows.map((r) => [Number(r.unit_id), Number(r.target)]));
+}
+
 /** Integer settings (grace period, reporting deadline, reminders). */
 export async function getSettingsMap(tx: Tx): Promise<Record<string, unknown>> {
   const rows = await tx`select key, value from realisasi.settings`;

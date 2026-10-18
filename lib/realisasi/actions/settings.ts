@@ -14,10 +14,12 @@ import {
   freezeSchema,
   generalSettingsSchema,
   refreezeSchema,
+  renstraTargetsSchema,
   semesterSchema,
   type AcademicYearInput,
   type AgendaRuleInput,
   type GeneralSettingsInput,
+  type RenstraTargetsInput,
   type SemesterInput,
 } from '@/lib/realisasi/schemas/settings';
 
@@ -127,6 +129,24 @@ export async function setAgendaRule(input: AgendaRuleInput): Promise<ActionResul
     withUser(user.id, async (tx) => {
       await tx`select realisasi.set_agenda_rule(${agenda_id}::int, ${tx.json(rule)}::jsonb)`;
       return null;
+    }),
+  );
+  if (res.ok) revalidateAll();
+  return res;
+}
+
+/** Target RENSTRA per unit for one academic year and indicator (Laporan per RENSTRA "Target" column). */
+export async function setRenstraTargets(input: RenstraTargetsInput): Promise<ActionResult<{ saved: number }>> {
+  const user = await adminUser();
+  if (!user) return forbidden();
+  const parsed = renstraTargetsSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  const v = parsed.data;
+  const res = await runAction(() =>
+    withUser(user.id, async (tx) => {
+      const [row] = await tx`
+        select realisasi.set_renstra_targets(${v.academic_year_id}::int, ${v.renstra_key}::text, ${tx.json(v.rows)}::jsonb) as r`;
+      return { saved: Number(row!.r) };
     }),
   );
   if (res.ok) revalidateAll();

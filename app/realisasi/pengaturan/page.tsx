@@ -2,14 +2,17 @@
 import Link from 'next/link';
 import { withUser } from '@/lib/db';
 import { can, getDemoTimeTravelEnabled, getToday, requireUser } from '@/lib/session';
-import { getParam } from '@/lib/realisasi/schemas/report';
+import { getParam, parseRenstraKey } from '@/lib/realisasi/schemas/report';
 import {
+  getRenstraTargets,
   getSettingsMap,
   getSnapshotList,
   listAcademicYears,
   listAgendaRules,
   listSemesters,
+  listUnitTree,
 } from '@/lib/realisasi/queries/reports';
+import { buildUnitRollup } from '@/lib/realisasi/unit-rollup';
 import { GENERAL_SETTING_FIELDS, type GeneralSettingsInput } from '@/lib/realisasi/schemas/settings';
 import type { SnapshotListRow } from '@/lib/realisasi/types';
 import { PageHeader } from '@/components/realisasi/page-header';
@@ -17,6 +20,7 @@ import { Forbidden } from '@/components/realisasi/forbidden';
 import { DemoTodayCard, GeneralSettingsForm, LIVE_NOTICE } from '@/components/realisasi/settings/general-settings';
 import { CalendarManager } from '@/components/realisasi/settings/calendar-manager';
 import { AgendaRulesManager } from '@/components/realisasi/settings/agenda-rules';
+import { RenstraTargetsManager } from '@/components/realisasi/settings/renstra-targets';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +29,7 @@ const TABS = [
   { key: 'umum', label: 'Umum' },
   { key: 'kalender', label: 'Kalender Akademik' },
   { key: 'jenis', label: 'Jenis Kegiatan' },
+  { key: 'target', label: 'Target RENSTRA' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
@@ -58,6 +63,34 @@ export default async function PengaturanPage(props: { searchParams: Promise<Reco
       case 'jenis': {
         const rules = await listAgendaRules(tx);
         return <AgendaRulesManager rules={rules} />;
+      }
+      case 'target': {
+        const [years, tree] = await Promise.all([listAcademicYears(tx), listUnitTree(tx)]);
+        if (years.length === 0) return <p className="text-sm text-muted-foreground">Belum ada tahun akademik.</p>;
+        const ayParam = Number(getParam(sp, 'ay'));
+        // default: the academic year containing today, else the latest one
+        const ay =
+          years.find((y) => y.id === ayParam)?.id ??
+          years.find((y) => y.start_date <= today && today <= y.end_date)?.id ??
+          years[years.length - 1]!.id;
+        const renstra = parseRenstraKey(getParam(sp, 'renstra')) ?? '1.1';
+        const targets = await getRenstraTargets(tx, ay, renstra);
+        const units = [
+          { unit_id: 0, name: 'Universitas', level: 'Universitas', depth: 0 },
+          ...buildUnitRollup(tree, new Map())
+            .filter((r) => r.unit_id !== null)
+            .map((r) => ({ unit_id: r.unit_id!, name: r.name, level: r.level, depth: r.depth })),
+        ];
+        return (
+          <RenstraTargetsManager
+            key={`${ay}-${renstra}`}
+            years={years}
+            ay={ay}
+            renstra={renstra}
+            units={units}
+            initial={Object.fromEntries(targets)}
+          />
+        );
       }
     }
   });

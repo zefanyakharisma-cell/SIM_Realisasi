@@ -141,6 +141,15 @@ kegiatan (200 new: 152 verified, 19 waiting for Mobility, 10 in revision, 19 dra
 Setahun 2025/2026 449, YTD 2026/2027 53. The `10_*` files reference agreements beyond the `--rehearse` fixture (11-52)
 and skip themselves with a notice there.
 
+## Target RENSTRA (2026-10-18, not yet applied to `simks-partnership`)
+
+New table `realisasi.renstra_targets` (target per unit, RENSTRA indicator and academic year; shown in the Target column
+of Laporan per RENSTRA, set in Pengaturan → Target RENSTRA) and RPC `realisasi.set_renstra_targets`. For the existing
+live install run **`supabase/deploy/patch-2026-10-18-renstra-targets.sql`** once (additive only: one new table, policy,
+function and grants; no drop, no data change). Rehearsed locally: the previous build plus this patch gives the same
+fingerprint as a fresh install, `functions 166 eb260576cf2734945dc77ca484ab7199`, `columns 317
+f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461`.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
@@ -149,8 +158,9 @@ and skip themselves with a notice there.
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
-3. The result grid shows the fingerprint; it must read `functions 165 44dfa2b2cc108735a8a41beb212bea65`,
-   `columns 311 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e` (Revisi V.1 build).
+3. The result grid shows the fingerprint; it must read `functions 166 eb260576cf2734945dc77ca484ab7199`,
+   `columns 317 f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461` (Target RENSTRA build,
+   2026-10-18; the Revisi V.1 build read `functions 165 44dfa2b2…`, `columns 311 2d564210…`, `policies 24 8945131c…`).
 
 The file is one transaction (an error rolls everything back), is safe to run again, and equals
 `scripts/db-deploy-supabase.sh --reset-realisasi`.

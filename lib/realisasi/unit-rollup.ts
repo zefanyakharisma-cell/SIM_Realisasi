@@ -24,6 +24,8 @@ export interface RollupRow {
   own: number;
   /** own + the totals of every child unit. */
   total: number;
+  /** Target RENSTRA set in Pengaturan for this unit (null = none). */
+  target: number | null;
 }
 
 const LEVELS: UnitLevel[] = ['Fakultas', 'Program Studi', 'Program'];
@@ -35,7 +37,11 @@ const byName = (a: UnitNode, b: UnitNode) => a.name.localeCompare(b.name, 'id') 
  * container and is skipped. Values for unit ids missing from `tree` are kept in one "Lainnya" row so the
  * table never loses a number.
  */
-export function buildUnitRollup(tree: UnitNode[], direct: ReadonlyMap<number, number>): RollupRow[] {
+export function buildUnitRollup(
+  tree: UnitNode[],
+  direct: ReadonlyMap<number, number>,
+  targets: ReadonlyMap<number, number> = new Map(),
+): RollupRow[] {
   const byId = new Map(tree.map((u) => [u.id, u]));
   const children = new Map<number | null, UnitNode[]>();
   for (const u of tree) {
@@ -67,6 +73,7 @@ export function buildUnitRollup(tree: UnitNode[], direct: ReadonlyMap<number, nu
       path: [...path, u.name],
       own,
       total: own,
+      target: targets.get(u.id) ?? null,
     };
     rows.push(row);
     for (const c of children.get(u.id) ?? []) row.total += visit(c, depth + 1, row.path);
@@ -79,7 +86,7 @@ export function buildUnitRollup(tree: UnitNode[], direct: ReadonlyMap<number, nu
   // Container units (skipped above) and unknown ids: keep their own numbers visible.
   let other = 0;
   for (const [id, n] of direct) if (!seen.has(id)) other += n;
-  if (other > 0) rows.push({ unit_id: null, name: 'Lainnya (unit di luar struktur fakultas)', level: 'Lainnya', depth: 0, path: ['Lainnya'], own: other, total: other });
+  if (other > 0) rows.push({ unit_id: null, name: 'Lainnya (unit di luar struktur fakultas)', level: 'Lainnya', depth: 0, path: ['Lainnya'], own: other, total: other, target: null });
   return rows;
 }
 

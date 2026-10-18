@@ -354,7 +354,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
 
   // Sheet 1: Rekap
   if (rep.rollup) {
-    const rows = rollupSheetRows(rep.rollup, `Total ${scopeName}`, rep.scopeValue);
+    const rows = rollupSheetRows(rep.rollup, `Total ${scopeName}`, rep.scopeValue, rep.scopeTarget);
     const ws = addTableSheet(wb, `${key} Rekap`, rollupColumns(RENSTRA_VALUE_HEADER[def.unit]), rows);
     rows.forEach((r, i) => {
       if (r.level === 'Fakultas' || r.isTotal) ws.getRow(i + 2).font = { bold: true };
@@ -363,7 +363,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
   } else {
     const t = rep.overall!;
     addTableSheet(wb, `${key} Rekap`, KPI_S4_OVERALL_COLUMNS, [
-      { desc: `${def.title} — ${scopeName}`, num: t.numerator, den: t.denominator, grace: t.grace_excluded, pct: t.pct },
+      { desc: `${def.title} — ${scopeName}`, num: t.numerator, den: t.denominator, grace: t.grace_excluded, pct: t.pct, target: rep.scopeTarget },
     ]);
     rowCount += 1;
   }
@@ -402,6 +402,7 @@ async function buildKpiDrilldown({ tx, user, params }: ExportContext): Promise<E
       ...(rep.rollup
         ? ([
             ['Nilai per unit', 'Fakultas = kegiatan unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program'],
+            ['Target', 'Target RENSTRA per unit untuk tahun akademik ini (Pengaturan → Target RENSTRA); kosong = belum ditetapkan'],
             ['Kegiatan bersama', 'Kegiatan dengan beberapa unit dihitung pada setiap unit yang terlibat; total lingkup dihitung sekali'],
           ] as Array<[string, string]>)
         : ([['Perhitungan', 'Satuan = rantai perpanjangan MoU/MoA; masa tenggang dikecualikan dari penyebut']] as Array<[string, string]>)),
