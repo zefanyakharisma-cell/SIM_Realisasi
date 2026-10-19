@@ -20,9 +20,9 @@ export interface ParticipantTableProps {
 
 const CHANGE_LABEL: Record<Change, string> = { added: 'Baru', removed: 'Dihapus', changed: 'Berubah' };
 const CHANGE_ROW_CLASS: Record<Change, string> = {
-  added: 'bg-green-50',
-  removed: 'bg-red-50 text-red-900 line-through decoration-red-400',
-  changed: 'bg-amber-50',
+  added: 'bg-success-subtle',
+  removed: 'bg-danger-subtle text-danger-fg line-through decoration-danger',
+  changed: 'bg-warning-subtle',
 };
 
 const REGISTRY_LABEL: Record<string, string> = { graduated: 'Lulus', inactive: 'Tidak aktif' };
@@ -108,7 +108,7 @@ export function ParticipantTable({ version, highlight, removedRows }: Participan
         title="Mahasiswa PETRA"
         count={internal.length}
         testId="participants-internal"
-        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Prodi']}
+        headers={['No', 'NRP', 'Nama', 'Fakultas', 'Program Studi']}
       >
         {internal.map(({ row, change }, i) => (
           <tr key={`${row.nrp}-${change ?? 'x'}`} className={cn('border-t', change && CHANGE_ROW_CLASS[change])}>

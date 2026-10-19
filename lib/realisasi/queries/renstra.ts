@@ -6,7 +6,7 @@ import type { SessionUser } from '@/lib/session';
 import type { ActivityKpiRow, ChainKpiRow, DrilldownResult, KpiScope, KpiTriple, PeriodInfo, UnitKpiValues } from '@/lib/realisasi/types';
 import { RENSTRA_DEF, type PeriodParams, type RenstraDef, type RenstraKey, type RenstraMetric } from '@/lib/realisasi/schemas/report';
 import { buildUnitRollup, rollupGrandTotal, subtreeIds, type RollupRow, type UnitNode } from '@/lib/realisasi/unit-rollup';
-import { getDashboard, getDrilldown, listUnitTree } from '@/lib/realisasi/queries/reports';
+import { getDashboard, getDrilldown, getRenstraTargets, listUnitTree } from '@/lib/realisasi/queries/reports';
 
 type KpiBlocks = Pick<UnitKpiValues, 'kpi_1_1' | 'kpi_1_19_s1' | 'kpi_1_19_24'>;
 
@@ -18,6 +18,8 @@ export interface RenstraReport {
   rollup: RollupRow[] | null;
   /** Official value of the scope (university or the selected unit), deduplicated by the KPI engine. */
   scopeValue: number;
+  /** Target of the scope row (Universitas = unit 0, else the selected / own unit); null = none set. */
+  scopeTarget: number | null;
   /** 1.19.S4 only: overall terlaksana / penyebut / masa tenggang. */
   overall: KpiTriple | null;
   activityRows: ActivityKpiRow[];
@@ -51,6 +53,10 @@ export async function getRenstraReport(tx: Tx, user: SessionUser, p: PeriodParam
     getDrilldown(tx, { ...ddParams, kpi: def.kpi, bucket: def.bucket }),
     listUnitTree(tx),
   ]);
+  // Targets belong to the academic year of the period shown (Pengaturan → Target RENSTRA).
+  const targets = await getRenstraTargets(tx, dash.period.ay_id, key);
+  const scopeUnit = isSubmitter ? dash.scope.unit_id : (p.unit ?? null);
+  const scopeTarget = targets.get(scopeUnit ?? 0) ?? null;
   const scopeIds = subtreeScope ? subtreeIds(tree, p.unit!) : null;
   const scopeNames = scopeIds ? new Set(tree.filter((u) => scopeIds.includes(u.id)).map((u) => u.name)) : null;
 
@@ -79,7 +85,7 @@ export async function getRenstraReport(tx: Tx, user: SessionUser, p: PeriodParam
     } else {
       for (const u of dash.values.by_unit ?? []) direct.set(u.unit_id, metricValue(metric, u));
     }
-    rollup = buildUnitRollup(scoped, direct);
+    rollup = buildUnitRollup(scoped, direct, targets);
     if (subtreeScope) scopeValue = rollupGrandTotal(rollup);
   }
 
@@ -93,6 +99,7 @@ export async function getRenstraReport(tx: Tx, user: SessionUser, p: PeriodParam
     scope: dash.scope,
     rollup,
     scopeValue,
+    scopeTarget,
     overall: def.metric ? null : dash.values.kpi_1_19_24.all,
     activityRows: rows.filter((r): r is ActivityKpiRow => r.row_type === 'activity'),
     chainRows: rows.filter((r): r is ChainKpiRow => r.row_type === 'chain'),

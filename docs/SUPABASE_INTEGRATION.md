@@ -131,6 +131,25 @@ Genap 132, Setahun 297, YTD 2026/2027 40. **Still to run once in the SQL Editor:
 then the live awards functions are the previous version; their results are the same, only slower. Afterwards the live
 fingerprint equals the one below.
 
+## Additional kegiatan import (2026-10-04)
+
+The 200 bulk kegiatan of the local demo seed (`supabase/seed/04_bulk_*`) were adapted to the real SIM Kerjasama data
+(Program Studi submitters, real agreements valid for the dates, partner names/speakers to match) and applied through the
+connector: `seed-supabase/09` (240 mock students, disjoint per file), `10_kegiatan_tambahan_1`-`8` (kegiatan 221-420,
+each file one atomic batch ending in a content-fingerprint check) and `11` (re-freeze of AY 2025/2026). Result: 333
+kegiatan (200 new: 152 verified, 19 waiting for Mobility, 10 in revision, 19 drafts), no new student conflicts; KPI 1.1
+Setahun 2025/2026 449, YTD 2026/2027 53. The `10_*` files reference agreements beyond the `--rehearse` fixture (11-52)
+and skip themselves with a notice there.
+
+## Target RENSTRA (2026-10-18, not yet applied to `simks-partnership`)
+
+New table `realisasi.renstra_targets` (target per unit, RENSTRA indicator and academic year; shown in the Target column
+of Laporan per RENSTRA, set in Pengaturan → Target RENSTRA) and RPC `realisasi.set_renstra_targets`. For the existing
+live install run **`supabase/deploy/patch-2026-10-18-renstra-targets.sql`** once (additive only: one new table, policy,
+function and grants; no drop, no data change). Rehearsed locally: the previous build plus this patch gives the same
+fingerprint as a fresh install, `functions 166 eb260576cf2734945dc77ca484ab7199`, `columns 317
+f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461`.
+
 ## Easiest deploy: Supabase SQL Editor (no psql, no network setup)
 
 1. Large pastes can get mangled by the browser (seen: `values;` at line 100). Prefer the five smaller files
@@ -139,8 +158,9 @@ fingerprint equals the one below.
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
-3. The result grid shows the fingerprint; it must read `functions 165 44dfa2b2cc108735a8a41beb212bea65`,
-   `columns 311 2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e` (Revisi V.1 build).
+3. The result grid shows the fingerprint; it must read `functions 166 eb260576cf2734945dc77ca484ab7199`,
+   `columns 317 f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461` (Target RENSTRA build,
+   2026-10-18; the Revisi V.1 build read `functions 165 44dfa2b2…`, `columns 311 2d564210…`, `policies 24 8945131c…`).
 
 The file is one transaction (an error rolls everything back), is safe to run again, and equals
 `scripts/db-deploy-supabase.sh --reset-realisasi`.
@@ -155,7 +175,13 @@ The file is one transaction (an error rolls everything back), is safe to run aga
    Every line must be `ok`/rows/`absent`, and akun 1, 3, 4, 6, 9, 10, 11 must resolve to the emails above.
 4. **Deploy**: run the same command without a mode. It is one transaction; any error rolls everything back. Check the verify block: as authenticated, `documents=<dokumen_kerja_sama count>` with `my_role=io_admin`, then 7 accounts, `unmapped negara.kode: none`.
 5. **Advisors**: expect "security definer view" for `kerjasama.*` (intended) and nothing new in `public`. Do not add `kerjasama`/`realisasi` to the exposed API schemas.
-6. **App env** (Vercel): `DATABASE_URL` = session pooler URL (`prepare:false` is already set in `lib/db.ts`), `DEMO_AUTH` on for the demo.
+6. **App env** (Vercel): `DATABASE_URL` = **transaction pooler** URL, port **6543** (`prepare:false` is already set in
+   `lib/db.ts`; every request runs one transaction per `withUser`), `DEMO_AUTH` on for the demo. Do not point the app
+   at the session pooler (5432): it pins one of its 15 server connections per open client, and serverless instances
+   (production, still-warm old deployments, previews) keep idle sockets open, so the pool runs out and every page fails
+   with `EMAXCONNSESSION ... max clients reached in session mode` (outage 2026-10-05, recovered by terminating the idle
+   `Supavisor` backends). `lib/db.ts` also keeps each instance small (3 connections on Vercel, `DB_POOL_MAX`).
+   The deploy script keeps using the session pooler or the direct connection (DDL in one long transaction).
 7. **Re-seed later** (idempotent): `--seed-only`.
    **Rollback**: `drop schema realisasi, kerjasama, mock_baak, mock_hr cascade; select cron.unschedule('realisasi-daily-jobs');` SIMKS data is never touched.
 

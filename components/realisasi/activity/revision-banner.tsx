@@ -1,5 +1,5 @@
 /**
- * Amber revision banner for the unit (Design §3.4): who requested, note, which track, "Perbaiki sekarang".
+ * Revision banner (status-pending, as the Perlu Revisi pill) for the unit (Design §3.4): who requested, note, which track, "Perbaiki sekarang".
  * Server-safe.
  */
 import Link from 'next/link';
@@ -14,7 +14,7 @@ export function RevisionBanner({ detail, showAction = true }: { detail: Activity
   const tracks = (['mobility'] as Team[]).filter((t) => detail.mobility_status === 'revision_requested' && detail.revision[t]);
   if (tracks.length === 0) return null;
   return (
-    <Alert variant="warning" data-testid="revision-banner">
+    <Alert variant="pending" data-testid="revision-banner">
       <AlertTriangle aria-hidden />
       <AlertTitle>Perlu revisi dari unit</AlertTitle>
       <AlertDescription>
@@ -24,7 +24,7 @@ export function RevisionBanner({ detail, showAction = true }: { detail: Activity
             return (
               <li key={t}>
                 <span className="font-medium">Jalur {TRACK_LABEL[t]}</span>
-                <span className="text-amber-900/80">
+                <span className="text-pending-fg">
                   {' '}
                   — diminta oleh {r.requested_by_name ?? 'IO'} pada {formatDateTime(r.requested_at)}
                 </span>

@@ -26,7 +26,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // I-3: skip only the exact /login page (and Next internals / favicon), not every path that
-  // merely starts with "login".
-  matcher: ['/((?!_next/|favicon\\.ico$|login$).*)'],
+  // I-3: skip only the exact /login page (and Next internals / favicon / public brand assets such as the
+  // logo, which the login page shows before any session exists), not every path that merely starts with "login".
+  matcher: ['/((?!_next/|favicon\\.ico$|brand/|login$).*)'],
 };

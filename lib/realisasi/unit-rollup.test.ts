@@ -3,11 +3,11 @@ import { buildUnitRollup, rollupGrandTotal, subtreeIds, type UnitNode } from './
 
 const tree: UnitNode[] = [
   { id: 10, name: 'Fakultas Teknologi Industri', parent_id: null, kind: 'faculty' },
-  { id: 11, name: 'Prodi Informatika', parent_id: 10, kind: 'prodi' },
-  { id: 12, name: 'Prodi Teknik Elektro', parent_id: 10, kind: 'prodi' },
+  { id: 11, name: 'Program Studi Informatika', parent_id: 10, kind: 'prodi' },
+  { id: 12, name: 'Program Studi Teknik Elektro', parent_id: 10, kind: 'prodi' },
   { id: 111, name: 'Program Internasional Informatika', parent_id: 11, kind: 'prodi' },
   { id: 20, name: 'Fakultas Bisnis & Ekonomi', parent_id: null, kind: 'faculty' },
-  { id: 21, name: 'Prodi Manajemen', parent_id: 20, kind: 'prodi' },
+  { id: 21, name: 'Program Studi Manajemen', parent_id: 20, kind: 'prodi' },
 ];
 
 describe('buildUnitRollup', () => {
@@ -18,7 +18,7 @@ describe('buildUnitRollup', () => {
     expect(get(11)).toMatchObject({ level: 'Program Studi', own: 2, total: 6 });
     expect(get(12)).toMatchObject({ own: 3, total: 3 });
     expect(get(10)).toMatchObject({ level: 'Fakultas', own: 1, total: 10 });
-    expect(get(111).path).toEqual(['Fakultas Teknologi Industri', 'Prodi Informatika', 'Program Internasional Informatika']);
+    expect(get(111).path).toEqual(['Fakultas Teknologi Industri', 'Program Studi Informatika', 'Program Internasional Informatika']);
     expect(rollupGrandTotal(rows)).toBe(10);
   });
 
@@ -26,6 +26,14 @@ describe('buildUnitRollup', () => {
     const rows = buildUnitRollup(tree, new Map());
     expect(rows.map((r) => r.unit_id)).toEqual([20, 21, 10, 11, 111, 12]);
     expect(rows.every((r) => r.total === 0)).toBe(true);
+  });
+
+  it('attaches each unit its own target (not rolled up), null where none is set', () => {
+    const rows = buildUnitRollup(tree, new Map([[11, 2]]), new Map([[10, 40], [11, 15], [999, 7]]));
+    const get = (id: number) => rows.find((r) => r.unit_id === id)!;
+    expect(get(10).target).toBe(40);
+    expect(get(11).target).toBe(15);
+    expect(get(111).target).toBeNull();
   });
 
   it('skips a university container and keeps numbers of unknown units in "Lainnya"', () => {

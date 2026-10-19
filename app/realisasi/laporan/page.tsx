@@ -5,12 +5,7 @@ import { AlertTriangle } from 'lucide-react';
 import { withUser, type Tx } from '@/lib/db';
 import { can, requireUser, type SessionUser } from '@/lib/session';
 import { parseDbError } from '@/lib/realisasi/errors';
-import { formatDate, formatNumber } from '@/lib/realisasi/format';
-import { DIRECTION_LABEL } from '@/lib/realisasi/status';
-import type { ActivityListRow, ChainKpiRow, ExportKind, PeriodInfo } from '@/lib/realisasi/types';
-import { parseActivityFilters } from '@/lib/realisasi/schemas/filters';
-import { listActivities } from '@/lib/realisasi/queries/activities';
-import { getAgendas } from '@/lib/realisasi/queries/lookups';
+import type { ChainKpiRow, ExportKind, PeriodInfo } from '@/lib/realisasi/types';
 import {
   RENSTRA_KEYS,
   getParam,
@@ -36,32 +31,27 @@ import {
 import { PageHeader } from '@/components/realisasi/page-header';
 import { ExportButton } from '@/components/realisasi/export-button';
 import { Forbidden } from '@/components/realisasi/forbidden';
-import { StatusBadge } from '@/components/realisasi/status-badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PeriodSelector } from '@/components/realisasi/dashboard/period-selector';
 import { PeriodBadge } from '@/components/realisasi/dashboard/period-badge';
 import {
   ActivityKpiTable,
   ChainKpiTable,
-  EmptyRows,
   OverallPctCard,
   SummaryTable,
   UnitRollupTable,
 } from '@/components/realisasi/reports/kpi-tables';
 import { getRenstraReport } from '@/lib/realisasi/queries/renstra';
 import { SnapshotDetailView, SnapshotTimeline } from '@/components/realisasi/reports/snapshot-archive';
-import { ActivityFilterForm } from '@/components/realisasi/reports/report-filters';
 import { AwardsTables } from '@/components/realisasi/dashboard/awards-tables';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 type SP = Record<string, string | string[] | undefined>;
-const PREVIEW_LIMIT = 50;
 
 interface ReportDef {
   key: ReportKey;
@@ -73,9 +63,7 @@ interface ReportDef {
 
 const REPORTS: ReportDef[] = [
   { key: 'ringkasan', title: 'Ringkasan RENSTRA', description: 'Nilai indikator RENSTRA beserta rinciannya.', kind: 'kpi-summary', visible: () => true },
-  { key: 'kpi', title: 'Laporan per RENSTRA', description: 'Nilai tiap unit (Fakultas → Prodi → Program) dan data pendukungnya.', kind: 'kpi-drilldown', visible: () => true },
-  { key: 'kegiatan', title: 'Daftar kegiatan', description: 'Seluruh kegiatan sesuai filter.', kind: 'activities', visible: () => true },
-  { key: 'peserta', title: 'Daftar peserta', description: 'Nama & NRP peserta (data pribadi, dicatat).', kind: 'participants', visible: (u) => can(u, 'export.participants') },
+  { key: 'kpi', title: 'Laporan per RENSTRA', description: 'Nilai tiap unit (Fakultas → Program Studi → Program) dan data pendukungnya.', kind: 'kpi-drilldown', visible: () => true },
   { key: 'awards', title: 'International Awards', description: 'Peringkat unit: inbound, outbound, dan inisiatif internasional.', kind: 'awards', visible: () => true },
   { key: 'realisasi-kerjasama', title: 'Realisasi per kerja sama', description: 'Status terlaksana tiap rantai MoU/MoA (1.19.S4).', kind: 'realization-by-agreement', visible: () => true },
   { key: 'arsip', title: 'Arsip snapshot', description: 'Snapshot RENSTRA yang dibekukan per semester.', kind: 'snapshot-archive', visible: (u) => can(u, 'snapshot.archive') },
@@ -108,7 +96,7 @@ export default async function LaporanPage(props: { searchParams: Promise<SP> }) 
     } catch (e) {
       const err = parseDbError(e);
       body = (
-        <Card role="alert" className="flex items-start gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <Card role="alert" className="flex items-start gap-3 border-danger-line bg-danger-subtle p-4 text-sm text-danger-fg">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>{err.message}</p>
         </Card>
@@ -152,58 +140,12 @@ export default async function LaporanPage(props: { searchParams: Promise<SP> }) 
 }
 
 async function renderReport(tx: Tx, user: SessionUser, key: ReportKey, sp: SP): Promise<React.ReactNode> {
-  const isSubmitter = user.role === 'submitter';
   switch (key) {
     case 'ringkasan':
     case 'kpi':
     case 'realisasi-kerjasama':
     case 'awards':
       return renderKpiReport(tx, user, key, sp);
-    case 'kegiatan':
-    case 'peserta': {
-      const f = parseActivityFilters(sp);
-      const [rows, agendas, units, years] = await Promise.all([
-        listActivities(tx, user, f),
-        getAgendas(tx),
-        isSubmitter ? Promise.resolve(null) : listUnits(tx),
-        listAcademicYears(tx),
-      ]);
-      const kind: ExportKind = key === 'kegiatan' ? 'activities' : 'participants';
-      const versionSel =
-        key === 'peserta' ? (
-          <div className="grid gap-1">
-            <Label htmlFor="f-version" className="text-xs text-muted-foreground">
-              Versi peserta
-            </Label>
-            <NativeSelect id="f-version" name="version" defaultValue={getParam(sp, 'version') === 'latest' ? 'latest' : 'approved'} className="w-44">
-              <option value="approved">Versi disetujui</option>
-              <option value="latest">Versi terbaru</option>
-            </NativeSelect>
-          </div>
-        ) : null;
-      return (
-        <div className="space-y-4">
-          <ActivityFilterForm
-            report={key}
-            filters={f}
-            agendas={agendas.map((t) => ({ id: t.id, name: t.name }))}
-            units={units ? units.map((u) => ({ id: u.id, name: u.name })) : null}
-            years={years}
-            extra={versionSel}
-          />
-          <Toolbar kind={kind} params={cleanParams(sp, ['report'])}>
-            <span data-testid="list-total">{rows.length}</span> kegiatan
-          </Toolbar>
-          {key === 'peserta' ? (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Berkas berisi nama dan NRP peserta (data pribadi). Setiap unduhan dicatat sesuai UU PDP. Pratinjau di bawah menampilkan kegiatan yang pesertanya
-              akan diekspor.
-            </p>
-          ) : null}
-          <ActivityPreview rows={rows} />
-        </div>
-      );
-    }
     case 'arsip': {
       const ay = parsePositiveInt(getParam(sp, 'ay'));
       const snapshotId = getParam(sp, 'snapshot');
@@ -315,15 +257,17 @@ async function renderKpiReport(tx: Tx, user: SessionUser, key: 'ringkasan' | 'kp
               valueHeader={def.unit === 'mahasiswa' ? 'Jumlah mahasiswa' : 'Jumlah kegiatan'}
               totalLabel={`Total ${scopeName}`}
               totalValue={rep.scopeValue}
+              totalTarget={rep.scopeTarget}
             />
             <p className="text-xs text-muted-foreground">
-              Fakultas = kegiatan unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program. Kegiatan bersama dihitung pada setiap
+              Target ditetapkan per unit di Pengaturan → Target RENSTRA untuk tahun akademik ini (– = belum ditetapkan). Jumlah Fakultas = kegiatan
+              unit sendiri + total Program Studi; Program Studi = unit sendiri + total Program. Kegiatan bersama dihitung pada setiap
               unit yang terlibat, sehingga jumlah unit dapat melebihi total {scopeName.toLowerCase() === 'universitas' ? 'universitas' : 'lingkup'} yang
               menghitungnya sekali.
             </p>
           </>
         ) : (
-          <OverallPctCard value={rep.overall!} scopeName={scopeName} />
+          <OverallPctCard value={rep.overall!} scopeName={scopeName} target={rep.scopeTarget} />
         )}
         <h3 className="pt-2 text-sm font-semibold">
           Data pendukung · <span data-testid="list-total">{dataCount}</span> {def.kpi === '1.19.24' ? 'rantai kerja sama' : 'kegiatan'}
@@ -399,64 +343,5 @@ function Toolbar({ kind, params, children, label }: { kind: ExportKind; params: 
       <p className="text-sm text-muted-foreground">{children}</p>
       <ExportButton kind={kind} params={params} label={label} />
     </div>
-  );
-}
-
-function PreviewNote({ shown, total }: { shown: number; total: number }) {
-  if (total <= shown) return null;
-  return (
-    <p className="text-xs text-muted-foreground">
-      Menampilkan {formatNumber(shown)} dari {formatNumber(total)} baris. Unduh Excel untuk seluruh data.
-    </p>
-  );
-}
-
-function ActivityPreview({ rows }: { rows: ActivityListRow[] }) {
-  if (rows.length === 0) return <EmptyRows />;
-  return (
-    <>
-      <Table containerLabel="Pratinjau kegiatan">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Kode</TableHead>
-            <TableHead>Nama</TableHead>
-            <TableHead>Unit</TableHead>
-            <TableHead>Mitra · Negara</TableHead>
-            <TableHead>Tanggal</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.slice(0, PREVIEW_LIMIT).map((r) => (
-            <TableRow key={r.id}>
-              <TableCell className="whitespace-nowrap font-mono text-xs">
-                <Link href={`/realisasi/kegiatan/${r.id}`} className="text-primary hover:underline">
-                  {r.code}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <div className="font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {r.agenda_name ?? '–'} · {DIRECTION_LABEL[r.direction]}
-                </div>
-              </TableCell>
-              <TableCell className="text-sm">{r.submitter_unit_name}</TableCell>
-              <TableCell className="text-sm">
-                {(r.partner_names ?? []).join(', ')}
-                <div className="text-xs text-muted-foreground">{(r.country_codes ?? []).join(', ')}</div>
-              </TableCell>
-              <TableCell className="whitespace-nowrap text-sm">
-                {formatDate(r.start_date)}
-                <div className="text-xs text-muted-foreground">{r.semester_label ?? ''}</div>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={r.status} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <PreviewNote shown={Math.min(rows.length, PREVIEW_LIMIT)} total={rows.length} />
-    </>
   );
 }

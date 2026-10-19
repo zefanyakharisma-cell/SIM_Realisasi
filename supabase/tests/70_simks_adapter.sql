@@ -33,6 +33,7 @@ select pg_temp.eq((select merged_into_id::text || '/' || is_active::text from ke
 select pg_temp.eq((select string_agg(id || ':' || kind, ',' order by id) from kerjasama.units where id in (1, 2, 10, 11, 20, 21, 30, 31)),
                   '1:up,2:up,10:faculty,11:prodi,20:faculty,21:prodi,30:faculty,31:prodi', 'unit kind from jenis_unit + hierarchy');
 select pg_temp.eq((select parent_id from kerjasama.units where id = 11), 10, 'unit parent_id = id_parent_unit');
+select pg_temp.eq((select name from kerjasama.units where id = 11), 'Program Studi Informatika', 'SIMKS "Prodi X" reads as "Program Studi X"');
 -- an academic university root above faculties is 'up', not 'faculty'
 insert into public.unit (id, nama, id_jenis_unit) values (500, 'Universitas Uji', 1);
 insert into public.unit (id, nama, id_parent_unit, id_jenis_unit) values (501, 'Fakultas Uji', 500, 1);

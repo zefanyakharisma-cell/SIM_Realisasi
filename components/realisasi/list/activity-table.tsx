@@ -160,7 +160,7 @@ export function ActivityTable({ rows, filterRow, caption, empty, deadline, viewe
                   {r.name}
                 </Link>
               </td>
-              <td className="max-w-[180px] px-3 py-2.5 align-top">
+              <td className="max-w-[180px] px-3 py-2.5 align-top [overflow-wrap:anywhere]">
                 {r.agenda_name ?? '–'}
                 <span className="block text-xs text-muted-foreground">{DIRECTION_LABEL[r.direction]}</span>
               </td>

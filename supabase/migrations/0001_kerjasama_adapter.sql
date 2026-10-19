@@ -308,7 +308,8 @@ comment on table realisasi.document_overrides is
 -- prodi; anything deeper (e.g. SBM -> Prodi Manajemen -> "Program Marketing Management") -> program.
 create view kerjasama.units as
 select u.id,
-       u.nama::text as name,
+       -- display form: SIMKS short names "Prodi X" read as "Program Studi X" (SIMKS itself unchanged)
+       regexp_replace(u.nama::text, '^\s*Prodi\s+', 'Program Studi ', 'i') as name,
        u.id_parent_unit as parent_id,
        case
          when u.id_jenis_unit is distinct from 1 then 'up'

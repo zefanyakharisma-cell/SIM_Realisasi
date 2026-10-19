@@ -54,7 +54,7 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
             <span className="text-muted-foreground">({formatNumber(detail.duration_days)} hari)</span>
           </Field>
           <Field label="Semester · Tahun akademik">
-            {detail.semester?.label ?? <span className="text-amber-700">Di luar tahun akademik terdaftar</span>}
+            {detail.semester?.label ?? <span className="text-warning-fg">Di luar tahun akademik terdaftar</span>}
           </Field>
           <Field label="Moda">{MODE_LABEL[detail.mode]}</Field>
           <Field label={detail.mode === 'online' ? 'Platform' : 'Tempat'}>{location}</Field>
@@ -107,7 +107,7 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
                   ))}
                 </ul>
                 {d.out_of_scope_warning && (
-                  <p className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 p-2 text-xs text-amber-900">
+                  <p className="mt-2 flex items-start gap-1.5 rounded bg-warning-subtle p-2 text-xs text-warning-fg">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     Unit pengaju tidak termasuk dalam Lingkup Kerja Sama dokumen ini.
                   </p>

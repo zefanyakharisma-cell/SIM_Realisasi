@@ -17,17 +17,25 @@ Requires Node 22 and Postgres 16 (with `pg_trgm`, `pgcrypto`).
 npm install
 cp .env.example .env.local            # Supabase URL/key + DATABASE_URL (local: 127.0.0.1:54322/postgres)
 npm run db:reset                      # SIMKS-shaped stub + migrations + demo seed (refuses a real SIMKS DB)
+                                      # demo seed = 34 scenarios (S-01..S-34) + 200 bulk Kegiatan (RL-2026-0101..0300)
 npm run dev                           # http://localhost:3000 → pick a demo account
 ```
 
 The login page is a demo role switcher (`DEMO_AUTH=1`, default). Demo "today" is 2026-10-01; IO Admin can
 time-travel in Pengaturan to demonstrate cutoffs, deadlines and reminders.
 
+Turn on **Mode Demo** on the login page for an app-style onboarding tour: step-by-step pop-ups dim the screen,
+spotlight one real component or button at a time and explain it. The login page, the app frame (sidebar, notifications,
+account menu) and every page (dashboard, kegiatan list/detail/new/revision, verification, reports, settings tabs,
+notifications, SIM Kerjasama documents) each have a tour that starts on the first visit; steps that don't apply to the
+current role or screen size are skipped. The **Panduan** button replays tours or switches the mode off. The preference
+and seen tours are stored per browser (localStorage); tours live in `lib/realisasi/guide/tours.ts`.
+
 ## Tests
 
 | Command | What |
 |---|---|
-| `npm run test:db` | SQL acceptance tests (AT-01..AT-11, status machine, RLS, RENSTRA/KPIs, conflicts, awards, snapshots, adapter) |
+| `npm run test:db` | (after `SEED_BULK=0 npm run db:reset`) SQL acceptance tests (AT-01..AT-11, status machine, RLS, RENSTRA/KPIs, conflicts, awards, snapshots, adapter) |
 | `npm test` | Vitest unit tests |
 | `npm run typecheck` · `npm run lint` | TypeScript, ESLint |
 | `npm run test:e2e` | Playwright journeys (resets the DB first) |

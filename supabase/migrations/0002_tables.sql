@@ -52,6 +52,19 @@ create table realisasi.agenda_rules (
   updated_at        timestamptz default now()
 );
 
+-- Target per RENSTRA indicator, unit and academic year (Laporan per RENSTRA "Target" column), set in Pengaturan.
+-- unit_id 0 = Universitas (the only row used for 1.19.S4, whose target is a percentage).
+create table realisasi.renstra_targets (
+  academic_year_id int not null references realisasi.academic_years(id),
+  renstra_key      text not null check (renstra_key in ('1.1','1.1.a','1.1.b','1.19.S1','1.19.S4')),
+  unit_id          int not null default 0,  -- kerjasama.units.id (no FK: adapter view); 0 = Universitas
+  target           numeric not null check (target >= 0),
+  updated_by       uuid,  -- kerjasama.profiles.id (no FK: adapter view)
+  updated_at       timestamptz default now(),
+  primary key (academic_year_id, renstra_key, unit_id),
+  check (renstra_key <> '1.19.S4' or (unit_id = 0 and target <= 100))
+);
+
 create table realisasi.sdgs (
   id   smallint primary key check (id between 1 and 17),
   name text not null

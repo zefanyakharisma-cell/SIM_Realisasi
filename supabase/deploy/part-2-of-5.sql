@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 2 OF 5 (commit fb2a4bc).
+-- SIM Realisasi Supabase install, PART 2 OF 5 (commit 29be991).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -281,6 +281,7 @@ create policy settings_select on realisasi.settings for select to authenticated 
 create policy academic_years_select on realisasi.academic_years for select to authenticated using (true);
 create policy semesters_select on realisasi.semesters for select to authenticated using (true);
 create policy agenda_rules_select on realisasi.agenda_rules for select to authenticated using (true);
+create policy renstra_targets_select on realisasi.renstra_targets for select to authenticated using (true);
 create policy sdgs_select on realisasi.sdgs for select to authenticated using (true);
 create policy team_members_select on realisasi.team_members for select to authenticated using (true);
 

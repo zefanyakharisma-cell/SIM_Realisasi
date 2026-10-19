@@ -56,10 +56,37 @@ test('Mobilitas revision needs a note and has no per-row notes (S-29); approve S
   await expect(dialog).toBeHidden();
   await expect(page.locator('[data-testid=queue-row][data-code="RL-2026-0029"]')).toHaveCount(0);
 
+  // Revisi V.1 item 7: KUI keeps seeing it, flagged Revisi, under "Dikembalikan untuk Revisi".
+  const kuiRevision = page.getByTestId('revision-table').locator('[data-testid=status-row][data-code="RL-2026-0029"]');
+  await expect(kuiRevision).toHaveAttribute('data-flag', 'revision');
+  await expect(kuiRevision).toContainText('Revisi');
+  await expect(kuiRevision).toContainText('Transkrip salah satu peserta tidak terbaca di PDF.');
+
+  // Revisi V.1 item 6: Setujui is a plain "are you sure?" confirmation, without Catatan.
   await openRow(page, 'RL-2026-0030');
   await page.locator('#queue-panel-a0000000-0000-4000-8000-000000000030').getByTestId('action-approve').click();
-  await page.getByRole('dialog').getByTestId('action-confirm').click();
+  const approve = page.getByRole('dialog');
+  await expect(approve.getByText(/Apakah Anda yakin/)).toBeVisible();
+  await expect(approve.getByRole('textbox')).toHaveCount(0);
+  await approve.getByTestId('action-confirm').click();
   await expect(page.locator('[data-testid=queue-row][data-code="RL-2026-0030"]')).toHaveCount(0);
+});
+
+test('Revisi V.1 item 7: the submitting unit is notified and sees S-29 flagged Revisi on its Verifikasi Mobilitas page', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.uaFsd);
+  await page.getByTestId('notification-bell').first().click();
+  await expect(page.getByText(/Perlu revisi: RL-2026-0029/).first()).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByTestId('nav-mobilitas').first().click();
+  await expect(page).toHaveURL(/\/realisasi\/verifikasi\/mobilitas/);
+  const row = page.getByTestId('submitter-status-table').locator('[data-testid=status-row][data-code="RL-2026-0029"]');
+  await expect(row).toHaveAttribute('data-flag', 'revision');
+  await expect(row).toContainText('Transkrip salah satu peserta tidak terbaca di PDF.');
+  await expect(page.getByTestId('action-approve')).toHaveCount(0);
+  await expect(page.locator('#duplikat')).toHaveCount(0);
+  await row.getByTestId('status-revise').click();
+  await expect(page).toHaveURL(/\/realisasi\/kegiatan\/a0000000-0000-4000-8000-000000000029\/revisi/);
 });
 
 test('Rule 2.1: S-18 cannot be approved while its duplicate students are open; Mobility picks a kegiatan', async ({ page }) => {
@@ -110,9 +137,12 @@ test('Kegiatan list: URL filters, list-total and export link share the same para
   await expect(page).toHaveURL(/direction=inbound/);
   await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /direction=inbound/);
 
-  await page.getByTestId('preset-late').click();
-  await expect(page).toHaveURL(/preset=late/);
-  await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /preset=late/);
+  await expect(page.getByTestId('preset-late')).toHaveCount(0);
+  await expect(page.getByTestId('preset-this_semester')).toHaveCount(0);
+  await page.waitForLoadState('networkidle');
+  await page.getByTestId('preset-mine').click();
+  await expect(page).toHaveURL(/preset=mine/);
+  await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /preset=mine/);
 });
 
 test('Viewer cannot open the verification page; removed pages are gone', async ({ page }) => {

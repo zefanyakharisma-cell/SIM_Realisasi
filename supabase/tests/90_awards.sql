@@ -7,9 +7,9 @@ select pg_temp.eq((select v #>> '{period,label}' from _aw), 'YTD 2026/2027', 'aw
 -- Outbound internasional, by each student's own prodi: FTI short program S-13 (12 students minus the 2 still open with
 -- S-18) = 6 Informatika + 4 Teknik Elektro; FBE exchange S-10 (2) = Manajemen students
 select pg_temp.eq((select v -> 'outbound_international' from _aw),
-  '[{"jd_dd":0,"total":6,"unit_id":11,"unit_name":"Prodi Informatika","short_summer":6,"student_exchange":0,"short_international":0},
-    {"jd_dd":0,"total":4,"unit_id":12,"unit_name":"Prodi Teknik Elektro","short_summer":4,"student_exchange":0,"short_international":0},
-    {"jd_dd":0,"total":2,"unit_id":21,"unit_name":"Prodi Manajemen","short_summer":0,"student_exchange":2,"short_international":0}]'::jsonb,
+  '[{"jd_dd":0,"total":6,"unit_id":11,"unit_name":"Program Studi Informatika","short_summer":6,"student_exchange":0,"short_international":0},
+    {"jd_dd":0,"total":4,"unit_id":12,"unit_name":"Program Studi Teknik Elektro","short_summer":4,"student_exchange":0,"short_international":0},
+    {"jd_dd":0,"total":2,"unit_id":21,"unit_name":"Program Studi Manajemen","short_summer":0,"student_exchange":2,"short_international":0}]'::jsonb,
   'outbound internasional board by student prodi, ranked by total');
 -- only Program Studi units are ranked (never a Fakultas, Program or UP)
 select pg_temp.ok((select bool_and(u.kind = 'prodi')
@@ -18,13 +18,13 @@ select pg_temp.ok((select bool_and(u.kind = 'prodi')
                      join kerjasama.units u on u.id = (r ->> 'unit_id')::int), 'only prodi rows');
 -- Outbound dalam negeri: DKV Studi Ekskursi to Bali, 5 days -> "<14 hari" column
 select pg_temp.eq((select v -> 'outbound_domestic' from _aw),
-  '[{"jd_dd":0,"total":3,"unit_id":31,"unit_name":"Prodi Desain Komunikasi Visual","short_summer":0,"student_exchange":0,"short_international":3}]'::jsonb,
+  '[{"jd_dd":0,"total":3,"unit_id":31,"unit_name":"Program Studi Desain Komunikasi Visual","short_summer":0,"student_exchange":0,"short_international":3}]'::jsonb,
   'outbound dalam negeri board (<14 hari)');
 -- inbound exchange students have no PETRA prodi ("Program Pertukaran"); S-11 was submitted by a Fakultas -> not ranked
 select pg_temp.eq((select v -> 'inbound' from _aw), '[]'::jsonb, 'inbound: no prodi host -> not counted');
 -- Inisiatif internasional: activities with a foreign partner or held abroad, by submitting PRODI (FBE's 3 are not ranked)
 select pg_temp.eq((select i from _aw, jsonb_array_elements(v -> 'initiatives') i where (i ->> 'unit_id')::int = 11),
-  '{"total":1,"inbound":0,"unit_id":11,"outbound":1,"unit_name":"Prodi Informatika","activities":0}'::jsonb, 'initiatives row Informatika');
+  '{"total":1,"inbound":0,"unit_id":11,"outbound":1,"unit_name":"Program Studi Informatika","activities":0}'::jsonb, 'initiatives row Informatika');
 select pg_temp.ok(not exists (select 1 from _aw, jsonb_array_elements(v -> 'initiatives') i where (i ->> 'unit_id')::int = 20),
                   'faculty-submitted initiatives not ranked');
 select pg_temp.ok((select bool_and((i ->> 'total')::int = (i ->> 'inbound')::int + (i ->> 'outbound')::int + (i ->> 'activities')::int)
@@ -35,7 +35,7 @@ select pg_temp.ok((select bool_and((r ->> 'total')::int = (r ->> 'jd_dd')::int +
                   'student totals = sum of the four columns');
 -- JD/DD column (AY 2025/2026, whole year): S-34 double degree (Manajemen students)
 select pg_temp.eq((select r ->> 'jd_dd' from jsonb_array_elements(realisasi.international_awards(1, 'full') -> 'outbound_international') r
-                    where (r ->> 'unit_id')::int = 21), '2', 'JD/DD column (Prodi Manajemen, S-34)');
+                    where (r ->> 'unit_id')::int = 21), '2', 'JD/DD column (Program Studi Manajemen, S-34)');
 -- Genap only vs Ganjil only
 select pg_temp.ok(not exists (select 1 from jsonb_array_elements(realisasi.international_awards(1, 'ganjil') -> 'outbound_international') r
                                where (r ->> 'jd_dd')::int > 0), 'Ganjil only: no S-34');

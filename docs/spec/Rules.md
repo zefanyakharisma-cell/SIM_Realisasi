@@ -7,6 +7,28 @@ submit; duplicate students between units are decided inside Verifikasi Mobilitas
 KPI 1.19.S8; "KPI" is called **RENSTRA** in the UI; four period cut-offs; International Awards dashboard; Unit Akademik
 only.
 
+**Revisi V.2 (2026-10-05)** — the "SIM Kerjasama" navigation section is hidden: SIM Realisasi only reads SIM
+Kerjasama's data (agreements, partners, units); its document screens belong to the SIM Kerjasama app. An agreement's
+Realisasi page stays reachable from the RENSTRA tables (deep link `/kerjasama/dokumen/<id>/realisasi`).
+
+**Revisi V.1, round 2 (2026-10-05)** — supersedes the rules below where they differ:
+1. Every KUI account (Kepala Kantor Kerja Sama dan Urusan Internasional, Head of Partnership and Global Alliance, Staff
+   of Partnership and Global Alliance) is `io_admin`: all features unlocked. Live install:
+   `supabase/deploy/patch-2026-10-05-kui-admin.sql`.
+2. Excel exports have no "Info" sheet; every workbook opens directly on the data.
+3. The Kegiatan export adds the columns SDG, Link IA and Link IR (absolute links to the current IA/IR files).
+4. The Kegiatan export adds a sheet "Peserta": every participant (PETRA/inbound students, staff, external persons) of
+   each listed kegiatan, from its latest reported (non-draft) version. Only for roles allowed to export participants
+   (admin, Mobility team, submitter); logged as a personal-data export.
+5. The Kegiatan list has one quick filter only: "Perlu tindakan saya" (KUI: submissions awaiting approval; unit: drafts
+   and kegiatan sent back for revision). "Terlambat" and "Semester ini" are removed.
+6. "Setujui" on Verifikasi Mobilitas is a plain confirmation ("Apakah Anda yakin…?") without a Catatan.
+7. "Minta Revisi" notifies the submitting unit (notification bar) and the kegiatan is flagged **Revisi** on Verifikasi
+   Mobilitas for both sides: KUI sees it under "Dikembalikan untuk Revisi"; the unit sees a read-only status list of its
+   mobility kegiatan (Menunggu verifikasi / Revisi, with KUI's note and "Revisi sekarang").
+8. International Awards lists only the top 3 of each leaderboard (competition ranking on the total, ties at rank 3
+   kept, units with 0 hidden), on screen and in the export.
+
 ---
 
 ## 1. Activity scope
@@ -97,9 +119,9 @@ General:
 KPI 1.19.S8 and the Known Activities register (former R-48…R-54) are removed.
 
 ## 7. International Awards (dashboard tab, report and export)
-- **R-48** Ranked by **Program Studi** only (Fakultas, Program and UP units are never ranked), same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total. Student boards credit each student to their own Prodi; a student without a PETRA prodi (e.g. inbound exchange) goes to the submitting unit when it is a Prodi, else is not counted. A Fakultas scope shows its Prodis.
+- **R-48** Ranked by **Program Studi** only (Fakultas, Program and UP units are never ranked), same verified kegiatan, period cut-offs and conflict rules as RENSTRA 1.1; each board ranked by total. Student boards credit each student to their own Program Studi; a student without a PETRA prodi (e.g. inbound exchange) goes to the submitting unit when it is a Program Studi, else is not counted. A Fakultas scope shows its Program Studi.
 - **R-49** Student boards — **Inbound** (inbound kegiatan, inbound students), **Outbound Dalam Negeri** (outbound, kegiatan country = ID, PETRA students), **Outbound Internasional** (outbound, country ≠ ID). Columns: Program Studi JD/DD, Student Exchange, Short/Summer Program, Kegiatan Internasional (<14 hari) = other mobility kegiatan lasting `end − start + 1 < 14` days; each student counts in one column.
-- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per submitting Prodi — inbound mobility, outbound mobility, other kegiatan — and the total.
+- **R-50** **Inisiatif Internasional**: number of verified international kegiatan per submitting Program Studi — inbound mobility, outbound mobility, other kegiatan — and the total.
 
 ## 8. Semester freeze & snapshots
 - **R-55** Each semester has a cutoff date (default end + 30 days). On the cutoff the system freezes a snapshot: Ganjil → `ganjil_ytd`, Genap → `genap_full_year` (shown as Setahun).

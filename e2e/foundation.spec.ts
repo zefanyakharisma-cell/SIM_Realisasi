@@ -21,11 +21,12 @@ test.describe('foundation: login, shell, navigation per role', () => {
 
   test('io_admin sees every nav item', async ({ page }) => {
     await loginAs(page, ACCOUNTS.kepalaIo);
-    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-mobilitas', 'nav-laporan', 'nav-pengaturan', 'nav-dokumen']) {
+    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-mobilitas', 'nav-laporan', 'nav-pengaturan']) {
       await expect(page.getByTestId(id).first()).toBeVisible();
     }
     // Revisi V.1: no Verifikasi Kemitraan, no separate Duplikat page, no Kegiatan Diketahui.
-    for (const id of ['nav-kemitraan', 'nav-duplikat', 'nav-kegiatan-diketahui']) {
+    // Revisi V.2: no "SIM Kerjasama" section (the document screens live in the SIM Kerjasama app).
+    for (const id of ['nav-kemitraan', 'nav-duplikat', 'nav-kegiatan-diketahui', 'nav-dokumen']) {
       await expect(page.getByTestId(id)).toHaveCount(0);
     }
   });
@@ -33,18 +34,18 @@ test.describe('foundation: login, shell, navigation per role', () => {
   test('submitter nav (Design §1)', async ({ page }) => {
     await loginAs(page, ACCOUNTS.uaFti);
     await expect(page.getByTestId('nav-baru').first()).toBeVisible();
-    for (const id of ['nav-mobilitas', 'nav-pengaturan']) {
-      await expect(page.getByTestId(id)).toHaveCount(0);
-    }
+    // Revisi V.1 item 7: units follow their own mobility kegiatan on Verifikasi Mobilitas (read-only)
+    await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+    await expect(page.getByTestId('nav-pengaturan')).toHaveCount(0);
   });
 
-  test('IO staff (Mobility team) nav', async ({ page }) => {
-    for (const email of [ACCOUNTS.ioStaff, ACCOUNTS.ioMobility]) {
+  test('every KUI account is admin (Revisi V.1): all features unlocked', async ({ page }) => {
+    for (const email of [ACCOUNTS.kepalaIo, ACCOUNTS.ioStaff, ACCOUNTS.ioMobility]) {
       await loginAs(page, email);
-      await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+      for (const id of ['nav-mobilitas', 'nav-laporan', 'nav-pengaturan']) {
+        await expect(page.getByTestId(id).first()).toBeVisible();
+      }
       await expect(page.getByTestId('nav-kemitraan')).toHaveCount(0);
-      await expect(page.getByTestId('nav-baru')).toHaveCount(0);
-      await expect(page.getByTestId('nav-pengaturan')).toHaveCount(0);
     }
   });
 
@@ -63,5 +64,57 @@ test.describe('foundation: login, shell, navigation per role', () => {
     await page.getByTestId('user-menu').click();
     await page.getByTestId('switch-account').click();
     await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('Mode Demo: pop-up tours on /login and on first visit to each page', async ({ page }) => {
+    // Walks the open tour to its end with "Berikutnya" / "Selesai".
+    const finishTour = async () => {
+      for (let i = 0; i < 40 && (await page.getByTestId('tour-card').count()) > 0; i++) await page.getByTestId('tour-next').click();
+      await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    };
+    await page.goto('/login');
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.getByTestId('demo-mode-toggle').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('1 /');
+    await page.getByTestId('tour-next').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('2 /');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.getByTestId('tour-progress')).toContainText('1 /');
+    // Skipping marks the login tour seen: a reload doesn't start it again.
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByTestId('demo-mode-toggle')).toBeChecked();
+    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+
+    // After login: the app-frame tour, then the dashboard tour, each spotlighting a real element.
+    await page.getByTestId(`login-${ACCOUNTS.kepalaIo}`).click();
+    await page.waitForURL(/\/realisasi$/);
+    await expect(page.getByTestId('tour-progress')).toContainText('Tur dasar aplikasi');
+    await page.getByTestId('tour-next').click();
+    await expect(page.getByTestId('tour-title')).toHaveText('Dashboard');
+    await expect(page.getByTestId('tour-spotlight')).toBeVisible();
+    await finishTour();
+    await expect(page.getByTestId('tour-progress')).toContainText('Dashboard');
+    await finishTour();
+
+    // Seen tours don't repeat; the Panduan menu replays them.
+    await page.reload();
+    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('tour-card')).toHaveCount(0);
+    await page.getByTestId('demo-guide-open').click();
+    await page.getByTestId('demo-replay-page').click();
+    await expect(page.getByTestId('tour-progress')).toContainText('Dashboard · 1 /');
+    await page.getByTestId('tour-skip').click();
+
+    // Another page starts its own tour on first visit.
+    await page.getByTestId('nav-laporan').first().click();
+    await expect(page.getByTestId('tour-progress')).toContainText('Laporan & Ekspor');
+    await page.getByTestId('tour-skip').click();
+
+    await page.getByTestId('demo-guide-open').click();
+    await page.getByTestId('demo-mode-off').click();
+    await expect(page.getByTestId('demo-guide-open')).toHaveCount(0);
   });
 });

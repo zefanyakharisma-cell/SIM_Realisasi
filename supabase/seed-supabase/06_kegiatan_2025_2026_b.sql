@@ -134,7 +134,7 @@ select pg_temp.peserta(123, 'approved', '{C21228976,C21246699,C21236260,C2123746
 -- 124: Program Studi Arsitektur
 select pg_temp.keg(124, 'Kuliah Bersama Hunian Terjangkau dengan Chulalongkorn', 54, 34, 'inbound', '2025-10-30', '2025-10-31', 'hybrid', 'Ruang Seminar Gedung W PCU', 'ID', 29, '{4,11,17}', pg_temp.wib('2025-12-25', '14:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ploy Charoenkul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "visiting_lecturer"}]'::jsonb);
 
--- 125: Prodi Akuntansi
+-- 125: Program Studi Akuntansi
 select pg_temp.keg(125, 'Magang Internasional Akuntansi di Yonsei University', 6, 21, 'outbound', '2025-10-27', '2025-12-07', 'offline', 'Yonsei University', 'KR', 31, '{4,17}', pg_temp.wib('2025-12-26', '08:00'), 'approved', pg_temp.wib('2026-01-11', '13:00'), '{ia,ir}', null, '[]'::jsonb);
 select pg_temp.peserta(125, 'approved', '{D32257684,D32257260}', '{}', '{PG641995,PG641614}', pg_temp.wib('2025-12-26', '08:00'), pg_temp.wib('2026-01-11', '13:00'));
 
@@ -144,17 +144,17 @@ select pg_temp.keg(126, 'Pengembangan Kurikulum Desain Ruang Publik bersama UGM'
 -- 127: Program Studi Sastra Inggris
 select pg_temp.keg(127, 'Workshop Penerjemahan Sastra bersama NTU', 61, 35, 'inbound', '2025-12-19', '2025-12-20', 'offline', 'Ruang Seminar Gedung W PCU', 'ID', 30, '{4}', pg_temp.wib('2026-01-06', '16:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Lin Chia-Hao", "institution": "National Taiwan University", "country_code": "TW", "role": "speaker"}, {"full_name": "Dr. Huang Jun-Wei", "institution": "National Taiwan University", "country_code": "TW", "role": "speaker"}]'::jsonb);
 
--- 128: Prodi Manajemen
+-- 128: Program Studi Manajemen
 select pg_temp.keg(128, 'Staff Exchange Dosen Manajemen ke Chulalongkorn University', 5, 3, 'outbound', '2025-12-08', '2025-12-20', 'hybrid', 'Chulalongkorn University', 'TH', 29, '{8}', pg_temp.wib('2026-01-10', '09:30'), null, null, '{ia,ir}', null, '[{"full_name": "Asst. Prof. Kanokwan Srisuk", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor"}]'::jsonb);
 
--- 129: Prodi Manajemen
+-- 129: Program Studi Manajemen
 select pg_temp.keg(129, 'Studi Ekskursi Manajemen ke Yonsei University, Seoul', 5, 24, 'outbound', '2025-12-15', '2025-12-22', 'offline', 'Yonsei University, Seoul', 'KR', 31, '{8,12}', pg_temp.wib('2026-01-12', '11:30'), 'approved', pg_temp.wib('2026-01-20', '12:00'), '{ia,ir}', null, '[{"full_name": "Prof. Park Jae-hyun", "institution": "Yonsei University", "country_code": "KR", "role": "other", "notes": "Koordinator program dari mitra"}]'::jsonb);
 select pg_temp.peserta(129, 'approved', '{D31237873,D31248243,D31248761,D31227308,D31236401,D31246583,D31237627,D31227742,D31248101,D31248545,D31247059}', '{}', '{PG670883}', pg_temp.wib('2026-01-12', '11:30'), pg_temp.wib('2026-01-20', '12:00'));
 
--- 130: Prodi Akuntansi
+-- 130: Program Studi Akuntansi
 select pg_temp.keg(130, 'Workshop Akuntansi Forensik bersama Astra', 6, 35, 'inbound', '2026-01-05', '2026-01-06', 'offline', 'Gedung Q PCU', 'ID', 12, '{8}', pg_temp.wib('2026-01-13', '16:30'), null, null, '{ia,ir}', null, '[{"full_name": "Dr. Ayu Lestari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}, {"full_name": "Prof. Bambang Wicaksono", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}, {"full_name": "Dr. Rina Kartikasari", "institution": "PT Astra International Tbk", "country_code": "ID", "role": "speaker"}]'::jsonb);
 
--- 131: Prodi Akuntansi
+-- 131: Program Studi Akuntansi
 select pg_temp.keg(131, 'Short Program (Inbound) Chulalongkorn – Audit Berbasis Data', 6, 23, 'inbound', '2025-12-22', '2026-01-06', 'offline', 'Gedung P PCU', 'ID', 29, '{16}', pg_temp.wib('2026-01-13', '16:45'), 'approved', pg_temp.wib('2026-01-29', '16:00'), '{ia,ir}', null, '[{"full_name": "Dr. Ploy Charoenkul", "institution": "Chulalongkorn University", "country_code": "TH", "role": "staff_visitor", "notes": "Koordinator program dari mitra"}]'::jsonb);
 select pg_temp.peserta(131, 'approved', '{}', '{X03250345,X03250341,X03250343,X03250349,X03250347}', '{PG641614}', pg_temp.wib('2026-01-13', '16:45'), pg_temp.wib('2026-01-29', '16:00'));
 
