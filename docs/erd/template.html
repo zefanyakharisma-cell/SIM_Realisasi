@@ -156,6 +156,7 @@ ul.plain{margin:0;padding-left:20px;display:grid;gap:8px;max-width:84ch}
     <li><b>One current IA, IR and mobility PDF:</b> partial unique index <code>one_current_ia_ir</code> on activity_files.</li>
     <li><b>One approved, one draft, one pending participant version</b> per kegiatan: partial unique indexes on participant_set_versions (R-21).</li>
     <li><b>Conflict pairs are ordered and decided consistently:</b> <code>activity_a &lt; activity_b</code>; <code>kept_activity_id</code> is set exactly when resolved and must be one of the pair (R-33, R-34).</li>
+    <li><b>One target per indicator, unit and year:</b> primary key on renstra_targets; 1.19.S4 takes only the Universitas row (<code>unit_id = 0</code>) as a percentage up to 100.</li>
     <li><b>One live snapshot</b> per academic year and kind: partial unique index <code>one_live_snapshot</code> where <code>superseded_by is null</code> (R-58).</li>
     <li><b>Files max 10 MB</b> and stored under their bucket path (file_blobs checks).</li>
   </ul>

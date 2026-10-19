@@ -202,12 +202,12 @@ body[data-aud="dev"] [data-aud="dir"]{display:none}
   <h1>SIM Realisasi Project Brief</h1>
   <p class="lede">SIM Realisasi records every activity that carries out one of PCU's MoUs and MoAs, has IO verify the mobility ones, and turns the verified data into the university's RENSTRA indicators and the International Awards rankings, with frozen semester reports that never change after the fact.</p>
   <div class="facts" aria-label="Live demo figures">
-    <div><b>133</b><span>kegiatan in the live demo (AY 2025/2026 and 2026/2027)</span></div>
-    <div><b>297</b><span>RENSTRA 1.1 students, Setahun 2025/2026 (Ganjil 165 · Genap 132)</span></div>
-    <div><b>40</b><span>RENSTRA 1.1 students, YTD 2026/2027</span></div>
+    <div><b>333</b><span>kegiatan in the live demo (AY 2025/2026 and 2026/2027)</span></div>
+    <div><b>449</b><span>RENSTRA 1.1 students, Setahun 2025/2026</span></div>
+    <div><b>53</b><span>RENSTRA 1.1 students, YTD 2026/2027</span></div>
     <div><b>5</b><span>indicators reported: 1.1, 1.1.a, 1.1.b, 1.19.S1, 1.19.S4</span></div>
   </div>
-  <p class="hint">Figures from the import into the SIM Kerjasama Supabase project on 3 Oct 2026. The data is a demo set generated over the real SIM Kerjasama agreements and units, not real activities yet.</p>
+  <p class="hint">Figures from the imports into the SIM Kerjasama Supabase project on 3 and 4 Oct 2026. The data is a demo set generated over the real SIM Kerjasama agreements and units, not real activities yet.</p>
 
   <div class="grid2">
     <div class="card">
@@ -245,7 +245,7 @@ body[data-aud="dev"] [data-aud="dir"]{display:none}
 <section id="people">
   <div class="eyebrow">Who uses it <span class="tag dir">Director</span><span class="tag dev">Programmer</span></div>
   <h2>Users and access</h2>
-  <p class="narrow muted">Accounts come from SIM Kerjasama (one login for both systems). Realisasi keeps its own role per account, so SIMKS roles stay untouched. Only <b>Unit Akademik</b> (Fakultas, Program Studi, Program) submit kegiatan.</p>
+  <p class="narrow muted">Accounts come from SIM Kerjasama (one login for both systems). Realisasi keeps its own role per account, so SIMKS roles stay untouched. Only <b>Unit Akademik</b> (Fakultas, Program Studi, Program) submit kegiatan. Every KUI account (Kepala Kantor, Head and Staff of Partnership and Global Alliance) is an IO Admin.</p>
   <div class="tbl"><table>
     <thead><tr><th>Action</th><th>Unit (submitter)</th><th>IO staff · Mobility</th><th>IO Admin</th><th>Pimpinan (viewer)</th></tr></thead>
     <tbody>
@@ -345,7 +345,8 @@ An MoA signed under an MoU is not a realization of the MoU.</div>
       <p>Ranks <b>Program Studi only</b> (Fakultas, Programs and support units are never ranked), using the same verified kegiatan, periods and duplicate rules as 1.1. Each student is credited to their own Prodi; an inbound student goes to the submitting unit when it is a Prodi.</p>
       <ul class="tight">
         <li><b>Inbound</b>, <b>Outbound Dalam Negeri</b>, <b>Outbound Internasional</b> boards, with columns JD/DD, Student Exchange, Short/Summer, and Kegiatan Internasional under 14 days.</li>
-        <li><b>Inisiatif Internasional</b>: verified international kegiatan per submitting Prodi.</li>
+        <li><b>Inisiatif Internasional</b>: verified international kegiatan per submitting Program Studi.</li>
+        <li>Only the top 3 of each board are listed (ties at rank 3 kept, units with 0 hidden).</li>
       </ul>
       <span class="rule">R-48 R-49 R-50</span>
     </div>
@@ -356,7 +357,8 @@ An MoA signed under an MoU is not a realization of the MoU.</div>
         <li>Sheet 1: the per-unit table (or the overall percentage for 1.19.S4).</li>
         <li>Sheet 2: the kegiatan or agreements behind it, with a Fakultas column.</li>
         <li>Sheet 3 (1.1 family): the students, only for roles allowed to see them; logged as personal data.</li>
-        <li>Info sheet: filters, period, who exported and when.</li>
+        <li>Each indicator has a Target column, set per unit and academic year by IO Admin in Pengaturan.</li>
+        <li>No Info sheet: workbooks open directly on the data; the export log records who exported what.</li>
       </ul>
     </div>
   </div>
@@ -418,6 +420,7 @@ An MoA signed under an MoU is not a realization of the MoU.</div>
       <li>Partial unique index <code>one_current_ia_ir</code>: one current IA, IR and mobility PDF per kegiatan.</li>
       <li>Partial unique indexes: one approved, one draft and one pending participant version per kegiatan (R-21).</li>
       <li>participant_conflicts: <code>activity_a &lt; activity_b</code>; <code>kept_activity_id</code> set exactly when resolved and one of the pair (R-33, R-34).</li>
+      <li>renstra_targets: one target per indicator, unit and year; 1.19.S4 only for the Universitas row (<code>unit_id = 0</code>), up to 100%.</li>
       <li>Partial unique index <code>one_live_snapshot</code> where <code>superseded_by is null</code> (R-58).</li>
       <li>file_blobs: 10 MB limit, path must start with its bucket.</li>
     </ul>
@@ -457,8 +460,8 @@ An MoA signed under an MoU is not a realization of the MoU.</div>
 
       <rect class="bx rl" x="506" y="52" width="210" height="280" rx="8"/>
       <text x="522" y="78" class="t">realisasi</text>
-      <text x="522" y="100" class="s">29 tables + 3 views</text>
-      <text x="522" y="118" class="s">165 SQL functions (RPCs)</text>
+      <text x="522" y="100" class="s">30 tables + 3 views</text>
+      <text x="522" y="118" class="s">166 SQL functions (RPCs)</text>
       <text x="522" y="136" class="s">security definer, RLS on</text>
       <text x="522" y="154" class="s">every table</text>
       <text x="522" y="180" class="m">submit_activity</text>
@@ -525,7 +528,7 @@ An MoA signed under an MoU is not a realization of the MoU.</div>
       <tr><td>Verification</td><td><code>realisasi/verifikasi/mobilitas</code></td><td><code>0009</code> mobility_approve, mobility_request_revision, edit_verified_activity, commit_participant_edit · <code>0010</code> conflict_list, resolve_conflict</td></tr>
       <tr><td>Dashboard &amp; reports</td><td><code>realisasi</code> (Capaian Renstra, International Awards), <code>realisasi/laporan</code>, <code>api/export/[kind]</code></td><td><code>0012</code> compute_kpis, kpi_1_1, kpi_1_19_s1, kpi_1_19_24 · <code>0014</code> dashboard, kpi_drilldown, international_awards, period_info</td></tr>
       <tr><td>Snapshots</td><td>Laporan → Arsip</td><td><code>0013</code> freeze_snapshot, refreeze_snapshot, snapshot_late_additions, snapshot_post_freeze_changes</td></tr>
-      <tr><td>Settings</td><td><code>realisasi/pengaturan</code></td><td><code>0011</code> update_settings, upsert_academic_year/semester, set_agenda_rule, log_export</td></tr>
+      <tr><td>Settings</td><td><code>realisasi/pengaturan</code></td><td><code>0011</code> update_settings, upsert_academic_year/semester, set_agenda_rule, set_renstra_targets, log_export</td></tr>
       <tr><td>SIM Kerjasama tab</td><td><code>kerjasama/dokumen/[id]/realisasi</code>, <code>/evaluasi</code></td><td><code>0014</code> agreement_realization, agreement_flags</td></tr>
       <tr><td>Jobs &amp; security</td><td>—</td><td><code>0005</code> triggers · <code>0006</code> RLS · <code>0015</code> run_daily_jobs · <code>0016</code> grants · <code>0017</code> pg_cron</td></tr>
     </tbody>
@@ -555,9 +558,9 @@ npm run dev        # http://localhost:3000</pre>
     </div>
     <div class="card"><h3>Deploy to Supabase</h3>
       <p><code>scripts/db-deploy-supabase.sh</code> (<code>--dry-run</code>, <code>--check</code>, <code>--seed-only</code>, <code>--reset-realisasi</code>), or paste the five files in <code>supabase/deploy/</code> into the SQL Editor. Each run ends with a fingerprint to compare:</p>
-<pre class="cmd">functions 165 44dfa2b2cc108735a8a41beb212bea65
-columns   311 2d5642106c6972cb2891cd93b0e3bd35
-policies   24 8945131cda9b8642deb73b5364f39d2e</pre>
+<pre class="cmd">functions 166 eb260576cf2734945dc77ca484ab7199
+columns   317 f7b297a5f532006fa57193ab6046e885
+policies   25 aa5f267ced2faf55bb04da95caddb461</pre>
     </div>
     <div class="card"><h3>Documents to read first</h3>
       <ul class="tight">
@@ -578,6 +581,7 @@ policies   24 8945131cda9b8642deb73b5364f39d2e</pre>
     <div><b>Mockup v1.0 · 1 Oct 2026</b><span class="muted">Full working prototype on dummy data: submission, two verification tracks, Known Activities, four indicators, freezes, Excel.</span></div>
     <div><b>Revisi V.1</b><span class="muted">One-page form; Jenis Kegiatan from SIM Kerjasama's Agenda list; Inbound/Outbound per kegiatan; one agreement per kegiatan; Mobility the only verification track; duplicate students decided in Verifikasi Mobilitas; no SLA, no Known Activities or 1.19.S8; four period cut-offs; International Awards; academic units only.</span></div>
     <div><b>Deployed into simks-partnership · 1–3 Oct 2026</b><span class="muted">Runs beside SIM Kerjasama through read-only views over its real units, agreements and accounts.</span></div>
+    <div><b>Revisi V.1 round 2 &amp; V.2 follow-ups · 5–19 Oct 2026</b><span class="muted">All KUI accounts are IO Admin; Excel without Info sheet, Kegiatan export with SDG, IA/IR links and a Peserta sheet; one "Perlu tindakan saya" filter; Revisi flag on Verifikasi Mobilitas; Awards top 3; RENSTRA targets per unit and year; SIM Kerjasama menu hidden (data still read); PCU design system; 200 more demo kegiatan.</span></div>
     <div><b>Revisi V.2 · 3 Oct 2026</b><span class="muted">Reports per RENSTRA with a per-unit table (Fakultas → Program Studi → Program); 1.19.24 shown as 1.19.S4; Excel with table, data and student sheets; Awards rank Program Studi only; drafts deletable only by their creator or IO Admin; YTD only for the active academic year; 120 demo kegiatan imported.</span></div>
   </div>
 
@@ -596,6 +600,7 @@ policies   24 8945131cda9b8642deb73b5364f39d2e</pre>
       <h3>Technical follow-ups</h3>
       <ol class="tight">
         <li>Run the Awards speed-up part of <code>supabase/deploy/patch-2026-10-03-units-awards.sql</code> once in the SQL Editor (it contains TRUNCATE/DROP); until then live Awards give the same results, only slower.</li>
+        <li>Run <code>supabase/deploy/patch-2026-10-18-renstra-targets.sql</code> once on the live install (additive: the <code>renstra_targets</code> table, its policy, <code>set_renstra_targets</code> and grants). Until then the Target column has no data live.</li>
         <li>Replace the demo role switcher with Supabase Auth sessions shared with SIM Kerjasama.</li>
         <li>Swap <code>lookup_students</code> / <code>lookup_employees</code> to the real BAAK/HR source; move files from <code>file_blobs</code> to Supabase Storage.</li>
         <li>PRD, Architecture and Schema in <code>docs/spec</code> still describe v1.0 (two tracks, SLA, 1.19.S8). Rules.md is current; update the others before handover.</li>
