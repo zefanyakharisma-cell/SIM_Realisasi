@@ -12,3 +12,9 @@ python3 docs/bpmn/generate.py     # process models (.bpmn + .svg)
 python3 docs/erd/generate.py      # standalone ERD page
 python3 docs/overview/build.py    # this brief (prose in template.html)
 ```
+
+## Slide deck
+
+[`SIM-Realisasi-Project-Brief.pptx`](SIM-Realisasi-Project-Brief.pptx): the brief as 20 slides in the PCU Design System
+(midnight lead, Inter, the half-ring motif, white logomaster on dark slides only), with speaker notes. The process
+and ERD slides embed the renders of `docs/bpmn/*.svg` and `docs/erd`.
