@@ -25,7 +25,10 @@
         <bpmn:flowNodeRef>t_next</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>e_late</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="lane_admin" name="IO Admin">
+      <bpmn:lane id="lane_admin" name="KUI (IO Admin)">
+        <bpmn:flowNodeRef>s_target</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>t_target</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>e_target</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>t_check</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>g_refreeze</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>t_reason</bpmn:flowNodeRef>
@@ -78,55 +81,65 @@
     </bpmn:serviceTask>
     <bpmn:sendTask id="t_notify" name="Notifikasi snapshot beku ke IO Admin &amp; pimpinan">
       <bpmn:incoming>Flow_9</bpmn:incoming>
-      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
     </bpmn:sendTask>
-    <bpmn:userTask id="t_check" name="Tinjau snapshot">
+    <bpmn:startEvent id="s_target" name="Awal tahun akademik">
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="t_target" name="Isi Target per unit &amp; indikator di Pengaturan">
       <bpmn:incoming>Flow_10</bpmn:incoming>
       <bpmn:outgoing>Flow_11</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:exclusiveGateway id="g_refreeze" name="Perlu dibekukan ulang?">
+    <bpmn:endEvent id="e_target" name="Target tampil di Laporan per RENSTRA">
       <bpmn:incoming>Flow_11</bpmn:incoming>
-      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:endEvent>
+    <bpmn:userTask id="t_check" name="Tinjau snapshot">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
       <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g_refreeze" name="Perlu dibekukan ulang?">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
     </bpmn:exclusiveGateway>
     <bpmn:userTask id="t_reason" name="Bekukan ulang dengan alasan wajib">
-      <bpmn:incoming>Flow_12</bpmn:incoming>
-      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
     </bpmn:userTask>
     <bpmn:serviceTask id="t_supersede" name="Simpan snapshot baru; snapshot lama = superseded">
-      <bpmn:incoming>Flow_14</bpmn:incoming>
-      <bpmn:outgoing>Flow_15</bpmn:outgoing>
-    </bpmn:serviceTask>
-    <bpmn:exclusiveGateway id="g_m" name="">
-      <bpmn:incoming>Flow_13</bpmn:incoming>
-      <bpmn:incoming>Flow_15</bpmn:incoming>
-      <bpmn:outgoing>Flow_16</bpmn:outgoing>
-    </bpmn:exclusiveGateway>
-    <bpmn:userTask id="t_export" name="Unduh Excel per RENSTRA (tabel per unit, data kegiatan, mahasiswa)">
       <bpmn:incoming>Flow_16</bpmn:incoming>
       <bpmn:outgoing>Flow_17</bpmn:outgoing>
-    </bpmn:userTask>
-    <bpmn:userTask id="t_dash" name="Tinjau dashboard &amp; laporan RENSTRA per unit">
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="g_m" name="">
+      <bpmn:incoming>Flow_15</bpmn:incoming>
       <bpmn:incoming>Flow_17</bpmn:incoming>
       <bpmn:outgoing>Flow_18</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="t_export" name="Unduh Excel per RENSTRA (dengan kolom Target)">
+      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="t_dash" name="Tinjau dashboard &amp; laporan RENSTRA per unit">
+      <bpmn:incoming>Flow_19</bpmn:incoming>
+      <bpmn:outgoing>Flow_20</bpmn:outgoing>
     </bpmn:userTask>
     <bpmn:endEvent id="e_report" name="Laporan semester tersedia">
-      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:incoming>Flow_20</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:startEvent id="s_late" name="Kegiatan diverifikasi / diubah bertanggal di periode beku">
-      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+      <bpmn:outgoing>Flow_21</bpmn:outgoing>
       <bpmn:conditionalEventDefinition id="s_late_def"><bpmn:condition xsi:type="bpmn:tFormalExpression">activity_date within frozen window</bpmn:condition></bpmn:conditionalEventDefinition>
     </bpmn:startEvent>
     <bpmn:serviceTask id="t_flag" name="Tandai Tambahan Susulan / Perubahan Pasca-Beku">
-      <bpmn:incoming>Flow_19</bpmn:incoming>
-      <bpmn:outgoing>Flow_20</bpmn:outgoing>
+      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:outgoing>Flow_22</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="t_next" name="Tampilkan di YTD &amp; laporan snapshot berikutnya">
-      <bpmn:incoming>Flow_20</bpmn:incoming>
-      <bpmn:outgoing>Flow_21</bpmn:outgoing>
+      <bpmn:incoming>Flow_22</bpmn:incoming>
+      <bpmn:outgoing>Flow_23</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:endEvent id="e_late" name="Snapshot lama tetap">
-      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:incoming>Flow_23</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_1" sourceRef="s_daily" targetRef="t_scan" />
     <bpmn:sequenceFlow id="Flow_2" sourceRef="t_scan" targetRef="g_due" />
@@ -137,18 +150,20 @@
     <bpmn:sequenceFlow id="Flow_7" sourceRef="s_cutoff" targetRef="t_calc" />
     <bpmn:sequenceFlow id="Flow_8" sourceRef="t_calc" targetRef="t_freeze" />
     <bpmn:sequenceFlow id="Flow_9" sourceRef="t_freeze" targetRef="t_notify" />
-    <bpmn:sequenceFlow id="Flow_10" sourceRef="t_notify" targetRef="t_check" />
-    <bpmn:sequenceFlow id="Flow_11" sourceRef="t_check" targetRef="g_refreeze" />
-    <bpmn:sequenceFlow id="Flow_12" name="Ya" sourceRef="g_refreeze" targetRef="t_reason" />
-    <bpmn:sequenceFlow id="Flow_13" name="Tidak" sourceRef="g_refreeze" targetRef="g_m" />
-    <bpmn:sequenceFlow id="Flow_14" sourceRef="t_reason" targetRef="t_supersede" />
-    <bpmn:sequenceFlow id="Flow_15" sourceRef="t_supersede" targetRef="g_m" />
-    <bpmn:sequenceFlow id="Flow_16" sourceRef="g_m" targetRef="t_export" />
-    <bpmn:sequenceFlow id="Flow_17" sourceRef="t_export" targetRef="t_dash" />
-    <bpmn:sequenceFlow id="Flow_18" sourceRef="t_dash" targetRef="e_report" />
-    <bpmn:sequenceFlow id="Flow_19" sourceRef="s_late" targetRef="t_flag" />
-    <bpmn:sequenceFlow id="Flow_20" sourceRef="t_flag" targetRef="t_next" />
-    <bpmn:sequenceFlow id="Flow_21" sourceRef="t_next" targetRef="e_late" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="s_target" targetRef="t_target" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="t_target" targetRef="e_target" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="t_notify" targetRef="t_check" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="t_check" targetRef="g_refreeze" />
+    <bpmn:sequenceFlow id="Flow_14" name="Ya" sourceRef="g_refreeze" targetRef="t_reason" />
+    <bpmn:sequenceFlow id="Flow_15" name="Tidak" sourceRef="g_refreeze" targetRef="g_m" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="t_reason" targetRef="t_supersede" />
+    <bpmn:sequenceFlow id="Flow_17" sourceRef="t_supersede" targetRef="g_m" />
+    <bpmn:sequenceFlow id="Flow_18" sourceRef="g_m" targetRef="t_export" />
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="t_export" targetRef="t_dash" />
+    <bpmn:sequenceFlow id="Flow_20" sourceRef="t_dash" targetRef="e_report" />
+    <bpmn:sequenceFlow id="Flow_21" sourceRef="s_late" targetRef="t_flag" />
+    <bpmn:sequenceFlow id="Flow_22" sourceRef="t_flag" targetRef="t_next" />
+    <bpmn:sequenceFlow id="Flow_23" sourceRef="t_next" targetRef="e_late" />
     <bpmn:textAnnotation id="note_period"><bpmn:text>Periode: Ganjil, Genap, Setahun (kumulatif), YTD. YTD hanya untuk TA aktif dan tidak pernah dibekukan (R-37)</bpmn:text></bpmn:textAnnotation>
     <bpmn:association id="note_period_assoc" sourceRef="note_period" targetRef="t_dash" />
   </bpmn:process>
@@ -170,6 +185,9 @@
       <bpmndi:BPMNShape id="t_calc_di" bpmnElement="t_calc"><dc:Bounds x="214" y="473" width="120" height="64" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="t_freeze_di" bpmnElement="t_freeze"><dc:Bounds x="354" y="473" width="120" height="64" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="t_notify_di" bpmnElement="t_notify"><dc:Bounds x="494" y="473" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_target_di" bpmnElement="s_target"><dc:Bounds x="118" y="679" width="32" height="32" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="t_target_di" bpmnElement="t_target"><dc:Bounds x="214" y="663" width="120" height="64" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="e_target_di" bpmnElement="e_target"><dc:Bounds x="398" y="679" width="32" height="32" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="t_check_di" bpmnElement="t_check"><dc:Bounds x="634" y="663" width="120" height="64" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="g_refreeze_di" bpmnElement="g_refreeze" isMarkerVisible="true"><dc:Bounds x="811" y="672" width="46" height="46" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="t_reason_di" bpmnElement="t_reason"><dc:Bounds x="914" y="583" width="120" height="64" /></bpmndi:BPMNShape>
@@ -191,18 +209,20 @@
       <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7"><di:waypoint x="150" y="505" /><di:waypoint x="214" y="505" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8"><di:waypoint x="334" y="505" /><di:waypoint x="354" y="505" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9"><di:waypoint x="474" y="505" /><di:waypoint x="494" y="505" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10"><di:waypoint x="614" y="505" /><di:waypoint x="694" y="505" /><di:waypoint x="694" y="663" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11"><di:waypoint x="754" y="695" /><di:waypoint x="811" y="695" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12"><di:waypoint x="834" y="672" /><di:waypoint x="834" y="615" /><di:waypoint x="914" y="615" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13"><di:waypoint x="857" y="695" /><di:waypoint x="1231" y="695" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14"><di:waypoint x="1034" y="615" /><di:waypoint x="1114" y="615" /><di:waypoint x="1114" y="537" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15"><di:waypoint x="1174" y="505" /><di:waypoint x="1254" y="505" /><di:waypoint x="1254" y="672" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16"><di:waypoint x="1277" y="695" /><di:waypoint x="1334" y="695" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_17_di" bpmnElement="Flow_17"><di:waypoint x="1454" y="695" /><di:waypoint x="1534" y="695" /><di:waypoint x="1534" y="933" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_18_di" bpmnElement="Flow_18"><di:waypoint x="1594" y="965" /><di:waypoint x="1658" y="965" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19"><di:waypoint x="850" y="345" /><di:waypoint x="914" y="345" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_20_di" bpmnElement="Flow_20"><di:waypoint x="1034" y="345" /><di:waypoint x="1054" y="345" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21"><di:waypoint x="1174" y="345" /><di:waypoint x="1238" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10"><di:waypoint x="150" y="695" /><di:waypoint x="214" y="695" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11"><di:waypoint x="334" y="695" /><di:waypoint x="398" y="695" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12"><di:waypoint x="614" y="505" /><di:waypoint x="694" y="505" /><di:waypoint x="694" y="663" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13"><di:waypoint x="754" y="695" /><di:waypoint x="811" y="695" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14"><di:waypoint x="834" y="672" /><di:waypoint x="834" y="615" /><di:waypoint x="914" y="615" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15"><di:waypoint x="857" y="695" /><di:waypoint x="1231" y="695" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16"><di:waypoint x="1034" y="615" /><di:waypoint x="1114" y="615" /><di:waypoint x="1114" y="537" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17_di" bpmnElement="Flow_17"><di:waypoint x="1174" y="505" /><di:waypoint x="1254" y="505" /><di:waypoint x="1254" y="672" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18_di" bpmnElement="Flow_18"><di:waypoint x="1277" y="695" /><di:waypoint x="1334" y="695" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19"><di:waypoint x="1454" y="695" /><di:waypoint x="1534" y="695" /><di:waypoint x="1534" y="933" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_20_di" bpmnElement="Flow_20"><di:waypoint x="1594" y="965" /><di:waypoint x="1658" y="965" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21"><di:waypoint x="850" y="345" /><di:waypoint x="914" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_22_di" bpmnElement="Flow_22"><di:waypoint x="1034" y="345" /><di:waypoint x="1054" y="345" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_23_di" bpmnElement="Flow_23"><di:waypoint x="1174" y="345" /><di:waypoint x="1238" y="345" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="note_period_di" bpmnElement="note_period"><dc:Bounds x="1027" y="936" width="230" height="58" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="note_period_assoc_di" bpmnElement="note_period_assoc"><di:waypoint x="1257" y="965" /><di:waypoint x="1474" y="965" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>

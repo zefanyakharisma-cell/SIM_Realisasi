@@ -240,7 +240,7 @@ TABLES = [
         ("submitted_at", "timestamptz", "", True, "Submission time."),
         ("reviewed_by", "uuid", "LFK", True, "Mobility reviewer."),
         ("reviewed_at", "timestamptz", "", True, "Review time."),
-        ("review_note", "text", "", True, "Revision note (required on revision, R-27)."),
+        ("review_note", "text", "", True, "KUI note when a revision is requested (required, R-27); approval is a plain confirmation without a note."),
     ]),
     ("realisasi.participant_students", "participant", 3, "PETRA (internal) and inbound students in a version. NRP must resolve in BAAK (R-16, R-17).", [
         ("id", "bigserial", "PK", False, "Row id."),

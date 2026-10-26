@@ -129,7 +129,7 @@ def process_submission() -> Process:
     U, M, S = "lane_unit", "lane_mob", "lane_sys"
     lanes = [
         Lane(U, "Unit Akademik (Pengaju)"),
-        Lane(M, "Tim Mobilitas IO"),
+        Lane(M, "KUI: Verifikasi Mobilitas"),
         Lane(S, "SIM Realisasi (Sistem)"),
     ]
     n = [
@@ -153,9 +153,9 @@ def process_submission() -> Process:
         Node("t_decide", "task", "Pilih kegiatan yang mempertahankan mahasiswa", M, 14, "A"),
         Node("g_m2", "gateway", "", M, 15),
         Node("g_ok", "gateway", "Peserta & berkas sesuai?", M, 16, gw_label="bottom"),
-        Node("t_revise_req", "task", "Minta revisi (catatan wajib)", M, 17, "A"),
-        Node("t_revise", "task", "Perbaiki & ajukan ulang (versi peserta n+1)", U, 17, "B"),
-        Node("t_approve", "task", "Setujui versi peserta", M, 18),
+        Node("t_revise_req", "task", "Minta revisi (catatan wajib); kegiatan ditandai Revisi", M, 17, "A"),
+        Node("t_revise", "task", "Revisi sekarang: perbaiki & ajukan ulang (versi n+1)", U, 17, "B"),
+        Node("t_approve", "task", "Setujui versi peserta (konfirmasi, tanpa catatan)", M, 18),
         Node("t_verified", "task", "Status Terverifikasi; catat verified_at; notifikasi unit", S, 19, task_type="send"),
         Node("g_m3", "gateway", "", S, 20),
         Node("t_count", "task", "Hitung ke RENSTRA per unit & International Awards", S, 21, task_type="service"),
@@ -201,12 +201,13 @@ def process_submission() -> Process:
     msgs = [
         MsgFlow("mf_docs", "t_detail", "pool_simks", False, "Dokumen MoU/MoA berlaku pada tanggal kegiatan"),
         MsgFlow("mf_lookup", "t_lookup", "pool_baak", True, "Cek NRP / NIP"),
-        MsgFlow("mf_realisasi", "t_count", "pool_simks", True, "Tab Realisasi & flag tanpa realisasi"),
     ]
     notes = [
+        Note("note_revisi", "Unit menerima notifikasi. KUI melihatnya di Dikembalikan untuk Revisi; unit di daftar status mobilitas dengan catatan KUI",
+             M, 17.3, "B", "t_revise_req", w=220, h=58),
         Note("note_draft", "Draf boleh dihapus hanya oleh pembuatnya atau IO Admin; kegiatan yang sudah diajukan tidak pernah dihapus (R-15)",
              S, 1.25, "B", "t_draft", w=200, h=58),
-        Note("note_count", "Dihitung per unit: Fakultas = kegiatan sendiri + Program Studi + Program. Awards hanya memeringkat Program Studi (R-48)",
+        Note("note_count", "Dihitung per unit: Fakultas = kegiatan sendiri + Program Studi + Program. Awards: hanya Program Studi, 3 teratas per papan (R-48)",
              S, 21.0, "B", "t_count", w=200, h=58),
     ]
     return Process("sim-realisasi-pengajuan-verifikasi", "Pengajuan & Verifikasi Kegiatan",
@@ -219,7 +220,7 @@ def process_semester() -> Process:
     lanes = [
         Lane(U, "Unit Akademik"),
         Lane(S, "SIM Realisasi (Sistem)"),
-        Lane(A, "IO Admin"),
+        Lane(A, "KUI (IO Admin)"),
         Lane(V, "Pimpinan (Viewer)"),
     ]
     n = [
@@ -236,12 +237,16 @@ def process_semester() -> Process:
         Node("t_calc", "task", "Hitung RENSTRA 1.1, 1.19.S1, 1.19.S4 & International Awards", S, 1, "B", task_type="service"),
         Node("t_freeze", "task", "Bekukan snapshot (nilai, ID kontributor, pengaturan)", S, 2, "B", task_type="service"),
         Node("t_notify", "task", "Notifikasi snapshot beku ke IO Admin & pimpinan", S, 3, "B", task_type="send"),
+        # D. RENSTRA targets (Pengaturan → Target RENSTRA)
+        Node("s_target", "start", "Awal tahun akademik", A, 0),
+        Node("t_target", "task", "Isi Target per unit & indikator di Pengaturan", A, 1),
+        Node("e_target", "end", "Target tampil di Laporan per RENSTRA", A, 2),
         Node("t_check", "task", "Tinjau snapshot", A, 4),
         Node("g_refreeze", "gateway", "Perlu dibekukan ulang?", A, 5, gw_label="bottom"),
         Node("t_reason", "task", "Bekukan ulang dengan alasan wajib", A, 6, "A"),
         Node("t_supersede", "task", "Simpan snapshot baru; snapshot lama = superseded", S, 7, "B", task_type="service"),
         Node("g_m", "gateway", "", A, 8),
-        Node("t_export", "task", "Unduh Excel per RENSTRA (tabel per unit, data kegiatan, mahasiswa)", A, 9),
+        Node("t_export", "task", "Unduh Excel per RENSTRA (dengan kolom Target)", A, 9),
         Node("t_dash", "task", "Tinjau dashboard & laporan RENSTRA per unit", V, 10),
         Node("e_report", "end", "Laporan semester tersedia", V, 11),
         # C. late additions / post-freeze edits (R-31, R-57)
@@ -261,6 +266,8 @@ def process_semester() -> Process:
         Flow("s_cutoff", "t_calc"),
         Flow("t_calc", "t_freeze"),
         Flow("t_freeze", "t_notify"),
+        Flow("s_target", "t_target"),
+        Flow("t_target", "e_target"),
         Flow("t_notify", "t_check", "HV"),
         Flow("t_check", "g_refreeze"),
         Flow("g_refreeze", "t_reason", "VH", "Ya"),

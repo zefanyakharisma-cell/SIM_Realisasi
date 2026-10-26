@@ -12,7 +12,7 @@
 <g transform="rotate(-90 71.0 425.0)"><text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="600" fill="#1F2A36" text-anchor="middle"><tspan x="71.0" y="429.2">SIM Realisasi (Sistem)</tspan></text></g>
 <rect x="54" y="560" width="1730" height="270" fill="#FFFFFF" stroke="#5B6B7B" stroke-width="1"/>
 <rect x="54" y="560" width="34" height="270" fill="#EEF3F8" stroke="#5B6B7B" stroke-width="1"/>
-<g transform="rotate(-90 71.0 695.0)"><text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="600" fill="#1F2A36" text-anchor="middle"><tspan x="71.0" y="699.2">IO Admin</tspan></text></g>
+<g transform="rotate(-90 71.0 695.0)"><text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="600" fill="#1F2A36" text-anchor="middle"><tspan x="71.0" y="699.2">KUI (IO Admin)</tspan></text></g>
 <rect x="54" y="830" width="1730" height="270" fill="#FAFCFE" stroke="#5B6B7B" stroke-width="1"/>
 <rect x="54" y="830" width="34" height="270" fill="#EEF3F8" stroke="#5B6B7B" stroke-width="1"/>
 <g transform="rotate(-90 71.0 965.0)"><text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="12" font-weight="600" fill="#1F2A36" text-anchor="middle"><tspan x="71.0" y="969.2">Pimpinan (Viewer)</tspan></text></g>
@@ -27,6 +27,8 @@
 <path d="M150.0 505.0 L214.0 505.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
 <path d="M334.0 505.0 L354.0 505.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
 <path d="M474.0 505.0 L494.0 505.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M150.0 695.0 L214.0 695.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M334.0 695.0 L398.0 695.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
 <path d="M614.0 505.0 L694.0 505.0 L694.0 663.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
 <path d="M754.0 695.0 L811.0 695.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
 <path d="M834.0 672.0 L834.0 615.0 L914.0 615.0" fill="none" stroke="#33414F" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#arr)"/>
@@ -76,6 +78,13 @@
 <rect x="494.0" y="473.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
 <g><rect x="502.0" y="481.0" width="14" height="10" fill="#2A6EA6"/><path d="M502.0 481.0 l7 5.5 l7 -5.5" fill="none" stroke="#FFFFFF" stroke-width="1"/></g>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="557.0" y="501.7">Notifikasi snapshot</tspan><tspan x="557.0" y="514.7">beku ke IO Admin &amp;</tspan><tspan x="557.0" y="527.7">pimpinan</tspan></text>
+<circle cx="134" cy="695" r="16" fill="#EAF6DD" stroke="#4C9A0F" stroke-width="1.6" filter="url(#shadow)"/>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="134.0" y="728.7">Awal tahun akademik</tspan></text>
+<rect x="214.0" y="663.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
+<g fill="none" stroke="#2A6EA6" stroke-width="1"><circle cx="228.0" cy="674.0" r="3.2"/><path d="M222.0 684.0 q0 -6 6 -6 q6 0 6 6 z" fill="#FFFFFF"/></g>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="277.0" y="691.7">Isi Target per unit</tspan><tspan x="277.0" y="704.7">&amp; indikator di</tspan><tspan x="277.0" y="717.7">Pengaturan</tspan></text>
+<circle cx="414" cy="695" r="16" fill="#FCE3E0" stroke="#C0262C" stroke-width="3.4" filter="url(#shadow)"/>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="414.0" y="728.7">Target tampil di</tspan><tspan x="414.0" y="741.7">Laporan per RENSTRA</tspan></text>
 <rect x="634.0" y="663.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
 <g fill="none" stroke="#2A6EA6" stroke-width="1"><circle cx="648.0" cy="674.0" r="3.2"/><path d="M642.0 684.0 q0 -6 6 -6 q6 0 6 6 z" fill="#FFFFFF"/></g>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="697.0" y="704.7">Tinjau snapshot</tspan></text>
@@ -91,7 +100,7 @@
 <path d="M1254 672.0 L1277.0 695 L1254 718.0 L1231.0 695 z" fill="url(#gGw)" stroke="#A8870B" stroke-width="1.4" filter="url(#shadow)"/>
 <rect x="1334.0" y="663.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
 <g fill="none" stroke="#2A6EA6" stroke-width="1"><circle cx="1348.0" cy="674.0" r="3.2"/><path d="M1342.0 684.0 q0 -6 6 -6 q6 0 6 6 z" fill="#FFFFFF"/></g>
-<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="1397.0" y="685.2">Unduh Excel per</tspan><tspan x="1397.0" y="698.2">RENSTRA (tabel per</tspan><tspan x="1397.0" y="711.2">unit, data kegiatan,</tspan><tspan x="1397.0" y="724.2">mahasiswa)</tspan></text>
+<text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="1397.0" y="691.7">Unduh Excel per</tspan><tspan x="1397.0" y="704.7">RENSTRA (dengan</tspan><tspan x="1397.0" y="717.7">kolom Target)</tspan></text>
 <rect x="1474.0" y="933.0" width="120" height="64" rx="9" fill="url(#gTask)" stroke="#2A6EA6" stroke-width="1.3" filter="url(#shadow)"/>
 <g fill="none" stroke="#2A6EA6" stroke-width="1"><circle cx="1488.0" cy="944.0" r="3.2"/><path d="M1482.0 954.0 q0 -6 6 -6 q6 0 6 6 z" fill="#FFFFFF"/></g>
 <text font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="10.5" font-weight="normal" fill="#1F2A36" text-anchor="middle"><tspan x="1537.0" y="961.7">Tinjau dashboard &amp;</tspan><tspan x="1537.0" y="974.7">laporan RENSTRA per</tspan><tspan x="1537.0" y="987.7">unit</tspan></text>

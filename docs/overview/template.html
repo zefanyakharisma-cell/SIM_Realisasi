@@ -285,9 +285,9 @@ body[data-aud="dev"] [data-aud="dir"]{display:none}
       <tr><td class="n">6</td><td class="nowrap">Sistem</td><td>Not mobility: verified immediately.</td><td class="rule">R-11 R-25</td></tr>
       <tr><td class="n">7</td><td class="nowrap">Sistem</td><td>Mobility: waits for the Mobility team; the system checks whether another unit claims the same student on overlapping dates and notifies the team.</td><td class="rule">R-33</td></tr>
       <tr><td class="n">8</td><td class="nowrap">Mobilitas</td><td>Review participants and the PDF. For each duplicate student, choose which kegiatan keeps them. Approval stays blocked until every duplicate is decided.</td><td class="rule">R-27a R-34</td></tr>
-      <tr><td class="n">9</td><td class="nowrap">Mobilitas → Unit</td><td>Not in order: request a revision with one note. The unit corrects it and resubmits a new participant version; older versions stay readable.</td><td class="rule">R-21 R-26 R-27</td></tr>
-      <tr><td class="n">10</td><td class="nowrap">Mobilitas → Sistem</td><td>In order: approve the participant version. The kegiatan becomes Terverifikasi and the unit is notified.</td><td class="rule">R-25 R-28</td></tr>
-      <tr><td class="n">11</td><td class="nowrap">Sistem</td><td>Counted into RENSTRA per unit (Fakultas includes its Program Studi and Programs) and into International Awards (Program Studi only). The agreement's Realisasi tab in SIM Kerjasama updates.</td><td class="rule">R-36–R-50</td></tr>
+      <tr><td class="n">9</td><td class="nowrap">Mobilitas → Unit</td><td>Not in order: request a revision with one note. The unit is notified and the kegiatan is flagged <em>Revisi</em> on both sides (KUI: "Dikembalikan untuk Revisi"; unit: a status list with KUI's note and "Revisi sekarang"). The unit corrects it and resubmits a new participant version; older versions stay readable.</td><td class="rule">R-21 R-26 R-27</td></tr>
+      <tr><td class="n">10</td><td class="nowrap">Mobilitas → Sistem</td><td>In order: approve the participant version with a plain confirmation (no note). The kegiatan becomes Terverifikasi and the unit is notified.</td><td class="rule">R-25 R-28</td></tr>
+      <tr><td class="n">11</td><td class="nowrap">Sistem</td><td>Counted into RENSTRA per unit (Fakultas includes its Program Studi and Programs) and into International Awards (Program Studi only, top 3 per board). Each agreement's Realisasi page, opened from the RENSTRA tables, lists it; SIM Realisasi itself never writes to SIM Kerjasama.</td><td class="rule">R-36–R-50</td></tr>
     </tbody>
   </table></div>
 
@@ -295,6 +295,7 @@ body[data-aud="dev"] [data-aud="dir"]{display:none}
   <div class="canvas b2">%%BPMN2%%</div>
   <div class="grid2">
     <div class="card"><h3>Every day</h3><p>Reminders for drafts near their reporting deadline (7 days before, on the day, then weekly) and for revisions left untouched 7 days. In-app plus email outbox.</p><span class="rule">R-61 R-62</span></div>
+    <div class="card"><h3>Start of the academic year</h3><p>KUI sets a target per unit and indicator in Pengaturan → Target RENSTRA. It appears in the Target column of each RENSTRA report; 1.19.S4 takes one university-wide percentage.</p><span class="rule">Target RENSTRA</span></div>
     <div class="card"><h3>On each semester cutoff</h3><p>Semester end + 30 days: compute every indicator and the Awards, freeze them with the IDs behind each number, notify IO Admin and leadership. IO Admin can re-freeze with a written reason; the old snapshot stays, marked superseded.</p><span class="rule">R-55–R-59</span></div>
     <div class="card"><h3>Late data</h3><p>A kegiatan verified or edited after a freeze but dated inside the frozen window is shown as Tambahan Susulan or Perubahan Pasca-Beku in YTD and the next report. Frozen numbers never change.</p><span class="rule">R-31 R-57</span></div>
   </div>

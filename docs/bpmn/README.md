@@ -10,7 +10,7 @@ Each one comes as a `.bpmn` file (BPMN 2.0 XML with diagram layout) and a Bizagi
 
 **Opening in Bizagi Modeler:** File → Import → *BPMN 2.0* (or *Import → BPMN*), then pick the `.bpmn` file.
 Pools, lanes, tasks (user / service / send), gateways, timer and conditional start events, sequence flows and
-message flows come in with their positions. Bizagi applies its own default colours on import; the `.svg` shows the
+message flows and text annotations come in with their positions. Bizagi applies its own default colours on import; the `.svg` shows the
 intended look. The files also open in [bpmn.io](https://demo.bpmn.io) and Camunda Modeler.
 
 **Regenerating:** the layout lives in [`generate.py`](generate.py) (no dependencies). After editing it run
@@ -18,7 +18,7 @@ intended look. The files also open in [bpmn.io](https://demo.bpmn.io) and Camund
 
 ## 1. Pengajuan & Verifikasi Kegiatan
 
-Pool *SIM Realisasi* with lanes **Unit Akademik (Pengaju)**, **Tim Mobilitas IO**, **SIM Realisasi (Sistem)**;
+Pool *SIM Realisasi* with lanes **Unit Akademik (Pengaju)**, **KUI: Verifikasi Mobilitas**, **SIM Realisasi (Sistem)**;
 collapsed pools **SIM Kerjasama** and **BAAK & HR**.
 
 | # | Lane | Step | Rule |
@@ -33,21 +33,22 @@ collapsed pools **SIM Kerjasama** and **BAAK & HR**.
 | 6 | Sistem | Non-mobilitas: track `not_required`, langsung **Terverifikasi** | R-11, R-25, AT-04 |
 | 7 | Sistem | Mobilitas: track `pending`, deteksi duplikat mahasiswa antar-unit, notifikasi tim | R-33 |
 | 8 | Mobilitas | Tinjau peserta & PDF; bila ada duplikat, pilih kegiatan yang mempertahankan mahasiswa (persetujuan terblokir selama konflik terbuka) | R-27a, R-34 |
-| 9 | Mobilitas → Unit | Tidak sesuai: minta revisi (satu catatan wajib) → unit memperbaiki & mengajukan ulang (versi peserta n+1) → kembali ke langkah 7 | R-21, R-24, R-26, R-27 |
-| 10 | Mobilitas → Sistem | Sesuai: setujui versi peserta → **Terverifikasi**, `verified_at`, notifikasi unit | R-21, R-25, R-28 |
-| 11 | Sistem | Hitung ke RENSTRA per unit (Fakultas = kegiatan sendiri + Program Studi + Program) & International Awards (hanya Program Studi); kirim ringkasan ke tab Realisasi SIM Kerjasama | R-36–R-50 |
+| 9 | Mobilitas → Unit | Tidak sesuai: minta revisi (satu catatan wajib). Unit menerima notifikasi; kegiatan ditandai **Revisi** (KUI: "Dikembalikan untuk Revisi"; unit: daftar status mobilitas dengan catatan KUI) → unit memilih "Revisi sekarang", memperbaiki & mengajukan ulang (versi peserta n+1) → kembali ke langkah 7 | R-21, R-24, R-26, R-27 |
+| 10 | Mobilitas → Sistem | Sesuai: setujui versi peserta (konfirmasi "Apakah Anda yakin…?", tanpa catatan) → **Terverifikasi**, `verified_at`, notifikasi unit | R-21, R-25, R-28 |
+| 11 | Sistem | Hitung ke RENSTRA per unit (Fakultas = kegiatan sendiri + Program Studi + Program) & International Awards (hanya Program Studi, 3 teratas per papan); halaman Realisasi per dokumen dibuka dari tabel RENSTRA (SIM Realisasi tidak menulis ke SIM Kerjasama) | R-36–R-50 |
 
 Tidak ada penolakan: kiriman yang salah selalu kembali sebagai revisi (R-26).
 
 ## 2. Pengingat, Tutup Semester & Pelaporan
 
-Lanes **Unit Akademik**, **SIM Realisasi (Sistem)**, **IO Admin**, **Pimpinan (Viewer)**. Three independent starts:
+Lanes **Unit Akademik**, **SIM Realisasi (Sistem)**, **KUI (IO Admin)**, **Pimpinan (Viewer)**. Four independent starts:
 
 - **Setiap hari (timer):** cek draf menjelang batas pelaporan (H-7, H, lalu mingguan) dan revisi tertunda ≥ 7 hari →
   kirim pengingat in-app + email outbox → unit melengkapi/mengajukan (R-61, R-62).
+- **Awal tahun akademik:** KUI (IO Admin) mengisi Target per unit dan indikator di Pengaturan → Target RENSTRA; target tampil di kolom Target Laporan per RENSTRA (1.19.S4 hanya target Universitas, dalam persen).
 - **Tanggal cutoff semester (timer, akhir semester + 30 hari):** hitung RENSTRA 1.1, 1.19.S1, 1.19.S4 & Awards →
   bekukan snapshot (nilai, ID kontributor, pengaturan) → notifikasi → IO Admin meninjau; bila perlu, bekukan ulang
-  dengan alasan wajib (snapshot lama menjadi `superseded`) → unduh Excel per RENSTRA → pimpinan meninjau dashboard
+  dengan alasan wajib (snapshot lama menjadi `superseded`) → unduh Excel per RENSTRA (dengan kolom Target, tanpa sheet Info) → pimpinan meninjau dashboard
   & laporan per unit; YTD hanya untuk TA aktif (R-37, R-55–R-59).
 - **Kegiatan diverifikasi/diubah bertanggal di periode beku (conditional):** tandai *Tambahan Susulan* /
   *Perubahan Pasca-Beku*, tampilkan di YTD dan laporan snapshot berikutnya; snapshot lama tidak berubah (R-31, R-57).
