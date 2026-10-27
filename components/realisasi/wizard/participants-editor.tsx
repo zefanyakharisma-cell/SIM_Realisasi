@@ -441,7 +441,9 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                           id={`${r.key}-inst`}
                           value={r.home_institution}
                           onChange={(e) => patchStudent(r.key, { home_institution: e.target.value })}
+                          aria-invalid={r.serverError ? true : undefined}
                         />
+                        {r.serverError ? <p className="text-xs text-danger-fg">{r.serverError}</p> : null}
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor={`${r.key}-num`}>No. mahasiswa asal</Label>

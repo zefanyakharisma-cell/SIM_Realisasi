@@ -4,13 +4,23 @@ import { z } from 'zod';
 import { RENSTRA_KEYS } from '@/lib/realisasi/schemas/report';
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD.');
-const nonNegInt = (label: string) =>
-  z.coerce.number({ invalid_type_error: `${label} harus berupa angka.` }).int(`${label} harus bilangan bulat.`).min(0, `${label} tidak boleh negatif.`);
+/** Same caps as update_settings: months / days that keep the date arithmetic (and the nightly jobs) in range. */
+export const SETTING_MAX = { months: 120, days: 3650 } as const;
+// An emptied field must not coerce to 0 (z.coerce.number('') === 0): it would silently move every draft's deadline.
+const nonNegInt = (label: string, max: number) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.coerce
+      .number({ invalid_type_error: `${label} wajib diisi.` })
+      .int(`${label} harus bilangan bulat.`)
+      .min(0, `${label} tidak boleh negatif.`)
+      .max(max, `${label} maksimal ${max}.`),
+  );
 export const generalSettingsSchema = z.object({
-  grace_period_months: nonNegInt('Masa tenggang'),
-  reporting_deadline_days: nonNegInt('Batas pelaporan'),
-  revision_reminder_days: nonNegInt('Pengingat revisi'),
-  deadline_reminder_before_days: nonNegInt('Pengingat sebelum tenggat'),
+  grace_period_months: nonNegInt('Masa tenggang', SETTING_MAX.months),
+  reporting_deadline_days: nonNegInt('Batas pelaporan', SETTING_MAX.days),
+  revision_reminder_days: nonNegInt('Pengingat revisi', SETTING_MAX.days),
+  deadline_reminder_before_days: nonNegInt('Pengingat sebelum tenggat', SETTING_MAX.days),
 });
 export type GeneralSettingsInput = z.infer<typeof generalSettingsSchema>;
 

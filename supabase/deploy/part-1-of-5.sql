@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 1 OF 5 (commit 4724f0c).
+-- SIM Realisasi Supabase install, PART 1 OF 5 (commit 3e53fec).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -1114,11 +1114,11 @@ language sql stable security definer set search_path = realisasi, extensions, pu
   select coalesce(realisasi.my_role() in ('io_admin','submitter'), false) or realisasi.in_team('mobility')
 $$;
 
--- participant identifiers in log diffs replaced by counts (viewers see counts only)
+-- participant identifiers in log diffs replaced by counts (viewers see counts only); 'nrp' = resolve_conflict log
 create function realisasi._mask_log_diff(p jsonb) returns jsonb
 language sql immutable set search_path = realisasi, extensions, public, pg_temp as $$
   select case when p is null or jsonb_typeof(p) <> 'object' then p else
-    (p - 'students' - 'staff' - 'row_notes')
+    (p - 'students' - 'staff' - 'row_notes' - 'nrp')
     || case when jsonb_typeof(p -> 'students') = 'object' then jsonb_build_object('students', jsonb_build_object(
            'added', coalesce(jsonb_array_length(nullif(p -> 'students' -> 'added', 'null')), 0),
            'removed', coalesce(jsonb_array_length(nullif(p -> 'students' -> 'removed', 'null')), 0))) else '{}'::jsonb end

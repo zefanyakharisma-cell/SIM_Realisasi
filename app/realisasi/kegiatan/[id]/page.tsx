@@ -15,7 +15,7 @@ import { VersionSelector } from '@/components/realisasi/activity/version-selecto
 import { ConflictList } from '@/components/realisasi/verify/conflict-list';
 import { MobilityActions } from '@/components/realisasi/verify/mobility-actions';
 import { withUser } from '@/lib/db';
-import { requireUser } from '@/lib/session';
+import { can, requireUser } from '@/lib/session';
 import { formatDateTime } from '@/lib/realisasi/format';
 import { getActivityDetail, getParticipantVersion } from '@/lib/realisasi/queries/activity';
 import type { ParticipantVersion } from '@/lib/realisasi/types';
@@ -140,7 +140,8 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
             Mahasiswa berikut juga diklaim oleh unit lain pada kegiatan dengan tanggal yang beririsan. Tim Mobilitas memilih kegiatan tempat
             mahasiswa dihitung.
           </p>
-          <ConflictList conflicts={detail.conflicts} canResolve={p.can_mobility_verify} currentActivityId={detail.id} />
+          {/* resolve_conflict needs mobility-team membership only, not a pending track (verified activities keep open conflicts) */}
+          <ConflictList conflicts={detail.conflicts} canResolve={can(user, 'verify.mobility')} currentActivityId={detail.id} />
         </section>
       )}
 

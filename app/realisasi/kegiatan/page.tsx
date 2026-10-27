@@ -32,7 +32,7 @@ export default async function KegiatanPage(props: { searchParams: Promise<Search
     withUser(user.id, async (tx) => ({
       rows: await listActivities(tx, user, filters),
       options: await getActivityFilterOptions(tx),
-      reminderDays: Number((await getSettingsMap(tx)).deadline_reminder_before_days ?? 7) || 7,
+      reminderDays: ((n) => (Number.isInteger(n) && n >= 0 ? n : 7))(Number((await getSettingsMap(tx)).deadline_reminder_before_days ?? 7)),
     })),
     getToday(),
   ]);

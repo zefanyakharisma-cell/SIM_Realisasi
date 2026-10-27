@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 2 OF 5 (commit 4724f0c).
+-- SIM Realisasi Supabase install, PART 2 OF 5 (commit 3e53fec).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -266,7 +266,8 @@ create policy participant_staff_select on realisasi.participant_staff for select
 -- Log rows carrying participant identifiers (mobility edits) only for callers who may see participants (M6)
 create policy activity_log_select on realisasi.activity_log for select to authenticated
   using (((select realisasi.is_io()) or activity_id in (select realisasi.my_activity_ids()))
-         and (not (coalesce(diff ? 'students', false) or coalesce(diff ? 'staff', false) or coalesce(diff ? 'row_notes', false))
+         and (not (coalesce(diff ? 'students', false) or coalesce(diff ? 'staff', false) or coalesce(diff ? 'row_notes', false)
+                   or coalesce(diff ? 'nrp', false))
               or (select realisasi.sees_participant_identifiers())));
 
 -- student conflicts carry NRPs: mobility team / io_admin only
@@ -978,9 +979,14 @@ begin
                     when v_draft is not null then 'Versi peserta baru sudah dibuat.'
                     else 'Perbarui data peserta (versi baru) sebelum mengajukan ulang.' end);
 
-  if realisasi.today() > a.reporting_deadline then
+  -- is_late is derived from the FIRST submitted_at (submit_activity keeps it on resubmission): a revision sent back
+  -- after the deadline is not late when the first submission was on time
+  if a.submitted_at is null and realisasi.today() > a.reporting_deadline then
     v_out := v_out || jsonb_build_object('code', 'LATE_NOTICE', 'ok', true, 'late', true,
       'message', format('Batas pelaporan %s telah lewat — kegiatan akan ditandai Terlambat.', realisasi._fmt_date(a.reporting_deadline)));
+  elsif a.submitted_at is not null and a.is_late then
+    v_out := v_out || jsonb_build_object('code', 'LATE_NOTICE', 'ok', true, 'late', true,
+      'message', format('Kegiatan sudah ditandai Terlambat (batas pelaporan %s).', realisasi._fmt_date(a.reporting_deadline)));
   end if;
   return v_out;
 end $$;

@@ -60,6 +60,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   R58_REASON_REQUIRED: 'Alasan pembekuan ulang wajib diisi.',
   R58_NOT_LIVE: 'Snapshot ini sudah digantikan.',
   SETTINGS_INVALID: 'Pengaturan tidak valid.',
+  CONFLICT_OPEN: 'Masih ada mahasiswa yang juga diklaim unit lain. Pilih kegiatan yang diakui terlebih dahulu.',
   AGENDA_NAME_TAKEN: 'Nama jenis kegiatan sudah dipakai.',
   CAL_INVALID_RANGE: 'Rentang tanggal kalender tidak valid atau tumpang tindih.',
   FILE_FORBIDDEN: 'Anda tidak memiliki akses ke berkas ini.',

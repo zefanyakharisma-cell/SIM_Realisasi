@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 4 OF 5 (commit 4724f0c).
+-- SIM Realisasi Supabase install, PART 4 OF 5 (commit 3e53fec).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -652,7 +652,8 @@ begin
        and realisasi.is_late_addition(a.id);
   end if;
 
-  if v_unit is not null then
+  -- drafts are the submitter's own work (RLS hides them from IO / viewers): only a submitter sees this list
+  if v_unit is not null and realisasi.my_role() = 'submitter' then
     select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'end_date', a.end_date,
              'reporting_deadline', a.reporting_deadline, 'days_left', a.reporting_deadline - v_today)
              order by a.reporting_deadline, a.code), '[]'::jsonb)

@@ -44,7 +44,7 @@ export default async function MobilitasQueuePage(props: { searchParams: Promise<
         actions={
           <div className="flex flex-wrap gap-2">
             <ExportButton kind="activities" params={{ queue: 'mobility' }} />
-            <ExportButton kind="conflicts" label="Ekspor duplikat" />
+            <ExportButton kind="conflicts" label="Ekspor duplikat" params={{ status: showResolved ? 'all' : 'open' }} />
           </div>
         }
       />

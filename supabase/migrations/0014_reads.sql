@@ -188,7 +188,8 @@ begin
        and realisasi.is_late_addition(a.id);
   end if;
 
-  if v_unit is not null then
+  -- drafts are the submitter's own work (RLS hides them from IO / viewers): only a submitter sees this list
+  if v_unit is not null and realisasi.my_role() = 'submitter' then
     select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'code', a.code, 'name', a.name, 'end_date', a.end_date,
              'reporting_deadline', a.reporting_deadline, 'days_left', a.reporting_deadline - v_today)
              order by a.reporting_deadline, a.code), '[]'::jsonb)

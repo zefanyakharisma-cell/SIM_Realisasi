@@ -113,14 +113,17 @@ export function participantsReducer(state: ParticipantsState, action: Participan
     case 'patchStudent':
       return {
         ...state,
-        students: state.students.map((s) => (s.key === action.key ? { ...s, ...action.patch } : s)),
+        students: state.students.map((s) => (s.key === action.key ? { ...s, ...action.patch, serverError: s.blocking ? s.serverError : undefined } : s)),
       };
     case 'markDbErrors': {
       const find = (id: string, staff: boolean) => action.errors.find((e) => e.id === id && (e.section === 'staff') === staff);
       return {
         students: state.students.map((r) => {
           const e = find(r.nrp, false);
-          return e ? { ...r, blocking: true, status: DB_CODE_STATUS[e.code] ?? 'not_found', serverError: action.message } : r;
+          if (!e) return r;
+          // missing home institution: the row stays editable so the user can fill it in
+          if (e.code === 'R17_INBOUND_DATA_REQUIRED') return { ...r, serverError: action.message };
+          return { ...r, blocking: true, status: DB_CODE_STATUS[e.code] ?? 'not_found', serverError: action.message };
         }),
         staff: state.staff.map((r) => {
           const e = find(r.employee_id, true);
