@@ -58,8 +58,8 @@ export function KpiCard({
             delta.diff === null || delta.diff === 0
               ? 'text-muted-foreground'
               : delta.diff > 0
-                ? 'text-green-800'
-                : 'text-red-800',
+                ? 'text-success-fg'
+                : 'text-danger-fg',
           )}
         >
           <DeltaIcon className="h-3.5 w-3.5" aria-hidden="true" />

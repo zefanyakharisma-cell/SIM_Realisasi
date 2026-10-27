@@ -127,7 +127,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
         {state.kind === 'ok' && `${available.length} kerja sama berlaku pada tanggal kegiatan (termasuk yang sudah diarsipkan).`}
         {state.kind === 'idle' && 'Daftar kerja sama mengikuti tanggal kegiatan.'}
         {state.kind === 'error' && (
-          <span className="flex items-center gap-2 text-red-700">
+          <span className="flex items-center gap-2 text-danger-fg">
             {state.message}
             <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setRetry((n) => n + 1)}>
               Coba lagi
@@ -183,7 +183,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
                       </dd>
                     </dl>
                     {!d.in_scope && (
-                      <p className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 p-2 text-xs text-amber-900" data-testid="out-of-scope-warning">
+                      <p className="mt-2 flex items-start gap-1.5 rounded bg-warning-subtle p-2 text-xs text-warning-fg" data-testid="out-of-scope-warning">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                         Unit pengaju tidak termasuk dalam Lingkup Kerja Sama dokumen ini. Pengajuan tetap dapat dilanjutkan.
                       </p>
@@ -193,7 +193,7 @@ export function AgreementPicker({ id, labelId, start, end, unitId, value, onChan
                   <p className="pr-8 text-muted-foreground">Dokumen #{docId}</p>
                 )}
                 {notValid && (
-                  <p className="mt-2 flex items-start gap-1.5 rounded bg-red-50 p-2 text-xs text-red-900" role="status">
+                  <p className="mt-2 flex items-start gap-1.5 rounded bg-danger-subtle p-2 text-xs text-danger-fg" role="status">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     Kerja sama ini tidak berlaku pada tanggal kegiatan. Hapus atau ubah tanggal.
                   </p>

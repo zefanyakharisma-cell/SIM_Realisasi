@@ -1,6 +1,7 @@
 // Read-model queries for the dashboard, Laporan page, exports and SIM Kerjasama tab.
 // Never compute KPIs here — every number comes from the SQL read RPCs (CONTRACTS §3.9, §6.7).
 import type { Tx } from '@/lib/db';
+import { topRanked } from '@/lib/realisasi/awards';
 import type {
   AgreementFlag,
   AgreementRealization,
@@ -22,11 +23,18 @@ export async function getDashboard(tx: Tx, p: PeriodParams): Promise<DashboardDa
   return row!.r as DashboardData;
 }
 
-/** International Awards leaderboards (Revisi V.1 dashboard tab). */
+/** International Awards leaderboards (Revisi V.1 dashboard tab); each board keeps only the top 3 (screen and export). */
 export async function getAwards(tx: Tx, p: PeriodParams): Promise<AwardsData> {
   const [row] = await tx`
     select realisasi.international_awards(${p.ay ?? null}::int, ${p.period}::text, ${p.unit ?? null}::int) as r`;
-  return row!.r as AwardsData;
+  const aw = row!.r as AwardsData;
+  return {
+    ...aw,
+    inbound: topRanked(aw.inbound ?? []),
+    outbound_domestic: topRanked(aw.outbound_domestic ?? []),
+    outbound_international: topRanked(aw.outbound_international ?? []),
+    initiatives: topRanked(aw.initiatives ?? []),
+  };
 }
 
 /** Student conflicts for the Mobility team (Revisi V.1 rule 2.1). status null = open and resolved. */
@@ -132,6 +140,13 @@ export async function listUnitTree(tx: Tx): Promise<Array<UnitOption & { parent_
     kind: String(r.kind),
     parent_id: r.parent_id === null || r.parent_id === undefined ? null : Number(r.parent_id),
   }));
+}
+
+/** Target RENSTRA per unit for one academic year and indicator (unit id 0 = Universitas). */
+export async function getRenstraTargets(tx: Tx, ayId: number, key: string): Promise<Map<number, number>> {
+  const rows = await tx`
+    select unit_id, target from realisasi.renstra_targets where academic_year_id = ${ayId}::int and renstra_key = ${key}::text`;
+  return new Map(rows.map((r) => [Number(r.unit_id), Number(r.target)]));
 }
 
 /** Integer settings (grace period, reporting deadline, reminders). */

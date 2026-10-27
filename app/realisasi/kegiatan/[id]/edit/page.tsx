@@ -39,7 +39,7 @@ export default async function EditVerifiedPage(props: { params: Promise<{ id: st
         }
       />
       {detail.flags.late_addition && (
-        <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-900">Kegiatan ini merupakan tambahan susulan pada periode yang sudah dibekukan.</p>
+        <p className="rounded-md bg-info-subtle p-3 text-sm text-info-fg">Kegiatan ini merupakan tambahan susulan pada periode yang sudah dibekukan.</p>
       )}
       <DetailForm
         mode="verified"

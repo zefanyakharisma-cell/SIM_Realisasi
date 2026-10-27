@@ -1,6 +1,7 @@
 // Zod schemas for Pengaturan forms (client + server). Messages in Bahasa Indonesia.
 // The DB re-validates everything (update_settings / upsert_* RPCs); these give early feedback.
 import { z } from 'zod';
+import { RENSTRA_KEYS } from '@/lib/realisasi/schemas/report';
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD.');
 const nonNegInt = (label: string) =>
@@ -67,6 +68,24 @@ export const agendaSchema = z
     path: ['mobility_category'],
   });
 export type AgendaInput = z.infer<typeof agendaSchema>;
+
+/** Target RENSTRA for one academic year and indicator (`set_renstra_targets`); unit_id 0 = Universitas, null target = none. */
+export const renstraTargetsSchema = z
+  .object({
+    academic_year_id: z.number().int().positive(),
+    renstra_key: z.enum(RENSTRA_KEYS),
+    rows: z.array(
+      z.object({
+        unit_id: z.number().int().min(0),
+        target: z.number({ invalid_type_error: 'Target harus berupa angka.' }).min(0, 'Target tidak boleh negatif.').nullable(),
+      }),
+    ),
+  })
+  .refine((v) => v.renstra_key !== '1.19.S4' || v.rows.every((r) => r.unit_id === 0 && (r.target === null || r.target <= 100)), {
+    message: 'Target 1.19.S4 berupa satu persentase universitas (0–100).',
+    path: ['rows'],
+  });
+export type RenstraTargetsInput = z.infer<typeof renstraTargetsSchema>;
 
 export const refreezeSchema = z.object({
   snapshot_id: z.string().uuid(),

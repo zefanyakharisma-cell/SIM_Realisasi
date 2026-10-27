@@ -13,7 +13,7 @@ export default function RealisasiError({ error, reset }: { error: Error & { dige
 
   return (
     <div role="alert" className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-lg border bg-background px-6 py-12 text-center">
-      <AlertTriangle className="size-10 text-red-600" aria-hidden="true" />
+      <AlertTriangle className="size-10 text-danger-fg" aria-hidden="true" />
       <h1 ref={headingRef} tabIndex={-1} className="text-xl font-semibold focus:outline-none">
         Terjadi kesalahan
       </h1>

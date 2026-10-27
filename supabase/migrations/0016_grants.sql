@@ -9,7 +9,7 @@ grant usage on schema realisasi to authenticated;
 
 grant select on
   realisasi.team_members, realisasi.settings, realisasi.academic_years, realisasi.semesters,
-  realisasi.agendas, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
+  realisasi.agendas, realisasi.renstra_targets, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
   realisasi.activity_documents, realisasi.activity_partner_snapshot, realisasi.activity_sdgs,
   realisasi.activity_external_persons, realisasi.activity_files, realisasi.participant_set_versions,
   realisasi.participant_students, realisasi.participant_staff, realisasi.participant_conflicts, realisasi.activity_log,
@@ -47,7 +47,7 @@ grant execute on function
   realisasi.conflict_list(uuid, text), realisasi.resolve_conflict(bigint, uuid, text),
   realisasi.update_settings(jsonb), realisasi.upsert_academic_year(int, text, date, date),
   realisasi.upsert_semester(int, int, realisasi.semester_term, date, date, date),
-  realisasi.save_agenda(int, jsonb),
+  realisasi.save_agenda(int, jsonb), realisasi.set_renstra_targets(int, text, jsonb),
   realisasi.freeze_snapshot(int, realisasi.snapshot_kind, timestamptz, uuid), realisasi.refreeze_snapshot(uuid, text),
   realisasi.run_daily_jobs(),
   realisasi.mark_notifications_read(bigint[]), realisasi.log_export(text, jsonb, int, boolean),

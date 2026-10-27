@@ -62,10 +62,10 @@ export function DiffView({ diff }: { diff: Record<string, unknown> }) {
           <dd className="break-words">
             {Array.isArray(value) && value.length === 2 ? (
               <>
-                <del className="text-red-800">{show(value[0])}</del>
+                <del className="text-danger-fg">{show(value[0])}</del>
                 <span aria-hidden> → </span>
                 <span className="sr-only"> diubah menjadi </span>
-                <ins className="text-green-800 no-underline">{show(value[1])}</ins>
+                <ins className="text-success-fg no-underline">{show(value[1])}</ins>
               </>
             ) : isAddedRemoved(value) ? (
               (() => {
@@ -73,8 +73,8 @@ export function DiffView({ diff }: { diff: Record<string, unknown> }) {
                 const removed = rowChange(value.removed);
                 return (
                   <>
-                    {added.any && <span className="text-green-800">Ditambah: {added.text}. </span>}
-                    {removed.any && <span className="text-red-800">Dihapus: {removed.text}.</span>}
+                    {added.any && <span className="text-success-fg">Ditambah: {added.text}. </span>}
+                    {removed.any && <span className="text-danger-fg">Dihapus: {removed.text}.</span>}
                     {!added.any && !removed.any && <span className="text-muted-foreground">Tidak ada perubahan baris.</span>}
                   </>
                 );

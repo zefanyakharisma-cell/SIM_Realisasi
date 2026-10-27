@@ -21,11 +21,12 @@ test.describe('foundation: login, shell, navigation per role', () => {
 
   test('io_admin sees every nav item', async ({ page }) => {
     await loginAs(page, ACCOUNTS.kepalaIo);
-    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-mobilitas', 'nav-laporan', 'nav-pengaturan', 'nav-dokumen']) {
+    for (const id of ['nav-realisasi', 'nav-kegiatan', 'nav-baru', 'nav-mobilitas', 'nav-laporan', 'nav-pengaturan']) {
       await expect(page.getByTestId(id).first()).toBeVisible();
     }
     // Revisi V.1: no Verifikasi Kemitraan, no separate Duplikat page, no Kegiatan Diketahui.
-    for (const id of ['nav-kemitraan', 'nav-duplikat', 'nav-kegiatan-diketahui']) {
+    // Revisi V.2: no "SIM Kerjasama" section (the document screens live in the SIM Kerjasama app).
+    for (const id of ['nav-kemitraan', 'nav-duplikat', 'nav-kegiatan-diketahui', 'nav-dokumen']) {
       await expect(page.getByTestId(id)).toHaveCount(0);
     }
   });
@@ -33,18 +34,18 @@ test.describe('foundation: login, shell, navigation per role', () => {
   test('submitter nav (Design §1)', async ({ page }) => {
     await loginAs(page, ACCOUNTS.uaFti);
     await expect(page.getByTestId('nav-baru').first()).toBeVisible();
-    for (const id of ['nav-mobilitas', 'nav-pengaturan']) {
-      await expect(page.getByTestId(id)).toHaveCount(0);
-    }
+    // Revisi V.1 item 7: units follow their own mobility kegiatan on Verifikasi Mobilitas (read-only)
+    await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+    await expect(page.getByTestId('nav-pengaturan')).toHaveCount(0);
   });
 
-  test('IO staff (Mobility team) nav', async ({ page }) => {
-    for (const email of [ACCOUNTS.ioStaff, ACCOUNTS.ioMobility]) {
+  test('every KUI account is admin (Revisi V.1): all features unlocked', async ({ page }) => {
+    for (const email of [ACCOUNTS.kepalaIo, ACCOUNTS.ioStaff, ACCOUNTS.ioMobility]) {
       await loginAs(page, email);
-      await expect(page.getByTestId('nav-mobilitas').first()).toBeVisible();
+      for (const id of ['nav-mobilitas', 'nav-laporan', 'nav-pengaturan']) {
+        await expect(page.getByTestId(id).first()).toBeVisible();
+      }
       await expect(page.getByTestId('nav-kemitraan')).toHaveCount(0);
-      await expect(page.getByTestId('nav-baru')).toHaveCount(0);
-      await expect(page.getByTestId('nav-pengaturan')).toHaveCount(0);
     }
   });
 

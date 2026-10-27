@@ -19,7 +19,7 @@ export function SdgHeatmap({ data }: { data: KpiCharts['by_sdg'] }) {
               tabIndex={0}
               title={`SDG ${d.sdg_id} — ${d.name}: ${formatNumber(d.activities)} kegiatan`}
               aria-label={`SDG ${d.sdg_id} ${d.name}: ${d.activities} kegiatan`}
-              className="flex h-16 flex-col justify-between rounded p-1.5 outline-none ring-offset-1 transition hover:ring-2 hover:ring-slate-400 focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-16 flex-col justify-between rounded p-1.5 outline-none ring-offset-1 transition hover:ring-2 hover:ring-input focus-visible:ring-2 focus-visible:ring-ring"
               style={{ background: SEQ_BLUE[step], color: inkOn(step) }}
             >
               <span className="text-[11px] font-semibold leading-none">SDG {d.sdg_id}</span>

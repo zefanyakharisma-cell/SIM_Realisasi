@@ -56,19 +56,24 @@ function buildWhere(tx: Tx, user: SessionUser, f: ActivityListFilters): postgres
     case 'mine':
       c.push(mineCondition(tx, user));
       break;
-    case 'late':
-      c.push(tx`(l.is_late or (l.status = 'draft' and l.reporting_deadline < realisasi.today()))`);
-      break;
-    case 'this_semester':
-      c.push(tx`l.semester_id = (select s.id from realisasi.semesters s
-                                  where realisasi.today() between s.start_date and s.end_date
-                                  order by s.start_date desc limit 1)`);
-      break;
     default:
       break;
   }
 
-  if (f.queue === 'mobility') c.push(tx`l.mobility_status = 'pending' and l.status <> 'draft'`);
+  switch (f.queue) {
+    case 'mobility':
+      c.push(tx`l.mobility_status = 'pending' and l.status <> 'draft'`);
+      break;
+    case 'mobility_revision':
+      c.push(tx`l.mobility_status = 'revision_requested' and l.status = 'revision_requested'`);
+      break;
+    case 'mobility_mine':
+      c.push(tx`l.is_mobility and l.submitter_unit_id = ${user.unitId ?? -1}::int
+                and l.status in ('in_verification', 'revision_requested')`);
+      break;
+    default:
+      break;
+  }
 
   return and(tx, c);
 }
@@ -76,6 +81,9 @@ function buildWhere(tx: Tx, user: SessionUser, f: ActivityListFilters): postgres
 function buildOrder(tx: Tx, f: ActivityListFilters): postgres.Fragment {
   // The queue always lists the longest-waiting submissions first (no SLA since Revisi V.1).
   if (f.queue === 'mobility') return tx`l.mobility_since asc nulls last, l.code`;
+  // Revisions first (they wait on the unit), then the longest-waiting.
+  if (f.queue === 'mobility_revision' || f.queue === 'mobility_mine')
+    return tx`(l.status = 'revision_requested') desc, l.mobility_since asc nulls last, l.code`;
   switch (f.sort) {
     case 'start_asc':
       return tx`l.start_date asc, l.code asc`;
@@ -146,4 +154,20 @@ export async function findActivityByCode(
     select id, code, name, status, submitter_unit_name
       from realisasi.v_activity_list where upper(code) = upper(${code}::text) limit 1`;
   return row ?? null;
+}
+
+export interface MobilityRevisionNote {
+  note: string | null;
+  requested_at: string;
+}
+
+/** Latest Mobility "Minta Revisi" note per activity (RLS: IO, or the caller's own/co-unit activities). */
+export async function getMobilityRevisionNotes(tx: Tx, ids: string[]): Promise<Record<string, MobilityRevisionNote>> {
+  if (ids.length === 0) return {};
+  const rows = await tx<Array<MobilityRevisionNote & { activity_id: string }>>`
+    select distinct on (l.activity_id) l.activity_id::text as activity_id, l.note, to_json(l.created_at) #>> '{}' as requested_at
+      from realisasi.activity_log l
+     where l.activity_id = any(${ids}::uuid[]) and l.action = 'request_revision'
+     order by l.activity_id, l.created_at desc, l.id desc`;
+  return Object.fromEntries(rows.map(({ activity_id, ...r }) => [activity_id, r]));
 }

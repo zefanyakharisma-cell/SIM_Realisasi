@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 5 OF 5 (commit 9ceabdb).
+-- SIM Realisasi Supabase install, PART 5 OF 5 (commit 4724f0c).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -90,7 +90,7 @@ grant usage on schema realisasi to authenticated;
 
 grant select on
   realisasi.team_members, realisasi.settings, realisasi.academic_years, realisasi.semesters,
-  realisasi.agendas, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
+  realisasi.agendas, realisasi.renstra_targets, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
   realisasi.activity_documents, realisasi.activity_partner_snapshot, realisasi.activity_sdgs,
   realisasi.activity_external_persons, realisasi.activity_files, realisasi.participant_set_versions,
   realisasi.participant_students, realisasi.participant_staff, realisasi.participant_conflicts, realisasi.activity_log,
@@ -128,7 +128,7 @@ grant execute on function
   realisasi.conflict_list(uuid, text), realisasi.resolve_conflict(bigint, uuid, text),
   realisasi.update_settings(jsonb), realisasi.upsert_academic_year(int, text, date, date),
   realisasi.upsert_semester(int, int, realisasi.semester_term, date, date, date),
-  realisasi.save_agenda(int, jsonb),
+  realisasi.save_agenda(int, jsonb), realisasi.set_renstra_targets(int, text, jsonb),
   realisasi.freeze_snapshot(int, realisasi.snapshot_kind, timestamptz, uuid), realisasi.refreeze_snapshot(uuid, text),
   realisasi.run_daily_jobs(),
   realisasi.mark_notifications_read(bigint[]), realisasi.log_export(text, jsonb, int, boolean),
@@ -312,10 +312,11 @@ on conflict (employee_id) do update set full_name = excluded.full_name, unit_nam
 -- >>> supabase/seed-supabase/03_accounts.sql
 -- seed-supabase/03_accounts (simks-partnership): which REAL SIMKS accounts (public.akun) use SIM Realisasi, and their
 -- verification teams. Written only into realisasi.*; SIMKS roles are untouched. Idempotent: re-running resets these
--- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility).
+-- accounts to the roles below (other account_roles rows are left alone). Revisi V.1: one verification team (Mobility);
+-- every KUI account (Kepala Kantor KUI, Head/Staff of Partnership and Global Alliance) is io_admin (all features).
 --   akun  1 kepala-kui@petra.ac.id          io_admin   (mobility)
---   akun 11 staff-partnership@petra.ac.id   io_staff   (mobility)
---   akun 10 head-partnership@petra.ac.id    io_staff   (mobility)
+--   akun 11 staff-partnership@petra.ac.id   io_admin   (mobility)
+--   akun 10 head-partnership@petra.ac.id    io_admin   (mobility)
 --   akun  3 dekan-sbm@petra.ac.id           submitter  unit 4 (School of Business and Management)
 --   akun  4 kaprodi-manajemen@petra.ac.id   submitter  unit 5 (Program Studi Manajemen)
 --   akun  9 viewer@petra.ac.id              viewer
@@ -331,7 +332,7 @@ begin
 end $$;
 
 insert into realisasi.account_roles (akun_id, app_role, unit_id) values
-  (1, 'io_admin', null), (11, 'io_staff', null), (10, 'io_staff', null),
+  (1, 'io_admin', null), (11, 'io_admin', null), (10, 'io_admin', null),
   (3, 'submitter', 4), (4, 'submitter', 5),
   (9, 'viewer', null), (6, 'viewer', null)
 on conflict (akun_id) do update set app_role = excluded.app_role, unit_id = excluded.unit_id, updated_at = now();

@@ -23,18 +23,19 @@ import {
 } from '@/lib/realisasi/status';
 import type { ActivityStatus, PsetStatus, Team, TrackStatus } from '@/lib/realisasi/types';
 
+/** Signal hues from the PCU Design System (see ui/badge.tsx for the tone → token map). */
 const DOT: Record<Tone, string> = {
-  neutral: 'bg-slate-400',
-  blue: 'bg-blue-600',
-  amber: 'bg-amber-500',
-  green: 'bg-green-600',
-  red: 'bg-red-600',
-  purple: 'bg-purple-600',
-  yellow: 'bg-yellow-500',
+  neutral: 'bg-neutral',
+  blue: 'bg-info',
+  amber: 'bg-pending',
+  green: 'bg-success',
+  red: 'bg-danger',
+  purple: 'bg-renewal',
+  yellow: 'bg-warning',
 };
 
 export function ToneDot({ tone, className }: { tone: Tone; className?: string }) {
-  return <span aria-hidden="true" className={cn('inline-block size-2 shrink-0 rounded-full', DOT[tone], className)} />;
+  return <span aria-hidden="true" className={cn('inline-block size-1.5 shrink-0 rounded-full', DOT[tone], className)} />;
 }
 
 export function StatusBadge({ status, className }: { status: ActivityStatus; className?: string }) {

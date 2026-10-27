@@ -100,12 +100,13 @@ Three collapsible panels, each with a count in the header:
 - Unmatched rows show suggested matches (score) with **Cocokkan**; plus **Ingatkan unit** (disabled + timestamp after sending).
 
 ### 3.8 Laporan & Ekspor
-- Left: report list (Ringkasan KPI, per-KPI drill-down, Daftar kegiatan, Daftar peserta*, Register, Realisasi per kerja sama, SLA verifikasi, Arsip snapshot). *Hidden for roles without access.
+- Left: report list (Ringkasan RENSTRA, Laporan per RENSTRA, International Awards, Realisasi per kerja sama, Arsip snapshot*). *Hidden for roles without access. Daftar kegiatan and Daftar peserta were removed (2026-10-18): the Kegiatan list has its own Excel export, and the RENSTRA 1.1 workbook carries the student sheet.
+- Laporan per RENSTRA: per-unit table Unit · Tingkat · **Target** · Jumlah (Target from Pengaturan → Target RENSTRA; "–" when none); 1.19.S4 shows its target % on the overall card.
 - Right: filters + preview table + **Unduh Excel**.
 - **Arsip snapshot:** timeline of frozen snapshots per academic year; each shows frozen date, by whom/job, superseded state, refreeze reason; download button.
 
 ### 3.9 Pengaturan (io_admin)
-- Tabs: Umum (grace period, reporting deadline, SLA, reminders, duplicate thresholds) · Kalender Akademik (year/semester table with cutoff dates; freeze status per row; **Bekukan sekarang** / **Bekukan ulang**) · Jenis Kegiatan (master grouped by program with Keterangan; add/edit dialog; 1.19.S1 and Aktif toggles; deactivate instead of delete) · Hari Libur.
+- Tabs: Umum (grace period, reporting deadline, SLA, reminders, duplicate thresholds) · Kalender Akademik (year/semester table with cutoff dates; freeze status per row; **Bekukan sekarang** / **Bekukan ulang**) · Jenis Kegiatan (master grouped by program with Keterangan; add/edit dialog; 1.19.S1 and Aktif toggles; deactivate instead of delete) · **Target RENSTRA** (academic year + indicator; one target per unit, unit 0 = Universitas; 1.19.S4 = one university-wide %) · Hari Libur.
 - Changing a setting shows "Berlaku untuk perhitungan live; snapshot yang sudah dibekukan tidak berubah."
 
 ### 3.10 SIM Kerjasama → Realisasi tab

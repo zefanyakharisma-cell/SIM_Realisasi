@@ -202,6 +202,8 @@ export const FLAG_LABEL = {
   out_of_scope: 'Di luar lingkup',
   conflict: 'Duplikat mahasiswa',
   late_addition: 'Tambahan susulan',
+  revision: 'Revisi',
+  waiting: 'Menunggu verifikasi',
 } as const;
 
 export type FlagKey = keyof typeof FLAG_LABEL;
@@ -212,6 +214,8 @@ export const FLAG_TONE: Record<FlagKey, Tone> = {
   out_of_scope: 'neutral',
   conflict: 'purple',
   late_addition: 'blue',
+  revision: 'red',
+  waiting: 'blue',
 };
 
 export const FLAG_DESCRIPTION: Record<FlagKey, string> = {
@@ -219,4 +223,6 @@ export const FLAG_DESCRIPTION: Record<FlagKey, string> = {
   out_of_scope: 'Unit pengaju tidak termasuk dalam Lingkup Kerja Sama dokumen.',
   conflict: 'Ada mahasiswa yang juga diklaim unit lain; menunggu keputusan tim Mobilitas.',
   late_addition: 'Diverifikasi setelah snapshot periode kegiatan dibekukan.',
+  revision: 'KUI meminta revisi; menunggu unit mengirim perbaikan.',
+  waiting: 'Sudah diajukan; menunggu verifikasi tim Mobilitas KUI.',
 };
