@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ACCOUNTS, loginAs } from './helpers';
+import { ACCOUNTS, loginAs, resetDb } from './helpers';
 
 /**
  * WP-VERIFY journeys after Revisi V.1: one verification track (Mobilitas, oldest first), revision with a
@@ -126,11 +126,23 @@ test('Viewer cannot open the verification page; removed pages are gone', async (
   }
 });
 
-test('Pengaturan: Jenis Kegiatan comes from SIM Kerjasama agendas with a mobility category', async ({ page }) => {
+test('Pengaturan: Jenis Kegiatan master grouped by program; IO Admin adds a type', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi/pengaturan?tab=jenis');
-  const rules = page.getByTestId('agenda-rules');
-  await expect(rules.getByTestId('agenda-rule-row').filter({ hasText: 'Student Exchange' }).first()).toBeVisible();
-  await expect(rules.getByLabel('Student Exchange', { exact: true })).toHaveValue('student_exchange');
+  const list = page.getByTestId('agenda-rules');
+  await expect(list.getByRole('heading', { name: 'Student Mobility' })).toBeVisible();
+  await expect(list.getByRole('heading', { name: 'Faculty Mobility' })).toBeVisible();
+  await expect(list.getByTestId('agenda-rule-row')).toHaveCount(9);
+  await expect(list.getByTestId('agenda-rule-row').filter({ hasText: 'Kemitraan Institusional' })).toBeVisible();
   await expect(page.getByTestId('settings-tab-libur')).toHaveCount(0);
+
+  await page.getByTestId('agenda-add').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Nama').fill('Virtual Exchange');
+  await dialog.getByLabel('Program').selectOption('student_mobility');
+  await dialog.getByLabel('Kategori International Awards').selectOption('other_mobility');
+  await dialog.getByRole('button', { name: 'Simpan' }).click();
+  await expect(list.getByTestId('agenda-rule-row')).toHaveCount(10);
+  await expect(list.getByTestId('agenda-rule-row').filter({ hasText: 'Virtual Exchange' })).toBeVisible();
+  if (process.env.E2E_SKIP_DB_RESET !== '1') resetDb();
 });

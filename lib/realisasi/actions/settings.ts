@@ -9,14 +9,14 @@ import { ERROR_MESSAGES, runAction } from '@/lib/realisasi/errors';
 import type { ActionResult, DailyJobsResult, SettingsValues, SnapshotKind } from '@/lib/realisasi/types';
 import {
   academicYearSchema,
-  agendaRuleSchema,
+  agendaSchema,
   demoTodaySchema,
   freezeSchema,
   generalSettingsSchema,
   refreezeSchema,
   semesterSchema,
   type AcademicYearInput,
-  type AgendaRuleInput,
+  type AgendaInput,
   type GeneralSettingsInput,
   type SemesterInput,
 } from '@/lib/realisasi/schemas/settings';
@@ -116,17 +116,17 @@ export async function upsertSemester(input: SemesterInput): Promise<ActionResult
   return res;
 }
 
-/** Jenis Kegiatan rule for one SIMKS agenda: mobility category (or none) and KPI 1.19.S1 flag (Revisi V.1). */
-export async function setAgendaRule(input: AgendaRuleInput): Promise<ActionResult<null>> {
+/** Add (id null) or edit one Jenis Kegiatan: program, name, Keterangan, Awards category, 1.19.S1 flag, active. */
+export async function saveAgenda(input: AgendaInput): Promise<ActionResult<{ id: number }>> {
   const user = await adminUser();
   if (!user) return forbidden();
-  const parsed = agendaRuleSchema.safeParse(input);
+  const parsed = agendaSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
-  const { agenda_id, ...rule } = parsed.data;
+  const { id, ...data } = parsed.data;
   const res = await runAction(() =>
     withUser(user.id, async (tx) => {
-      await tx`select realisasi.set_agenda_rule(${agenda_id}::int, ${tx.json(rule)}::jsonb)`;
-      return null;
+      const [row] = await tx`select realisasi.save_agenda(${id}::int, ${tx.json(data)}::jsonb) as r`;
+      return { id: Number((row!.r as { id: number }).id) };
     }),
   );
   if (res.ok) revalidateAll();

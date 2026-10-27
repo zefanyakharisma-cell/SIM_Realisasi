@@ -29,7 +29,8 @@ import { editVerifiedActivity, saveActivityDraft } from '@/lib/realisasi/actions
 import { formatDate } from '@/lib/realisasi/format';
 import { createDraftSaver } from '@/lib/realisasi/save-queue';
 import { activityDetailSchema, activityDetailSubmitSchema, fieldErrors } from '@/lib/realisasi/schemas/activity';
-import { DIRECTION_LABEL, MODE_LABEL } from '@/lib/realisasi/status';
+import { AGENDA_PROGRAM_LABEL, DIRECTION_LABEL, MODE_LABEL } from '@/lib/realisasi/status';
+import { AGENDA_PROGRAMS } from '@/lib/realisasi/schemas/settings';
 import type { FormOptions } from '@/lib/realisasi/queries/lookups';
 import type { ActivityDetailPayload, ActivityMode, Direction, DocumentOption } from '@/lib/realisasi/types';
 
@@ -126,8 +127,8 @@ function sksError(raw: string): string | null {
   return v === '' || SKS_RE.test(v) ? null : 'SKS harus berupa angka (mis. 2 atau 2,5).';
 }
 
-function toPayload(s: FormState, isMobility: boolean): ActivityDetailPayload {
-  const sks = !isMobility || s.sks_recognized.trim() === '' ? null : Number(s.sks_recognized.replace(',', '.'));
+function toPayload(s: FormState, isStudentMobility: boolean): ActivityDetailPayload {
+  const sks = !isStudentMobility || s.sks_recognized.trim() === '' ? null : Number(s.sks_recognized.replace(',', '.'));
   return {
     name: s.name.trim(),
     agenda_id: Number(s.agenda_id) || 0,
@@ -229,13 +230,15 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
 
   const unitEditable = mode === 'wizard' && activityId === null && lockedUnitId === null;
   const agenda = options.agendas.find((a) => String(a.id) === state.agenda_id) ?? null;
-  const isMobility = agenda?.is_mobility ?? false;
-  const isMobilityRef = useRef(isMobility);
+  // SKS diakui is asked for Student Mobility only
+  const isStudentMobility = agenda?.program === 'student_mobility';
+  const isStudentMobilityRef = useRef(isStudentMobility);
   useEffect(() => {
-    isMobilityRef.current = isMobility;
+    isStudentMobilityRef.current = isStudentMobility;
   });
-  // Peserta / Berkas below depend on the saved Jenis and direction: refresh the page once they are saved.
-  const savedShapeRef = useRef(`${initial?.agenda_id ?? ''}|${initial?.direction ?? ''}`);
+  // Peserta / Berkas / the checklist below depend on the saved Jenis, direction and (Faculty Mobility inbound) whether any
+  // external person is listed: refresh the page once they are saved.
+  const savedShapeRef = useRef(`${initial?.agenda_id ?? ''}|${initial?.direction ?? ''}|${(initial?.external_persons.length ?? 0) > 0}`);
   const period = useMemo(() => derivePeriod(state.start_date, options.academicYears), [state.start_date, options.academicYears]);
   const sdgNames = useMemo(() => Object.fromEntries(options.sdgs.map((s) => [s.id, s.name])), [options.sdgs]);
   const unitOptions = useMemo(
@@ -264,8 +267,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   /** Valid draft payload of the latest state, or null (autosave never sends invalid data). */
   const latestDraftPayload = useCallback((): ActivityDetailPayload | null => {
     const s = stateRef.current;
-    if (isMobilityRef.current && sksError(s.sks_recognized)) return null;
-    const parsed = activityDetailSchema.safeParse(toPayload(s, isMobilityRef.current));
+    if (isStudentMobilityRef.current && sksError(s.sks_recognized)) return null;
+    const parsed = activityDetailSchema.safeParse(toPayload(s, isStudentMobilityRef.current));
     return parsed.success ? parsed.data : null;
   }, []);
 
@@ -297,7 +300,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         return null;
       }
       draftIdRef.current = res.data.id;
-      const shape = `${stateRef.current.agenda_id}|${stateRef.current.direction}`;
+      const shape = `${stateRef.current.agenda_id}|${stateRef.current.direction}|${stateRef.current.external_persons.length > 0}`;
       if (mode === 'wizard' && activityId && out.upToDate && shape !== savedShapeRef.current) {
         savedShapeRef.current = shape;
         router.refresh();
@@ -348,8 +351,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
 
   function validate(strict: boolean): ActivityDetailPayload | null {
     const schema = strict ? activityDetailSubmitSchema : activityDetailSchema;
-    const parsed = schema.safeParse(toPayload(state, isMobility));
-    const sks = isMobility ? sksError(state.sks_recognized) : null;
+    const parsed = schema.safeParse(toPayload(state, isStudentMobility));
+    const sks = isStudentMobility ? sksError(state.sks_recognized) : null;
     if (!parsed.success || sks) {
       const errs = parsed.success ? {} : fieldErrors(parsed.error);
       showErrors(sks ? { ...errs, sks_recognized: sks } : errs, 'Periksa kembali isian yang ditandai.');
@@ -501,29 +504,25 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
             required
             {...aria('agenda_id', 'f-type-helper')}
           >
-            <optgroup label="Mobilitas mahasiswa">
-              {options.agendas
-                .filter((a) => a.is_mobility && (a.is_active || String(a.id) === state.agenda_id))
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </optgroup>
-            <optgroup label="Kegiatan lainnya">
-              {options.agendas
-                .filter((a) => !a.is_mobility && (a.is_active || String(a.id) === state.agenda_id))
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </optgroup>
+            {AGENDA_PROGRAMS.map((program) => {
+              const shown = options.agendas.filter(
+                (a) => a.program === program && (a.is_active || String(a.id) === state.agenda_id),
+              );
+              return shown.length === 0 ? null : (
+                <optgroup key={program} label={AGENDA_PROGRAM_LABEL[program]}>
+                  {shown.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </NativeSelect>
           <p id="f-type-helper" className="text-xs text-muted-foreground" data-testid="type-helper">
             {agenda
-              ? agendaHelper(agenda)
-              : 'Daftar mengikuti Agenda Kerja Sama di SIM Kerjasama. Pilih jenis untuk melihat kewajiban data peserta.'}
+              ? agendaHelper(agenda, (state.direction || null) as Direction | null)
+              : 'Student Mobility untuk mobilitas mahasiswa, Faculty Mobility untuk dosen/staf. Pilih jenis untuk melihat kewajiban data peserta.'}
           </p>
           {fieldError('agenda_id')}
         </div>
@@ -681,7 +680,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         )}
 
         {/* Revisi V.1 item 5: SKS diakui only for mobility kegiatan */}
-        {isMobility && (
+        {isStudentMobility && (
           <div className="space-y-1.5" data-testid="sks-field">
             <Label htmlFor="f-sks_recognized">SKS diakui</Label>
             <Input
@@ -748,7 +747,11 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         <h2 id="sec-persons" className="text-base font-semibold">
           Pembicara / Dosen Asing / Tamu
         </h2>
-        <p className="text-sm text-muted-foreground">Dicatat sebagai pelengkap laporan; tidak dihitung pada RENSTRA 1.1.</p>
+        <p className="text-sm text-muted-foreground">
+          {agenda?.program === 'faculty_mobility' && state.direction === 'inbound'
+            ? 'Wajib minimal satu tamu untuk Faculty Mobility inbound. Tidak dihitung pada RENSTRA 1.1.'
+            : 'Dicatat sebagai pelengkap laporan; tidak dihitung pada RENSTRA 1.1.'}
+        </p>
         <div id="f-external_persons">
           <ExternalPersons
             rows={state.external_persons}

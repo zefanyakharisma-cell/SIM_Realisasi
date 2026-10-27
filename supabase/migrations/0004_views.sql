@@ -50,8 +50,8 @@ select a.chain_id, a.chain_start, a.chain_end, a.auto_renewed,
   left join prt on prt.chain_id = a.chain_id;
 
 create view realisasi.v_activity_list with (security_invoker = true) as
-select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, a.direction,
-       r.mobility_category, (r.mobility_category is not null) as is_mobility,
+select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, ag.program as agenda_program, a.direction,
+       ag.mobility_category, (ag.program <> 'other') as is_mobility,
        a.start_date, a.end_date, a.academic_year_id, ay.label as ay_label,
        a.semester_id, case when s.id is null then null else initcap(s.term::text) || ' ' || ay.label end as semester_label,
        a.mode, a.status, a.mobility_status, a.mobility_since,
@@ -67,8 +67,7 @@ select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, a.direction,
        coalesce(d.out_of_scope, false) as out_of_scope,
        realisasi.activity_open_conflicts(a.id) as open_conflicts
   from realisasi.activities a
-  left join kerjasama.agendas ag on ag.id = a.agenda_id
-  left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+  left join realisasi.agendas ag on ag.id = a.agenda_id
   left join realisasi.academic_years ay on ay.id = a.academic_year_id
   left join realisasi.semesters s on s.id = a.semester_id
   left join kerjasama.units su on su.id = a.submitter_unit_id

@@ -16,7 +16,7 @@ select pg_temp.ok(to_regprocedure(f) is not null and has_function_privilege('aut
     'realisasi.resolve_conflict(bigint,uuid,text)', 'realisasi.update_settings(jsonb)',
     'realisasi.upsert_academic_year(integer,text,date,date)',
     'realisasi.upsert_semester(integer,integer,realisasi.semester_term,date,date,date)',
-    'realisasi.set_agenda_rule(integer,jsonb)',
+    'realisasi.save_agenda(integer,jsonb)',
     'realisasi.freeze_snapshot(integer,realisasi.snapshot_kind,timestamp with time zone,uuid)',
     'realisasi.refreeze_snapshot(uuid,text)', 'realisasi.run_daily_jobs()',
     'realisasi.mark_notifications_read(bigint[])', 'realisasi.log_export(text,jsonb,integer,boolean)',
@@ -37,7 +37,7 @@ select pg_temp.ok(to_regprocedure(f) is not null, 'helper ' || f)
     'realisasi.can_view_participants(uuid)', 'realisasi._is_unit_editor(uuid)', 'realisasi.in_frozen_period(uuid)',
     'realisasi.is_late_addition(uuid)', 'realisasi._log(uuid,realisasi.log_kind,realisasi.team,text,text,jsonb)',
     'realisasi._notify(uuid,text,text,text,text)', 'realisasi._scan_conflicts(uuid)', 'realisasi._rederive_periods()',
-    'realisasi.agenda_is_mobility(integer)', 'realisasi.activity_open_conflicts(uuid)',
+    'realisasi.agenda_is_mobility(integer)', 'realisasi.agenda_program(integer)', 'realisasi.activity_open_conflicts(uuid)',
     'realisasi.kpi_items(date,date,date,integer,timestamp with time zone,integer)',
     'realisasi.compute_kpis(date,date,date,integer,timestamp with time zone,integer)',
     'realisasi.kpi_1_1(date,date)', 'realisasi.kpi_1_19_s1(date,date)', 'realisasi.kpi_1_19_24(date,date,integer)']) f;
@@ -74,8 +74,8 @@ select pg_temp.ok(not has_table_privilege('authenticated', t, 'SELECT'), 'no sel
   from unnest(array['realisasi.file_blobs', 'realisasi.job_marks', 'mock_baak.students', 'mock_hr.employees']) t;
 select pg_temp.ok(has_table_privilege('authenticated', t, 'SELECT'), 'select granted on ' || t)
   from unnest(array['realisasi.v_activity_list', 'realisasi.v_chains', 'realisasi.v_activity_documents',
-                    'realisasi.participant_conflicts', 'realisasi.agenda_rules', 'realisasi.activities', 'realisasi.kpi_snapshots',
-                    'kerjasama.documents', 'kerjasama.agendas']) t;
+                    'realisasi.participant_conflicts', 'realisasi.agendas', 'realisasi.activities', 'realisasi.kpi_snapshots',
+                    'kerjasama.documents']) t;
 select pg_temp.ok((select reloptions from pg_class where oid = v::regclass) @> array['security_invoker=true'], 'security_invoker ' || v)
   from unnest(array['realisasi.v_activity_documents','realisasi.v_activity_list']) v;
 
@@ -99,8 +99,11 @@ select pg_temp.eq((select count(*) from mock_hr.employees), 25::bigint, '25 empl
 select pg_temp.eq((select count(*) from mock_hr.employees where status = 'inactive'), 2::bigint, '2 inactive employees');
 select pg_temp.ok((select bool_and(employee_id ~ '^PG[0-9]{6}$') from mock_hr.employees), 'employee id format');
 select pg_temp.eq((select count(*) from kerjasama.profiles), 8::bigint, '8 demo accounts');
-select pg_temp.eq((select count(*) from kerjasama.agendas), 81::bigint, '81 SIMKS agendas as Jenis Kegiatan (amendment excluded)');
-select pg_temp.eq((select count(*) from realisasi.agenda_rules where mobility_category is not null), 14::bigint, '14 mobility agendas');
+select pg_temp.eq((select count(*) from realisasi.agendas), 9::bigint, '9 Jenis Kegiatan (IO list)');
+select pg_temp.eq((select count(*) from realisasi.agendas where program = 'student_mobility' and mobility_category is not null), 4::bigint,
+                  '4 Student Mobility types, each with its Awards category');
+select pg_temp.eq((select count(*) from realisasi.agendas where program = 'faculty_mobility' and mobility_category is null), 5::bigint,
+                  '5 Faculty Mobility types');
 select pg_temp.eq((select count(*) from realisasi.sdgs), 17::bigint, '17 SDGs');
 select pg_temp.eq((select count(*) from realisasi.activities), 34::bigint, '34 seeded activities (S-01…S-34 + S-15b + S-20b, S-18 reused)');
 select pg_temp.eq((select count(*) from realisasi.participant_conflicts), 14::bigint, '14 seeded conflicts (12 resolved, 2 open)');
@@ -113,10 +116,14 @@ select pg_temp.ok((select bool_and(substring(data from 1 for 5) = '\x255044462d'
 select pg_temp.ok((select count(*) = 33 from realisasi.activities a where exists (select 1 from realisasi.activity_files f where f.activity_id = a.id and f.kind = 'ir')),
                   'all but the draft S-23 have an IR');
 select pg_temp.ok((select bool_and(exists (select 1 from realisasi.activity_files f where f.activity_id = a.id and f.kind = 'mobility_bundle'))
-                     from realisasi.activities a where a.status <> 'draft' and realisasi.agenda_is_mobility(a.agenda_id)),
-                  'every submitted mobility kegiatan has its bundle PDF');
-select pg_temp.eq((select count(*) from realisasi.activities where status = 'verified' and not realisasi.agenda_is_mobility(agenda_id)
-                      and mobility_status <> 'not_required'), 0::bigint, 'non-mobility kegiatan never wait for verification');
+                     from realisasi.activities a where a.status <> 'draft' and realisasi.agenda_program(a.agenda_id) = 'student_mobility'),
+                  'every submitted student mobility kegiatan has its bundle PDF');
+select pg_temp.eq((select count(*) from realisasi.activities a where a.status = 'verified' and realisasi.agenda_program(a.agenda_id) = 'faculty_mobility'
+                      and not (case when a.direction = 'outbound'
+                                    then exists (select 1 from realisasi.participant_set_versions v join realisasi.participant_staff s on s.set_version_id = v.id
+                                                  where v.activity_id = a.id and v.status = 'approved')
+                                    else exists (select 1 from realisasi.activity_external_persons e where e.activity_id = a.id) end)),
+                  0::bigint, 'every verified Faculty Mobility kegiatan has its staff (outbound) or external person (inbound)');
 
 -- auth.uid() follows the JWT claims (also with an empty claims GUC)
 :as_fti

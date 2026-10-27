@@ -48,13 +48,25 @@ export type SemesterInput = z.infer<typeof semesterSchema>;
 
 export const MOBILITY_CATEGORIES = ['jd_dd', 'student_exchange', 'short_summer', 'other_mobility'] as const;
 
-/** Jenis Kegiatan rule for one SIMKS agenda (`set_agenda_rule`). */
-export const agendaRuleSchema = z.object({
-  agenda_id: z.number().int().positive(),
-  mobility_category: z.enum(MOBILITY_CATEGORIES).nullable(),
-  counts_for_s1: z.boolean(),
-});
-export type AgendaRuleInput = z.infer<typeof agendaRuleSchema>;
+export const AGENDA_PROGRAMS = ['student_mobility', 'faculty_mobility', 'other'] as const;
+
+/** One Jenis Kegiatan (`save_agenda`); id null adds a new one. Student Mobility needs its Awards category. */
+export const agendaSchema = z
+  .object({
+    id: z.number().int().positive().nullable(),
+    name: z.string().trim().min(1, 'Nama jenis kegiatan wajib diisi.').max(200),
+    program: z.enum(AGENDA_PROGRAMS),
+    description: z.string().trim().max(2000).nullable(),
+    mobility_category: z.enum(MOBILITY_CATEGORIES).nullable(),
+    counts_for_s1: z.boolean(),
+    sort_order: z.number().int().min(0),
+    is_active: z.boolean(),
+  })
+  .refine((v) => v.program !== 'student_mobility' || v.mobility_category !== null, {
+    message: 'Pilih kategori International Awards untuk Student Mobility.',
+    path: ['mobility_category'],
+  });
+export type AgendaInput = z.infer<typeof agendaSchema>;
 
 export const refreezeSchema = z.object({
   snapshot_id: z.string().uuid(),

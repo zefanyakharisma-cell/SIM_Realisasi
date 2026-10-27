@@ -9,7 +9,7 @@ create function pg_temp.id(p_k text) returns uuid language sql as $$ select id f
 create function pg_temp.new_mobility(p_unit int, p_start date, p_end date, p_nrps text[]) returns uuid language plpgsql as $$
 declare v uuid; k text; v_path text;
 begin
-  v := realisasi.save_activity_draft(null, jsonb_build_object('name', 'Uji konflik ' || p_unit || ' ' || p_start, 'agenda_id', 23,
+  v := realisasi.save_activity_draft(null, jsonb_build_object('name', 'Uji konflik ' || p_unit || ' ' || p_start, 'agenda_id', 3,
          'direction', 'outbound', 'start_date', p_start, 'end_date', p_end, 'mode', 'offline', 'venue', 'Nanyang Polytechnic',
          'country_code', 'SG', 'description', 'Uji', 'submitter_unit_id', p_unit, 'document_id', 113));
   perform realisasi.save_participants(v, (select jsonb_agg(jsonb_build_object('section', 'internal', 'nrp', n)) from unnest(p_nrps) n), '[]');
@@ -100,7 +100,7 @@ select realisasi.submit_activity(pg_temp.id('x'));
 reset role;
 select pg_temp.ok(not exists (select 1 from realisasi.participant_conflicts where pg_temp.id('x') in (activity_a, activity_b)),
                   'open conflict dropped when the student is removed');
--- non-mobility kegiatan never take part
+-- only Student Mobility kegiatan claim students
 select pg_temp.ok(not exists (select 1 from realisasi.participant_conflicts c join realisasi.activities a on a.id in (c.activity_a, c.activity_b)
-                               where not realisasi.agenda_is_mobility(a.agenda_id)), 'only mobility kegiatan');
+                               where realisasi.agenda_program(a.agenda_id) <> 'student_mobility'), 'only student mobility kegiatan');
 rollback;

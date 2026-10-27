@@ -111,7 +111,7 @@ select pg_temp.eq((select count(*) from realisasi.notifications where recipient_
 -- admin settings / calendar RPCs are io_admin only
 :as_part
 select pg_temp.throws($$select realisasi.update_settings('{"revision_reminder_days": 2}')$$, 'AUTH_FORBIDDEN', 'settings admin only');
-select pg_temp.throws($$select realisasi.set_agenda_rule(2, '{"mobility_category": null}')$$, 'AUTH_FORBIDDEN', 'agenda rules admin only');
+select pg_temp.throws($$select realisasi.save_agenda(2, '{"is_active": false}')$$, 'AUTH_FORBIDDEN', 'Jenis Kegiatan master admin only');
 select pg_temp.throws($$select realisasi.run_daily_jobs()$$, 'AUTH_FORBIDDEN', 'jobs admin only');
 :as_admin
 select pg_temp.throws($$select realisasi.update_settings('{"bogus": 1}')$$, 'SETTINGS_INVALID', 'unknown setting key');
@@ -128,11 +128,21 @@ select pg_temp.eq((select count(*) from realisasi.semesters s join _ay on s.acad
 select pg_temp.eq((select cutoff_date from realisasi.semesters s join realisasi.academic_years ay on ay.id = s.academic_year_id where ay.label = '2027/2028' and term = 'ganjil'),
                   '2028-03-01'::date, 'Ganjil end + 30 cutoff');
 select pg_temp.throws($$select realisasi.upsert_semester(1, 1, 'ganjil', '2025-08-01', '2026-02-15', '2026-02-10')$$, 'CAL_INVALID_RANGE', 'cutoff >= end');
--- Jenis Kegiatan rules over SIMKS agendas (Revisi V.1)
-select pg_temp.eq(realisasi.set_agenda_rule(27, '{"mobility_category":"short_summer"}') ->> 'mobility_category', 'short_summer', 'Academic Visit becomes mobility');
-select pg_temp.ok(realisasi.agenda_is_mobility(27), 'agenda_is_mobility follows the rule');
-select pg_temp.eq(realisasi.set_agenda_rule(27, '{"mobility_category":null,"counts_for_s1":false}') -> 'counts_for_s1', 'false'::jsonb, 'rule cleared, S1 off');
-select pg_temp.ok(not realisasi.agenda_is_mobility(27), 'no longer mobility');
-select pg_temp.throws($$select realisasi.set_agenda_rule(27, '{"mobility_category":"space_travel"}')$$, 'VALIDATION_INVALID', 'unknown category');
-select pg_temp.throws($$select realisasi.set_agenda_rule(1, '{"mobility_category":null}')$$, 'NOT_FOUND', 'amendment agenda is not a Jenis');
+-- Jenis Kegiatan master (realisasi.agendas): add, edit, deactivate
+create temp table _ag as select (realisasi.save_agenda(null, '{"name":"Virtual Exchange","program":"student_mobility",
+  "mobility_category":"other_mobility","description":"Uji tambah jenis"}') ->> 'id')::int as id;
+select pg_temp.ok((select program = 'student_mobility' and mobility_category = 'other_mobility' and is_active and counts_for_s1
+                          and sort_order = 10 and updated_by = auth.uid()
+                     from realisasi.agendas where id = (select id from _ag)), 'new Jenis added (active, S1 on, sorted last)');
+select pg_temp.ok(realisasi.agenda_is_mobility((select id from _ag)), 'student type is a mobility kegiatan');
+select pg_temp.throws($$select realisasi.save_agenda(null, '{"name":"student exchange","program":"other"}')$$, 'AGENDA_NAME_TAKEN', 'names are unique (case-insensitive)');
+select pg_temp.throws($$select realisasi.save_agenda(null, '{"name":"Tanpa Kategori","program":"student_mobility"}')$$, 'VALIDATION_INVALID',
+                      'student mobility needs a category');
+select pg_temp.throws($$select realisasi.save_agenda(null, '{"name":"Uji","program":"space_travel"}')$$, 'VALIDATION_INVALID', 'unknown program');
+select pg_temp.throws($$select realisasi.save_agenda(2, '{"mobility_category":"space_travel"}')$$, 'VALIDATION_INVALID', 'unknown category');
+select pg_temp.eq(realisasi.save_agenda((select id from _ag), '{"program":"other","counts_for_s1":false}') -> 'mobility_category', 'null'::jsonb,
+                  'leaving Student Mobility clears the category');
+select pg_temp.ok(not realisasi.agenda_is_mobility((select id from _ag)), 'other = not a mobility kegiatan');
+select pg_temp.eq(realisasi.save_agenda(9, '{"is_active":false}') -> 'is_active', 'false'::jsonb, 'deactivate (never delete)');
+select pg_temp.throws($$select realisasi.save_agenda(424242, '{"is_active":true}')$$, 'NOT_FOUND', 'unknown Jenis');
 rollback;

@@ -101,10 +101,8 @@ select pg_temp.throws($$select realisasi.save_activity_draft(null, '{"name":"x"}
 reset role;
 update public.akun set is_active = true where id = 4;
 
--- ---- Revisi V.1: agendas (Jenis Kegiatan) and Unit Akademik ---------------------------------------------------------
-select pg_temp.eq((select count(*) from kerjasama.agendas), (select count(*) from public.agenda where not is_amendment), 'agendas = SIMKS agenda minus amendment');
-select pg_temp.eq((select name from kerjasama.agendas where id = 23), 'Short Program', 'agenda name');
-select pg_temp.ok(not (select is_active from kerjasama.agendas where id = 3), 'inactive agenda flagged');
+-- ---- Unit Akademik (Revisi V.1); Jenis Kegiatan is Realisasi's own list, not SIMKS's Agenda Kerjasama ----------------
+select pg_temp.ok(to_regclass('kerjasama.agendas') is null, 'no adapter view over SIMKS agenda');
 select pg_temp.eq((select array_agg(id order by id) from kerjasama.units where is_academic),
                   (select array_agg(id order by id) from public.unit where id_jenis_unit = 1), 'is_academic = jenis_unit 1');
 select pg_temp.ok(not (select is_academic from kerjasama.units where id = 2), 'International Office is not academic');
@@ -122,7 +120,7 @@ select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.paylo
                       'alpha-3 country code rejected (alpha-2 only)');
 select pg_temp.ok(realisasi.save_activity_draft(null, pg_temp.payload()) is not null, 'valid ids accepted');
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":424242}'))$$, 'VALIDATION_INVALID',
-                      'unknown agenda rejected without an FK');
+                      'unknown Jenis Kegiatan rejected');
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"document_id":424242}'))$$, 'R04_AGREEMENT_NOT_VALID',
                       'unknown document rejected');
 reset role;
@@ -143,10 +141,10 @@ select pg_temp.ok(not has_table_privilege('authenticated', t, 'SELECT'), 'no gra
   from unnest(array['kerjasama.iso3166', 'realisasi.account_roles', 'realisasi.document_overrides']) t;
 select pg_temp.ok(not has_table_privilege('anon', 'kerjasama.' || v, 'SELECT') and has_table_privilege('authenticated', 'kerjasama.' || v, 'SELECT'),
                   'kerjasama.' || v || ': authenticated only')
-  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles','agendas']) v;
+  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles']) v;
 select pg_temp.ok(not coalesce((select reloptions from pg_class where oid = ('kerjasama.' || v)::regclass) @> array['security_invoker=true'], false),
                   'kerjasama.' || v || ' reads with the owner''s rights')
-  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles','agendas']) v;
+  from unnest(array['units','countries','partners','documents','document_partners','document_scope_units','profiles']) v;
 create temp table _cnt as
 select (select count(*) from public.dokumen_kerja_sama) d, (select count(*) from public.unit) u, (select count(*) from public.partner) p;
 grant select on _cnt to authenticated;

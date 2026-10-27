@@ -75,7 +75,7 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
     return <Forbidden />;
   }
 
-  const required = participantRequirements({ is_mobility: detail.agenda.is_mobility, direction: detail.direction });
+  const required = participantRequirements({ program: detail.agenda.program, direction: detail.direction });
 
   // SaveStatusProvider links the editors to "Ajukan ulang": unsaved Detail edits block it and
   // pending participant edits are flushed before submitting (frontend review M-1).
@@ -100,8 +100,8 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
                 Detail
               </h2>
               <p className="text-sm text-muted-foreground">
-                Setiap penyimpanan dicatat di Riwayat. Bila Jenis diubah menjadi kegiatan non-mobilitas, kegiatan langsung tercatat saat
-                diajukan ulang.
+                Setiap penyimpanan dicatat di Riwayat. Mengubah Jenis Kegiatan dapat mengubah data wajib (peserta mahasiswa, staf PETRA,
+                atau tamu eksternal).
               </p>
               <DetailForm
                 mode="revision"
@@ -117,7 +117,7 @@ export default async function RevisionPage(props: { params: Promise<{ id: string
               <h2 id="rev-files" className="text-lg font-semibold">
                 Berkas
               </h2>
-              <FilesEditor activityId={detail.id} files={detail.files} isMobility={detail.agenda.is_mobility} />
+              <FilesEditor activityId={detail.id} files={detail.files} isMobility={detail.agenda.program === 'student_mobility'} />
             </section>
           </>
         )}

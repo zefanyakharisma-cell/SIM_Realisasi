@@ -13,11 +13,11 @@ select pg_temp.eq(count(*), 1::bigint, 'S-21 counted once') from realisasi.kpi_i
 select pg_temp.eq(bucket, 'domestic', 'S-22 domestic (UGM)') from realisasi.kpi_items('2026-08-01', '2026-10-01', '2026-10-01', 2)
  where kpi_code = '1.19.S1' and activity_id = pg_temp.aid(22);
 select pg_temp.eq(realisasi.kpi_1_19_s1('2026-08-01', '2026-10-01'), 9::bigint, 'Schema wrapper kpi_1_19_s1');
--- agenda rule counts_for_s1 = false excludes that Jenis
-insert into realisasi.agenda_rules (agenda_id, counts_for_s1) values (4, false);
+-- counts_for_s1 = false on a Jenis Kegiatan excludes it
+update realisasi.agendas set counts_for_s1 = false where id = 5;
 select pg_temp.eq((realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) #>> '{kpi_1_19_s1,international}')::int, 7,
-                  'counts_for_s1=false excludes Joint Research (S-09, S-27)');
-delete from realisasi.agenda_rules where agenda_id = 4;
+                  'counts_for_s1=false excludes Kolaborasi dan Hibah Global (S-09, S-27)');
+update realisasi.agendas set counts_for_s1 = true where id = 5;
 -- no S8 left anywhere
 select pg_temp.ok(not (realisasi.compute_kpis('2026-08-01', '2026-10-01', '2026-10-01', 2) ? 'kpi_1_19_s8'), 'no KPI 1.19.S8 in values');
 select pg_temp.eq(count(*), 0::bigint, 'no S8 items') from realisasi.kpi_items('2025-08-01', '2027-07-31', '2027-07-31', null) where kpi_code = '1.19.S8';

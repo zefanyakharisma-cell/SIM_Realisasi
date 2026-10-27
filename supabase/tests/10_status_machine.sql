@@ -31,7 +31,7 @@ select pg_temp.eq(count(*), 3::bigint, 'S-18, S-29, S-30 in_verification') from 
 select pg_temp.ok(not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
                                where t.typname = 'activity_status' and e.enumlabel = 'rejected'), 'no rejected status any more');
 
--- ---- Non-mobility kegiatan: verified on submit (Revisi V.1 item 9) ---------------------------------------------------
+-- ---- Faculty Mobility: inbound needs an external person, Mobility track, no bundle (S-23 = Eksposur, inbound draft) --
 :as_fsd
 select pg_temp.eq(realisasi.save_activity_draft(pg_temp.aid(23), '{"end_date":"2026-08-14"}'), pg_temp.aid(23), 'S-23 draft editable');
 reset role;
@@ -39,9 +39,18 @@ insert into realisasi.file_blobs (path, bucket, data, mime, size_bytes, created_
 values ('realisasi-files/' || pg_temp.aid(23) || '/ir/t.pdf', 'realisasi-files', '\x255044462d312e340a'::bytea, 'application/pdf', 9, :'FSD');
 :as_fsd
 select realisasi.register_activity_file(pg_temp.aid(23), 'ir', 'realisasi-files/' || pg_temp.aid(23) || '/ir/t.pdf', 'IR.pdf', 9, 'application/pdf');
-select pg_temp.eq(realisasi.submit_activity(pg_temp.aid(23)) ->> 'status', 'verified', 'non-mobility submit -> verified');
-select pg_temp.ok(verified_at = realisasi.now_ts() and mobility_status = 'not_required', 'R-28 verified_at set on submit, no Mobility track')
+select pg_temp.throws($$select realisasi.submit_activity(pg_temp.aid(23))$$, 'R11_PARTICIPANTS_REQUIRED', 'Faculty inbound without a guest blocked');
+select pg_temp.eq((select string_agg(c ->> 'code', ',' order by c ->> 'code') from jsonb_array_elements(realisasi.submission_checklist(pg_temp.aid(23))) c
+                    where not (c ->> 'ok')::boolean), 'R11_PARTICIPANTS_REQUIRED,R12_INBOUND_GUEST_REQUIRED', 'only the guest is missing (no bundle, no staff)');
+select realisasi.save_activity_draft(pg_temp.aid(23),
+  '{"external_persons":[{"full_name":"Dr. Emily Carter","institution":"The University of Queensland","country_code":"AU","role":"visiting_lecturer"}]}');
+select pg_temp.eq(realisasi.submit_activity(pg_temp.aid(23)) ->> 'status', 'in_verification', 'Faculty submit -> Mobility queue');
+select pg_temp.eq(mobility_status::text, 'pending', 'Mobility track pending') from realisasi.activities where id = pg_temp.aid(23);
+:as_mob
+select pg_temp.eq(realisasi.mobility_approve(pg_temp.aid(23)) ->> 'status', 'verified', 'approved without a participant set (guest only)');
+select pg_temp.ok(verified_at = realisasi.now_ts() and mobility_status = 'approved', 'R-28 verified_at set on approval')
   from realisasi.activities where id = pg_temp.aid(23);
+:as_fsd
 select pg_temp.ok(exists (select 1 from realisasi.notifications where recipient_id = :'FSD' and kind = 'activity_verified'
                             and title like '%RL-2026-0023'), 'unit notified');
 select pg_temp.throws($$select realisasi.submit_activity(pg_temp.aid(23))$$, 'STATE_INVALID', 'cannot resubmit a verified activity');
@@ -109,9 +118,11 @@ select pg_temp.ok((select array_agg(nrp order by nrp) from realisasi.participant
 :as_fti
 select pg_temp.throws($$select realisasi.ensure_participant_draft(pg_temp.aid(16))$$, 'STATE_INVALID', 'v1/v2 read-only for unit after verification');
 
--- a revision that turns the kegiatan into a non-mobility one is verified on resubmit
+-- a revision that turns the kegiatan into a non-mobility one ('other' Jenis, added by IO Admin) is verified on resubmit
+reset role;
+insert into realisasi.agendas (id, program, name, sort_order) values (100, 'other', 'Uji Non-Mobilitas', 100);
 :as_fsd
-select realisasi.save_activity_draft(pg_temp.aid(29), '{"agenda_id": 15}');
+select realisasi.save_activity_draft(pg_temp.aid(29), '{"agenda_id": 100}');
 select pg_temp.eq(realisasi.submit_activity(pg_temp.aid(29)) ->> 'status', 'verified', 'Jenis changed to non-mobility -> verified on resubmit');
 select pg_temp.eq(mobility_status::text, 'not_required', 'Mobility track no longer required') from realisasi.activities where id = pg_temp.aid(29);
 

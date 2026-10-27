@@ -7,7 +7,7 @@ import {
   getSettingsMap,
   getSnapshotList,
   listAcademicYears,
-  listAgendaRules,
+  listAgendas,
   listSemesters,
 } from '@/lib/realisasi/queries/reports';
 import { GENERAL_SETTING_FIELDS, type GeneralSettingsInput } from '@/lib/realisasi/schemas/settings';
@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/realisasi/page-header';
 import { Forbidden } from '@/components/realisasi/forbidden';
 import { DemoTodayCard, GeneralSettingsForm, LIVE_NOTICE } from '@/components/realisasi/settings/general-settings';
 import { CalendarManager } from '@/components/realisasi/settings/calendar-manager';
-import { AgendaRulesManager } from '@/components/realisasi/settings/agenda-rules';
+import { AgendaManager } from '@/components/realisasi/settings/agenda-manager';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -56,8 +56,7 @@ export default async function PengaturanPage(props: { searchParams: Promise<Reco
         return <CalendarManager years={years} semesters={semesters} snapshots={snapshots} today={today} />;
       }
       case 'jenis': {
-        const rules = await listAgendaRules(tx);
-        return <AgendaRulesManager rules={rules} />;
+        return <AgendaManager agendas={await listAgendas(tx)} />;
       }
     }
   });

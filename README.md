@@ -1,8 +1,8 @@
 # SIM Realisasi
 
 Management information system for the realization (implementation) of Petra Christian University's
-MoUs/MoAs: one-page activity submission (Jenis Kegiatan from SIM Kerjasama's Agenda Kerjasama, IA + IR, one PDF of
-transcripts/poster/documentation for mobility), Mobility verification with duplicate-student decisions, the RENSTRA
+MoUs/MoAs: one-page activity submission (Jenis Kegiatan from IO's Student / Faculty Mobility list, IA + IR, one PDF of
+transcripts/poster/documentation for student mobility), Mobility verification with duplicate-student decisions, the RENSTRA
 indicators (1.1, 1.19.S1, 1.19.24) with drill-down, the International Awards leaderboards, four period cut-offs
 (Ganjil, Genap, Setahun kumulatif, YTD), semester freezes, and Excel export of every report. Mockup build per the
 specs in [`docs/spec/`](docs/spec/) (Rules.md is authoritative; it includes the Revisi V.1 changes).

@@ -51,7 +51,10 @@ begin
   if a.mobility_status <> 'pending' then perform realisasi._track_not_pending(); end if;
   select id into v_ver from realisasi.participant_set_versions
    where activity_id = p_activity and status = 'pending' order by version desc limit 1;
-  if v_ver is null then perform realisasi._state_invalid(); end if;
+  -- an inbound Faculty Mobility kegiatan may have only external persons (no participant set)
+  if v_ver is null and realisasi.agenda_program(a.agenda_id) is distinct from 'faculty_mobility' then
+    perform realisasi._state_invalid();
+  end if;
   -- Revisi V.1 rule 2.1: a student claimed by another unit must be assigned first
   if realisasi.activity_open_conflicts(p_activity) > 0 then
     perform realisasi._raise('CONFLICT_OPEN',
@@ -77,7 +80,10 @@ begin
   if nullif(btrim(p_note), '') is null then perform realisasi._raise('R27_NOTE_REQUIRED', 'Catatan revisi wajib diisi.'); end if;
   select id into v_ver from realisasi.participant_set_versions
    where activity_id = p_activity and status = 'pending' order by version desc limit 1;
-  if v_ver is null then perform realisasi._state_invalid(); end if;
+  -- an inbound Faculty Mobility kegiatan may have only external persons (no participant set)
+  if v_ver is null and realisasi.agenda_program(a.agenda_id) is distinct from 'faculty_mobility' then
+    perform realisasi._state_invalid();
+  end if;
   update realisasi.participant_set_versions
      set status = 'revision_requested', reviewed_by = v_uid, reviewed_at = realisasi.now_ts(), review_note = btrim(p_note)
    where id = v_ver;
@@ -92,10 +98,20 @@ end $$;
 -- direction changes after verification, M1, and by commit_participant_edit)
 create function realisasi._check_pset_for_activity(p_version uuid, p_activity uuid) returns void
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare a realisasi.activities;
+declare a realisasi.activities; v_prog realisasi.agenda_program;
 begin
   select * into a from realisasi.activities where id = p_activity;
-  if not realisasi.agenda_is_mobility(a.agenda_id) then return; end if;
+  v_prog := realisasi.agenda_program(a.agenda_id);
+  if v_prog = 'faculty_mobility' then
+    if a.direction = 'outbound' and not exists (select 1 from realisasi.participant_staff where set_version_id = p_version) then
+      perform realisasi._raise('R12_OUTBOUND_STAFF_REQUIRED', 'Kegiatan Faculty Mobility outbound wajib memiliki minimal satu dosen/staf PETRA.');
+    end if;
+    if a.direction = 'inbound' and not exists (select 1 from realisasi.activity_external_persons where activity_id = p_activity) then
+      perform realisasi._raise('R12_INBOUND_GUEST_REQUIRED', 'Kegiatan Faculty Mobility inbound wajib memiliki minimal satu tamu eksternal.');
+    end if;
+    return;
+  end if;
+  if v_prog is distinct from 'student_mobility' then return; end if;
   if coalesce(realisasi._pset_rows(p_version), 0) = 0 then
     perform realisasi._raise('R11_PARTICIPANTS_REQUIRED', 'Kegiatan mobilitas wajib memiliki data peserta.');
   end if;
@@ -134,8 +150,8 @@ begin
   if (select academic_year_id from realisasi.activities where id = p_id) is null then
     perform realisasi._raise('R09_NO_ACADEMIC_YEAR', 'Tanggal mulai berada di luar tahun akademik yang terdaftar. Hubungi Admin IO.');
   end if;
-  -- M1: a Jenis/direction change must still satisfy R-11/R-12 with the approved participant set
-  if (v_res -> 'diff') ?| array['agenda_id','direction'] then
+  -- M1: a Jenis/direction change (or, for Faculty Mobility inbound, the external persons) must still satisfy R-11/R-12
+  if (v_res -> 'diff') ?| array['agenda_id','direction','external_persons'] then
     perform realisasi._check_pset_for_activity(
       (select id from realisasi.participant_set_versions where activity_id = p_id and status = 'approved'), p_id);
   end if;

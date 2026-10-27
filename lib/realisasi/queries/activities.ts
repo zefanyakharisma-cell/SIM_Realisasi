@@ -119,7 +119,7 @@ export interface ActivityFilterOptions {
 /** Option lists for the per-column filters of the Kegiatan list. */
 export async function getActivityFilterOptions(tx: Tx): Promise<ActivityFilterOptions> {
   const [agendas, units, countries, ays, semesters] = await Promise.all([
-    tx<FilterOption[]>`select id, name as label from kerjasama.agendas order by name`,
+    tx<FilterOption[]>`select id, name as label from realisasi.agendas order by program, sort_order, name`,
     tx<FilterOption[]>`select id, name as label from kerjasama.units where is_academic order by name`,
     tx<Array<{ code: string; name: string }>>`select code, name from kerjasama.countries order by name`,
     tx<FilterOption[]>`select id, label from realisasi.academic_years order by start_date desc`,

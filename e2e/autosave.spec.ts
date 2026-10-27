@@ -66,11 +66,13 @@ test('H-1: an edit made during an in-flight autosave is saved, not dropped as "T
 test('H-2: a slow NRP lookup does not restore a staff row removed meanwhile', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFsd);
   await page.goto(`/realisasi/kegiatan/baru?draft=${DRAFT}`);
-  // S-23 is a guest lecture (no participants); make it a mobility kegiatan so the Peserta section unlocks.
-  await expect(page.getByTestId('participants-not-needed')).toBeVisible();
+  // S-23 is a guest lecture (Faculty Mobility, inbound: staff panel only); make it Student Exchange so the student panels show.
+  await expect(page.getByTestId('participants-rule')).toContainText('Faculty Mobility');
+  await expect(page.getByLabel('Tempel NRP (satu per baris)')).toHaveCount(0);
   await page.getByLabel('Jenis kegiatan *').selectOption({ label: 'Student Exchange' });
   await page.getByLabel('Inbound / Outbound *').selectOption('outbound');
   await page.getByTestId('wizard-save-draft').click();
+  await expect(page.getByLabel('Tempel NRP (satu per baris)').first()).toBeVisible();
   await expect(page.getByLabel('Tempel ID pegawai (satu per baris)')).toBeVisible();
 
   await page.getByLabel('Tempel ID pegawai (satu per baris)').fill('PG204517');

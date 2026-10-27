@@ -127,7 +127,7 @@ IO only (Partnership for Detail/File, Mobility for Peserta, Admin both). Every c
 | Field | Type | Rule |
 |---|---|---|
 | Nama Kegiatan | text | required |
-| Jenis Kegiatan | select (master) | required; drives KPI flags |
+| Jenis Kegiatan | select (master, grouped Student Mobility / Faculty Mobility) | required; drives participant rule and KPI flags (Rules R-07a) |
 | Tanggal Mulai / Selesai | date | required; Selesai ≥ Mulai; Selesai ≤ today |
 | Semester & Tahun Akademik | derived | from Tanggal Mulai via academic calendar; read-only |
 | Moda | offline / online / hybrid | required |
@@ -253,5 +253,5 @@ IO only (Partnership for Detail/File, Mobility for Peserta, Admin both). Every c
 1. Real BAAK/HR integration method (API vs DB view vs scheduled CSV) and owner (PSI).
 2. Whether internal outbound students need a transcript snapshot at activity time.
 3. Final production stack decision (shared with SIM Kerjasama: fresh build vs extending SIMKS).
-4. Official Jenis Kegiatan list and KPI-flag mapping from IO.
+4. ~~Official Jenis Kegiatan list and KPI-flag mapping from IO.~~ Resolved: IO sheet "AGENDA - SIM REALISASI" (Rules R-07a, R-11, R-12).
 5. Official academic calendar cutoff dates for 2026/2027.
