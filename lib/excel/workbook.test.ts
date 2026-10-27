@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { addInfoSheet, addTableSheet, createWorkbook, toBuffer, toExcelDate } from './workbook';
+import { ranked } from './sheets';
 
 describe('excel workbook helpers', () => {
   it('puts Info first, styles headers and formats dates/percentages', async () => {
@@ -76,5 +77,12 @@ describe('formula injection (security review L-6)', () => {
     const back = new ExcelJS.Workbook();
     await back.xlsx.load((await toBuffer(wb)) as unknown as ArrayBuffer);
     expect(back.getWorksheet('Data')!.getCell('A2').value).toBe("'=1+1");
+  });
+});
+
+describe('ranked', () => {
+  it('ranks ties together like the Penghargaan tables (1, 2, 2, 4)', () => {
+    expect(ranked([{ total: 5 }, { total: 3 }, { total: 3 }, { total: 1 }]).map((r) => r.rank)).toEqual([1, 2, 2, 4]);
+    expect(ranked([{ total: 1 }, { total: 1 }, { total: 1 }]).map((r) => r.rank)).toEqual([1, 1, 1]);
   });
 });

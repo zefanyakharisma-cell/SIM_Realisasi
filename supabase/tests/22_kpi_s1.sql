@@ -41,4 +41,8 @@ select pg_temp.eq(realisasi.dashboard(2, 'ytd') #> '{work_queue,conflicts_open}'
 -- deadline 2026-09-13; relative to today() so the check holds after midnight WIB too
 select pg_temp.eq((realisasi.dashboard(2, 'ytd') -> 'drafts_near_deadline' -> 0 ->> 'days_left')::int, '2026-09-13'::date - realisasi.today(),
                   'S-23 in drafts_near_deadline (deadline passed)');
+-- drafts are the submitter's own: dashboard (security definer) must not list them for a viewer picking the unit
+:as_view
+select pg_temp.eq(realisasi.dashboard(2, 'ytd', (select submitter_unit_id from realisasi.activities where id = pg_temp.aid(23))) -> 'drafts_near_deadline',
+                  '[]'::jsonb, 'no drafts near deadline for viewers');
 rollback;

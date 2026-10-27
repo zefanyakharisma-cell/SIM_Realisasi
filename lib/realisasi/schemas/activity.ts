@@ -132,7 +132,8 @@ export const evidenceLinkSchema = z.object({
     .string()
     .trim()
     .url('Tautan tidak valid.')
-    .refine((u) => /^https?:\/\//i.test(u), 'Tautan harus diawali http:// atau https://.'),
+    .refine((u) => /^https?:\/\//i.test(u), 'Tautan harus diawali http:// atau https://.')
+    .refine((u) => !/\s/.test(u), 'Tautan tidak boleh mengandung spasi.'),
   label: z.string().trim().min(1, 'Label tautan wajib diisi.').max(200, 'Maksimal 200 karakter.'),
 });
 

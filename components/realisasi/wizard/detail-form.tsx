@@ -90,6 +90,12 @@ const FIELD_LABEL: Record<string, string> = {
   note: 'Catatan perubahan',
 };
 
+/** What the server-rendered page depends on: Jenis / direction (Peserta, Berkas) and the R07/R08/R09 checklist items. */
+function shapeOf(s: FormState): string {
+  return [s.agenda_id, s.direction, !!s.name.trim(), !!s.description.trim(), !!s.venue.trim(), s.mode === 'online' || !!s.country_code,
+    s.start_date, s.end_date, s.document_id ?? ''].join('|');
+}
+
 function toState(p: ActivityDetailPayload | null, defaultUnit: number | null): FormState {
   return {
     name: p?.name ?? '',
@@ -234,8 +240,8 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
   useEffect(() => {
     isMobilityRef.current = isMobility;
   });
-  // Peserta / Berkas below depend on the saved Jenis and direction: refresh the page once they are saved.
-  const savedShapeRef = useRef(`${initial?.agenda_id ?? ''}|${initial?.direction ?? ''}`);
+  // Peserta / Berkas and the submission checklist depend on the saved values: refresh the page once they change.
+  const savedShapeRef = useRef(shapeOf(toState(initial, lockedUnitId)));
   const period = useMemo(() => derivePeriod(state.start_date, options.academicYears), [state.start_date, options.academicYears]);
   const sdgNames = useMemo(() => Object.fromEntries(options.sdgs.map((s) => [s.id, s.name])), [options.sdgs]);
   const unitOptions = useMemo(
@@ -297,7 +303,7 @@ export function DetailForm({ mode, activityId, initial, initialDocuments, option
         return null;
       }
       draftIdRef.current = res.data.id;
-      const shape = `${stateRef.current.agenda_id}|${stateRef.current.direction}`;
+      const shape = shapeOf(stateRef.current);
       if (mode === 'wizard' && activityId && out.upToDate && shape !== savedShapeRef.current) {
         savedShapeRef.current = shape;
         router.refresh();

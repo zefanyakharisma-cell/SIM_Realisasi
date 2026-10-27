@@ -66,10 +66,12 @@ function MobilityPanel({ rv }: { rv: Review }) {
           <span className="text-muted-foreground">Unit: </span>
           {rv.detail.submitter_unit.name}
         </span>
-        {rv.detail.revision.mobility ? (
+        {/* revision.mobility is only filled while the track is revision_requested; a queued (pending) resubmission
+            carries the reviewer's earlier note on the previous version instead. */}
+        {rv.previous?.status === 'revision_requested' && rv.previous.review_note ? (
           <span>
-            <span className="text-muted-foreground">Revisi sebelumnya: </span>
-            {rv.detail.revision.mobility.note}
+            <span className="text-muted-foreground">Revisi sebelumnya (v{rv.previous.version}): </span>
+            {rv.previous.review_note}
           </span>
         ) : null}
       </div>

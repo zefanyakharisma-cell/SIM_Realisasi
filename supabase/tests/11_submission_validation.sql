@@ -1,6 +1,9 @@
 -- 11_submission_validation: R-04, R-07, R-08, R-09, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-22, AT-10, triggers,
 -- Revisi V.1 (agenda as Jenis, direction, one kerja sama, SKS only for mobility, Unit Akademik only, mobility bundle).
 \ir _helpers.inc
+-- pin the clock: the fixture deadline (2026-10-05) not yet passed, S-23's (2026-09-13) already passed
+insert into realisasi.deployment_flags (key, enabled) values ('demo_time_travel', true) on conflict (key) do update set enabled = true;
+update realisasi.settings set value = '"2026-09-20"' where key = 'demo_today';
 
 create temp table _ids (k text primary key, id uuid);
 grant all on _ids to authenticated;

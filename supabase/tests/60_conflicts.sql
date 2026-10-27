@@ -54,6 +54,15 @@ select pg_temp.throws($$select realisasi.mobility_approve(pg_temp.aid(18))$$, 'C
 reset role;
 select pg_temp.ok(exists (select 1 from realisasi.activity_log where activity_id = pg_temp.aid(13) and action = 'resolve_conflict'
                             and diff ->> 'not_counted' = 'RL-2026-0013'), 'decision logged on both activities');
+select pg_temp.ok(not (realisasi._mask_log_diff('{"nrp":"B11227366","kept":"RL-2026-0018"}') ? 'nrp'), 'masked log diff drops the NRP');
+-- IO staff outside the mobility team see the log, but not the decisions carrying NRPs
+create temp table _tm as select * from realisasi.team_members where account_id = :'PART';
+delete from realisasi.team_members where account_id = :'PART';
+:as_part
+select pg_temp.ok(exists (select 1 from realisasi.activity_log where activity_id = pg_temp.aid(13))
+                  and not exists (select 1 from realisasi.activity_log where action = 'resolve_conflict'), 'NRPs in conflict decisions hidden outside the mobility team');
+reset role;
+insert into realisasi.team_members select * from _tm;
 select pg_temp.ok(exists (select 1 from realisasi.notifications where recipient_id = :'FTI' and kind = 'conflict_resolved'), 'losing unit notified');
 -- the student kept on S-18 does not count anywhere until S-18 is verified; S-13 no longer counts them
 select pg_temp.eq((select count(*) from realisasi.kpi_items('2026-08-01', '2026-10-01', '2026-10-01', 2) where kpi_code = '1.1' and ref_id like '%:B11227366'),

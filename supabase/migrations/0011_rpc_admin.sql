@@ -22,7 +22,9 @@ begin
   if p_values is null or jsonb_typeof(p_values) <> 'object' then perform realisasi._settings_invalid('payload'); end if;
   for k, v in select * from jsonb_each(p_values) loop
     if k = any(c_int) then
-      if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric < 0 or (v #>> '{}')::numeric <> trunc((v #>> '{}')::numeric) then
+      -- capped so setting_int() and the date arithmetic in the KPI reads / nightly jobs stay in range
+      if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric < 0 or (v #>> '{}')::numeric <> trunc((v #>> '{}')::numeric)
+         or (v #>> '{}')::numeric > (case k when 'grace_period_months' then 120 else 3650 end) then
         perform realisasi._settings_invalid(k);
       end if;
     elsif k = 'demo_today' then

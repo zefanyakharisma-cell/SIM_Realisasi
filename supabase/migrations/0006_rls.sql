@@ -46,7 +46,8 @@ create policy participant_staff_select on realisasi.participant_staff for select
 -- Log rows carrying participant identifiers (mobility edits) only for callers who may see participants (M6)
 create policy activity_log_select on realisasi.activity_log for select to authenticated
   using (((select realisasi.is_io()) or activity_id in (select realisasi.my_activity_ids()))
-         and (not (coalesce(diff ? 'students', false) or coalesce(diff ? 'staff', false) or coalesce(diff ? 'row_notes', false))
+         and (not (coalesce(diff ? 'students', false) or coalesce(diff ? 'staff', false) or coalesce(diff ? 'row_notes', false)
+                   or coalesce(diff ? 'nrp', false))
               or (select realisasi.sees_participant_identifiers())));
 
 -- student conflicts carry NRPs: mobility team / io_admin only

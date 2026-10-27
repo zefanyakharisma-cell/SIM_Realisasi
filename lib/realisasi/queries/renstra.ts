@@ -5,7 +5,7 @@ import type { Tx } from '@/lib/db';
 import type { SessionUser } from '@/lib/session';
 import type { ActivityKpiRow, ChainKpiRow, DrilldownResult, KpiScope, KpiTriple, PeriodInfo, UnitKpiValues } from '@/lib/realisasi/types';
 import { RENSTRA_DEF, type PeriodParams, type RenstraDef, type RenstraKey, type RenstraMetric } from '@/lib/realisasi/schemas/report';
-import { buildUnitRollup, rollupGrandTotal, subtreeIds, type RollupRow, type UnitNode } from '@/lib/realisasi/unit-rollup';
+import { buildUnitRollup, subtreeIds, type RollupRow, type UnitNode } from '@/lib/realisasi/unit-rollup';
 import { getDashboard, getDrilldown, listUnitTree } from '@/lib/realisasi/queries/reports';
 
 type KpiBlocks = Pick<UnitKpiValues, 'kpi_1_1' | 'kpi_1_19_s1' | 'kpi_1_19_24'>;
@@ -80,13 +80,17 @@ export async function getRenstraReport(tx: Tx, user: SessionUser, p: PeriodParam
       for (const u of dash.values.by_unit ?? []) direct.set(u.unit_id, metricValue(metric, u));
     }
     rollup = buildUnitRollup(scoped, direct);
-    if (subtreeScope) scopeValue = rollupGrandTotal(rollup);
   }
 
   const inScope = (names: string[]) => !scopeNames || names.some((n) => scopeNames.has(n));
   const rows = ((dd.rows ?? []) as DrilldownResult['rows']).filter((r) =>
     r.row_type === 'activity' ? inScope(r.unit_names) : true,
   );
+  if (subtreeScope) {
+    // Each activity counted once for the subtree (summing the rollup counts a shared activity once per unit).
+    const acts = rows.filter((r): r is ActivityKpiRow => r.row_type === 'activity');
+    scopeValue = def.kpi === '1.1' ? acts.reduce((s, r) => s + (r.students ?? 0), 0) : acts.length;
+  }
   return {
     def,
     period: dash.period,

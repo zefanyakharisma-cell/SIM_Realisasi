@@ -369,8 +369,13 @@ export const AWARDS_INITIATIVE_COLUMNS: Column<AwardsInitiativeRow & { rank: num
   { header: 'Total', key: 'total', value: (r) => r.total, format: 'int' },
 ];
 
-export function ranked<R>(rows: R[]): Array<R & { rank: number }> {
-  return rows.map((r, i) => ({ ...r, rank: i + 1 }));
+/** Competition ranking (1, 2, 2, 4) on `total`, same as the Penghargaan tables on screen; rows arrive sorted by total desc. */
+export function ranked<R extends { total: number }>(rows: R[]): Array<R & { rank: number }> {
+  let rank = 0;
+  return rows.map((r, i) => {
+    if (i === 0 || rows[i - 1]!.total !== r.total) rank = i + 1;
+    return { ...r, rank };
+  });
 }
 
 // ---------- Student conflicts (Verifikasi Mobilitas) ----------

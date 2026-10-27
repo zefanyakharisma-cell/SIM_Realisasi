@@ -117,6 +117,8 @@ select pg_temp.throws($$select realisasi.run_daily_jobs()$$, 'AUTH_FORBIDDEN', '
 select pg_temp.throws($$select realisasi.update_settings('{"bogus": 1}')$$, 'SETTINGS_INVALID', 'unknown setting key');
 select pg_temp.throws($$select realisasi.update_settings('{"sla_red_days": 7}')$$, 'SETTINGS_INVALID', 'SLA settings are gone');
 select pg_temp.throws($$select realisasi.update_settings('{"revision_reminder_days": -1}')$$, 'SETTINGS_INVALID', 'non-negative integers');
+select pg_temp.throws($$select realisasi.update_settings('{"grace_period_months": 121}')$$, 'SETTINGS_INVALID', 'grace period capped (120 months)');
+select pg_temp.throws($$select realisasi.update_settings('{"reporting_deadline_days": 3000000000}')$$, 'SETTINGS_INVALID', 'day settings capped (3650 days)');
 select pg_temp.throws($$select realisasi.update_settings('{"demo_today": "31-12-2026"}')$$, 'SETTINGS_INVALID', 'demo_today format');
 select pg_temp.eq(realisasi.update_settings('{"revision_reminder_days": 5, "demo_today": "2026-10-15"}') ->> 'demo_today', '2026-10-15', 'update_settings returns all keys');
 select pg_temp.eq(realisasi.today(), '2026-10-15'::date, 'demo_today drives today()');

@@ -55,7 +55,7 @@ export default async function EditVerifiedPage(props: { params: Promise<{ id: st
           Berkas
         </h2>
         <p className="text-sm text-muted-foreground">Unggahan baru langsung tersimpan sebagai versi baru dan dicatat di Riwayat.</p>
-        <FilesEditor activityId={detail.id} files={detail.files} />
+        <FilesEditor activityId={detail.id} files={detail.files} isMobility={detail.agenda.is_mobility} />
       </section>
     </div>
   );

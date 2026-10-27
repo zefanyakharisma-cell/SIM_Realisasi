@@ -242,7 +242,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
 
           </section>
 
-          {scope.level === 'unit' ? (
+          {scope.level === 'unit' && user.role === 'submitter' ? (
             <Card className="p-4" data-testid="drafts-near-deadline">
               <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
                 <CalendarClock className="h-4 w-4" aria-hidden="true" />
