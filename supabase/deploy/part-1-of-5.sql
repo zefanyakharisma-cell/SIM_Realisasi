@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 1 OF 5 (commit 29be991).
+-- SIM Realisasi Supabase install, PART 1 OF 5 (commit 4724f0c).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -36,7 +36,7 @@ begin
   end loop;
   if to_regprocedure('auth.uid()') is null then missing := missing || 'function auth.uid()'::text; end if;
   foreach t in array array['unit','jenis_unit','negara','partner','proposal_dokumen','dokumen_kerja_sama',
-                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun','agenda'] loop
+                           'partner_pengusul','proposal_dokumen_unit','jabatan','akun'] loop
     if to_regclass('public.' || t) is null then missing := missing || ('table public.' || t); end if;
   end loop;
   if cardinality(missing) > 0 then
@@ -53,6 +53,7 @@ create type realisasi.activity_status   as enum ('draft','in_verification','revi
 create type realisasi.track_status      as enum ('not_required','pending','revision_requested','approved');
 create type realisasi.direction         as enum ('inbound','outbound');
 create type realisasi.mobility_category as enum ('jd_dd','student_exchange','short_summer','other_mobility');
+create type realisasi.agenda_program    as enum ('student_mobility','faculty_mobility','other');
 create type realisasi.activity_mode     as enum ('offline','online','hybrid');
 create type realisasi.file_kind         as enum ('ia','ir','mobility_bundle','evidence');
 create type realisasi.person_role       as enum ('speaker','visiting_lecturer','researcher','staff_visitor','other');
@@ -70,7 +71,7 @@ create type realisasi.team              as enum ('mobility');
 -- SIMKS owns schema `public` (Indonesian table names, integer ids, ISO alpha-3 country codes, akun/jabatan accounts,
 -- proposal-based partners/scope/renewal links). Realisasi never writes SIMKS tables and never creates objects in
 -- `public`. Every Realisasi object reads SIMKS only through the views in schema `kerjasama` created here:
---   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles, agendas
+--   kerjasama.units, countries, partners, documents, document_partners, document_scope_units, profiles
 -- (exact Schema §1.1 columns, plus a few additive columns at the end of each view).
 --
 -- Access model: the views are ordinary (security_invoker = false) views owned by the migration owner (postgres on
@@ -406,13 +407,6 @@ select u.id,
            ) rt
   ) lv;
 
--- agendas: SIMKS "Agenda Kerjasama" list, used by Realisasi as Jenis Kegiatan (Revisi V.1). The amendment agenda is a
--- document-level concept, not an activity, so it is left out. Mobility/counting rules live in realisasi.agenda_rules.
-create view kerjasama.agendas as
-select a.id, a.nama::text as name, coalesce(a.is_active, true) as is_active
-  from public.agenda a
- where not coalesce(a.is_amendment, false);
-
 -- countries: one row per ISO alpha-2 code found in SIMKS negara. Unmappable kode values are left out.
 create view kerjasama.countries as
 select distinct on (i.alpha2)
@@ -509,8 +503,7 @@ revoke all on all tables in schema kerjasama from public, anon, authenticated;
 revoke all on schema kerjasama from public;
 grant usage on schema kerjasama to authenticated;
 grant select on kerjasama.units, kerjasama.countries, kerjasama.partners, kerjasama.documents,
-                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles,
-                kerjasama.agendas to authenticated;
+                kerjasama.document_partners, kerjasama.document_scope_units, kerjasama.profiles to authenticated;
 
 -- >>> supabase/migrations/0002_tables.sql
 -- 0002_tables: Schema §3/§4 with CONTRACTS §2.3 deltas. Extra indexes cover FKs and RLS/helper predicates.
@@ -557,14 +550,22 @@ create table realisasi.semesters (
   check (cutoff_date >= end_date)
 );
 
--- Counting rules per SIMKS agenda (Jenis Kegiatan = kerjasama.agendas, Revisi V.1). An agenda without a row, or with a
--- null mobility_category, is not a mobility activity: no participants required, verified on submit.
-create table realisasi.agenda_rules (
-  agenda_id         int primary key,  -- kerjasama.agendas.id (no FK: adapter view)
+-- Jenis Kegiatan master (IO list "AGENDA - SIM REALISASI"), owned by Realisasi and edited by IO Admin in Pengaturan.
+-- program decides the participant rule: student_mobility -> students (mobility_category = International Awards column),
+-- faculty_mobility -> PETRA staff (outbound) / external persons (inbound), other -> none (verified on submit).
+-- Deactivated, never deleted: kegiatan keep their agenda.
+create table realisasi.agendas (
+  id                serial primary key,
+  program           realisasi.agenda_program not null,
+  name              text not null unique check (btrim(name) <> ''),
+  description       text,  -- Keterangan
   mobility_category realisasi.mobility_category,
   counts_for_s1     boolean not null default true,
+  sort_order        int not null default 0,
+  is_active         boolean not null default true,
   updated_by        uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  updated_at        timestamptz default now()
+  updated_at        timestamptz default now(),
+  check ((program = 'student_mobility') = (mobility_category is not null))
 );
 
 -- Target per RENSTRA indicator, unit and academic year (Laporan per RENSTRA "Target" column), set in Pengaturan.
@@ -600,7 +601,7 @@ create table realisasi.activities (
   code                text unique not null
                       default 'RL-' || to_char(now(),'YYYY') || '-' || lpad(nextval('realisasi.activity_code_seq')::text,4,'0'),
   name                text not null,
-  agenda_id           int not null,  -- kerjasama.agendas.id (no FK: adapter view); rules in realisasi.agenda_rules
+  agenda_id           int not null references realisasi.agendas(id),  -- Jenis Kegiatan
   direction           realisasi.direction not null,
   start_date          date not null,
   end_date            date not null,

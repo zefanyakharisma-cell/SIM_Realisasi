@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 3 OF 5 (commit 29be991).
+-- SIM Realisasi Supabase install, PART 3 OF 5 (commit 4724f0c).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -233,7 +233,10 @@ begin
   if a.mobility_status <> 'pending' then perform realisasi._track_not_pending(); end if;
   select id into v_ver from realisasi.participant_set_versions
    where activity_id = p_activity and status = 'pending' order by version desc limit 1;
-  if v_ver is null then perform realisasi._state_invalid(); end if;
+  -- an inbound Faculty Mobility kegiatan may have only external persons (no participant set)
+  if v_ver is null and realisasi.agenda_program(a.agenda_id) is distinct from 'faculty_mobility' then
+    perform realisasi._state_invalid();
+  end if;
   -- Revisi V.1 rule 2.1: a student claimed by another unit must be assigned first
   if realisasi.activity_open_conflicts(p_activity) > 0 then
     perform realisasi._raise('CONFLICT_OPEN',
@@ -259,7 +262,10 @@ begin
   if nullif(btrim(p_note), '') is null then perform realisasi._raise('R27_NOTE_REQUIRED', 'Catatan revisi wajib diisi.'); end if;
   select id into v_ver from realisasi.participant_set_versions
    where activity_id = p_activity and status = 'pending' order by version desc limit 1;
-  if v_ver is null then perform realisasi._state_invalid(); end if;
+  -- an inbound Faculty Mobility kegiatan may have only external persons (no participant set)
+  if v_ver is null and realisasi.agenda_program(a.agenda_id) is distinct from 'faculty_mobility' then
+    perform realisasi._state_invalid();
+  end if;
   update realisasi.participant_set_versions
      set status = 'revision_requested', reviewed_by = v_uid, reviewed_at = realisasi.now_ts(), review_note = btrim(p_note)
    where id = v_ver;
@@ -274,10 +280,20 @@ end $$;
 -- direction changes after verification, M1, and by commit_participant_edit)
 create function realisasi._check_pset_for_activity(p_version uuid, p_activity uuid) returns void
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare a realisasi.activities;
+declare a realisasi.activities; v_prog realisasi.agenda_program;
 begin
   select * into a from realisasi.activities where id = p_activity;
-  if not realisasi.agenda_is_mobility(a.agenda_id) then return; end if;
+  v_prog := realisasi.agenda_program(a.agenda_id);
+  if v_prog = 'faculty_mobility' then
+    if a.direction = 'outbound' and not exists (select 1 from realisasi.participant_staff where set_version_id = p_version) then
+      perform realisasi._raise('R12_OUTBOUND_STAFF_REQUIRED', 'Kegiatan Faculty Mobility outbound wajib memiliki minimal satu dosen/staf PETRA.');
+    end if;
+    if a.direction = 'inbound' and not exists (select 1 from realisasi.activity_external_persons where activity_id = p_activity) then
+      perform realisasi._raise('R12_INBOUND_GUEST_REQUIRED', 'Kegiatan Faculty Mobility inbound wajib memiliki minimal satu tamu eksternal.');
+    end if;
+    return;
+  end if;
+  if v_prog is distinct from 'student_mobility' then return; end if;
   if coalesce(realisasi._pset_rows(p_version), 0) = 0 then
     perform realisasi._raise('R11_PARTICIPANTS_REQUIRED', 'Kegiatan mobilitas wajib memiliki data peserta.');
   end if;
@@ -316,8 +332,8 @@ begin
   if (select academic_year_id from realisasi.activities where id = p_id) is null then
     perform realisasi._raise('R09_NO_ACADEMIC_YEAR', 'Tanggal mulai berada di luar tahun akademik yang terdaftar. Hubungi Admin IO.');
   end if;
-  -- M1: a Jenis/direction change must still satisfy R-11/R-12 with the approved participant set
-  if (v_res -> 'diff') ?| array['agenda_id','direction'] then
+  -- M1: a Jenis/direction change (or, for Faculty Mobility inbound, the external persons) must still satisfy R-11/R-12
+  if (v_res -> 'diff') ?| array['agenda_id','direction','external_persons'] then
     perform realisasi._check_pset_for_activity(
       (select id from realisasi.participant_set_versions where activity_id = p_id and status = 'approved'), p_id);
   end if;
@@ -411,7 +427,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
                 order by f.version desc limit 1))
     from realisasi.activities a
     left join kerjasama.units u on u.id = a.submitter_unit_id
-    left join kerjasama.agendas g on g.id = a.agenda_id
+    left join realisasi.agendas g on g.id = a.agenda_id
    where a.id = p_activity
 $$;
 
@@ -609,31 +625,65 @@ begin
   return v_id;
 end $$;
 
--- Jenis Kegiatan rules (Revisi V.1): the agenda list itself belongs to SIM Kerjasama; Realisasi only decides whether
--- an agenda is a mobility kegiatan (and its International Awards category) and whether it counts for KPI 1.19.S1.
--- p_data: {mobility_category: 'jd_dd'|'student_exchange'|'short_summer'|'other_mobility'|null, counts_for_s1: bool}
-create function realisasi.set_agenda_rule(p_agenda_id int, p_data jsonb) returns jsonb
+-- Jenis Kegiatan master (realisasi.agendas): IO Admin adds, edits and deactivates types (never deletes them).
+-- p_id null inserts. p_data: {name, program: 'student_mobility'|'faculty_mobility'|'other', description,
+--   mobility_category: 'jd_dd'|'student_exchange'|'short_summer'|'other_mobility'|null (student_mobility only, required there),
+--   counts_for_s1: bool, sort_order: int, is_active: bool}; omitted keys keep their value (insert: defaults).
+create function realisasi.save_agenda(p_id int, p_data jsonb) returns jsonb
 language plpgsql security definer set search_path = realisasi, extensions, public, pg_temp as $$
-declare v_uid uuid := realisasi._require_admin(); r realisasi.agenda_rules;
+declare v_uid uuid := realisasi._require_admin(); r realisasi.agendas;
 begin
   if p_data is null or jsonb_typeof(p_data) <> 'object' then perform realisasi._invalid('payload'); end if;
-  if not exists (select 1 from kerjasama.agendas where id = p_agenda_id) then perform realisasi._not_found(); end if;
-  select * into r from realisasi.agenda_rules where agenda_id = p_agenda_id;
-  if not found then r.agenda_id := p_agenda_id; r.counts_for_s1 := true; end if;
+  if p_id is null then
+    r.counts_for_s1 := true; r.is_active := true;
+    r.sort_order := coalesce((select max(sort_order) + 1 from realisasi.agendas), 1);
+  else
+    select * into r from realisasi.agendas where id = p_id;
+    if not found then perform realisasi._not_found(); end if;
+  end if;
+  if p_data ? 'name' then r.name := realisasi._jtext(p_data, 'name'); end if;
+  if p_data ? 'description' then r.description := realisasi._jtext(p_data, 'description'); end if;
+  begin
+    if p_data ? 'program' then r.program := (p_data ->> 'program')::realisasi.agenda_program; end if;
+  exception when others then perform realisasi._invalid('program');
+  end;
   begin
     if p_data ? 'mobility_category' then
       r.mobility_category := realisasi._jtext(p_data, 'mobility_category')::realisasi.mobility_category;
     end if;
-    if p_data ? 'counts_for_s1' then r.counts_for_s1 := (p_data ->> 'counts_for_s1')::boolean; end if;
-  exception when others then
-    perform realisasi._invalid('agenda_rule');
+  exception when others then perform realisasi._invalid('mobility_category');
   end;
+  begin
+    if p_data ? 'counts_for_s1' then r.counts_for_s1 := (p_data ->> 'counts_for_s1')::boolean; end if;
+    if p_data ? 'is_active' then r.is_active := (p_data ->> 'is_active')::boolean; end if;
+    if p_data ? 'sort_order' then r.sort_order := (p_data ->> 'sort_order')::int; end if;
+  exception when others then perform realisasi._invalid('agenda');
+  end;
+  if r.name is null then perform realisasi._invalid('name'); end if;
+  if r.program is null then perform realisasi._invalid('program'); end if;
+  if r.program <> 'student_mobility' then r.mobility_category := null; end if;
+  if r.program = 'student_mobility' and r.mobility_category is null then perform realisasi._invalid('mobility_category'); end if;
   if r.counts_for_s1 is null then perform realisasi._invalid('counts_for_s1'); end if;
-  insert into realisasi.agenda_rules (agenda_id, mobility_category, counts_for_s1, updated_by, updated_at)
-  values (p_agenda_id, r.mobility_category, r.counts_for_s1, v_uid, realisasi.now_ts())
-  on conflict (agenda_id) do update set mobility_category = excluded.mobility_category,
-     counts_for_s1 = excluded.counts_for_s1, updated_by = excluded.updated_by, updated_at = excluded.updated_at;
-  return jsonb_build_object('agenda_id', p_agenda_id, 'mobility_category', r.mobility_category, 'counts_for_s1', r.counts_for_s1);
+  if r.is_active is null then perform realisasi._invalid('is_active'); end if;
+  if r.sort_order is null then perform realisasi._invalid('sort_order'); end if;
+  if exists (select 1 from realisasi.agendas where lower(name) = lower(r.name) and id is distinct from p_id) then
+    perform realisasi._raise('AGENDA_NAME_TAKEN', 'Nama jenis kegiatan sudah dipakai.', jsonb_build_object('fields', jsonb_build_array('name')));
+  end if;
+  if p_id is null then
+    insert into realisasi.agendas (program, name, description, mobility_category, counts_for_s1, sort_order, is_active,
+                                   updated_by, updated_at)
+    values (r.program, r.name, r.description, r.mobility_category, r.counts_for_s1, r.sort_order, r.is_active,
+            v_uid, realisasi.now_ts())
+    returning * into r;
+  else
+    update realisasi.agendas set program = r.program, name = r.name, description = r.description,
+           mobility_category = r.mobility_category, counts_for_s1 = r.counts_for_s1, sort_order = r.sort_order,
+           is_active = r.is_active, updated_by = v_uid, updated_at = realisasi.now_ts()
+     where id = p_id returning * into r;
+  end if;
+  return jsonb_build_object('id', r.id, 'program', r.program, 'name', r.name, 'description', r.description,
+    'mobility_category', r.mobility_category, 'counts_for_s1', r.counts_for_s1, 'sort_order', r.sort_order,
+    'is_active', r.is_active);
 end $$;
 
 -- RENSTRA targets for one academic year and indicator. p_rows: [{unit_id: int (0 = Universitas), target: number|null}];

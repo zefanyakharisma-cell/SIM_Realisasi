@@ -18,8 +18,14 @@ export type Uuid = string;
 export type ActivityStatus = 'draft' | 'in_verification' | 'revision_requested' | 'verified';
 export type TrackStatus = 'not_required' | 'pending' | 'revision_requested' | 'approved';
 export type Direction = 'inbound' | 'outbound';
-/** International Awards category of a mobility agenda (`realisasi.agenda_rules`). */
+/** International Awards category of a Student Mobility Jenis Kegiatan (`realisasi.agendas`). */
 export type MobilityCategory = 'jd_dd' | 'student_exchange' | 'short_summer' | 'other_mobility';
+/**
+ * Program of a Jenis Kegiatan: decides the participant rule. Student Mobility -> students + mobility PDF; Faculty
+ * Mobility -> PETRA staff (outbound) or an external person (inbound); both go through Verifikasi Mobilitas. Other ->
+ * no participants, verified on submit.
+ */
+export type AgendaProgram = 'student_mobility' | 'faculty_mobility' | 'other';
 export type ActivityMode = 'offline' | 'online' | 'hybrid';
 export type FileKind = 'ia' | 'ir' | 'mobility_bundle' | 'evidence';
 export type PersonRole = 'speaker' | 'visiting_lecturer' | 'researcher' | 'staff_visitor' | 'other';
@@ -68,7 +74,7 @@ export interface ExternalPersonPayload {
 /** `save_activity_draft` / `edit_verified_activity` payload (CONTRACTS §3.2). */
 export interface ActivityDetailPayload {
   name: string;
-  /** Jenis Kegiatan = SIM Kerjasama agenda id (`kerjasama.agendas`). */
+  /** Jenis Kegiatan id (`realisasi.agendas`). */
   agenda_id: number;
   direction: Direction;
   start_date: DateString;
@@ -100,11 +106,6 @@ export interface StaffRowPayload {
   employee_id: string;
 }
 
-/** `set_agenda_rule` payload. */
-export interface AgendaRulePayload {
-  mobility_category: MobilityCategory | null;
-  counts_for_s1: boolean;
-}
 
 /** All `realisasi.settings` keys (CONTRACTS §2.3). */
 export interface SettingsValues {
@@ -219,8 +220,10 @@ export interface ActivityListRow {
   name: string;
   agenda_id: number;
   agenda_name: string | null;
+  agenda_program: AgendaProgram | null;
   direction: Direction;
   mobility_category: MobilityCategory | null;
+  /** Student or Faculty Mobility (Mobility track). */
   is_mobility: boolean;
   start_date: DateString;
   end_date: DateString;
@@ -367,7 +370,11 @@ export interface ActivityDetail {
   agenda: {
     id: number;
     name: string | null;
+    program: AgendaProgram;
+    /** Keterangan. */
+    description: string | null;
     mobility_category: MobilityCategory | null;
+    /** Student or Faculty Mobility (participants + Mobility track). */
     is_mobility: boolean;
     counts_for_s1: boolean;
   };

@@ -3,7 +3,8 @@
 -- e0000000-…NNN), plus guards so a bulk row can never contradict the business rules the scenarios rely on:
 --   * the agreement is valid for the activity dates (R-04, documents_valid_between)
 --   * submitted on/after the end date and not in the future; the mobility decision comes after the submission
---   * mobility kegiatan carry a participant set whose status matches the Mobility track; non-mobility ones carry none
+--   * student mobility kegiatan carry a participant set whose status matches the Mobility track; Faculty Mobility ones
+--     get theirs from 89_faculty_mobility.sql
 --   * a student never sits in two activities with overlapping dates (so no rule 2.1 conflicts appear)
 -- Idempotent: an existing activity is skipped.
 
@@ -29,8 +30,9 @@ returns void language sql as $$
   insert into realisasi.activity_log (activity_id, kind, track, action, actor_id, note, diff, in_frozen_period, created_at)
   values (pg_temp.aid(p_n), p_kind::realisasi.log_kind, p_track::realisasi.team, p_action, p_actor, p_note, p_diff, false, p_at) $$;
 
--- One kegiatan. p_submitted null = draft. Mobility agendas need p_mstatus ('approved' | 'pending' | 'revision_requested')
--- once submitted (+ p_msince for approved / revision_requested); non-mobility agendas take p_mstatus null.
+-- One kegiatan. p_submitted null = draft. Student Mobility Jenis need p_mstatus ('approved' | 'pending' | 'revision_requested')
+-- once submitted (+ p_msince for approved / revision_requested); Faculty Mobility Jenis take p_mstatus null (their staff /
+-- external person and Mobility approval come from 89_faculty_mobility.sql).
 create or replace function pg_temp.bulk_act(
   p_n int, p_name text, p_unit int, p_agenda int, p_dir text, p_start date, p_end date, p_mode text, p_venue text,
   p_country text, p_doc int, p_sdgs int[], p_desc text, p_submitted timestamptz, p_mstatus text, p_msince timestamptz,
@@ -44,7 +46,7 @@ begin
   -- guards
   if p_n not between 101 and 300 then raise exception 'bulk %: number outside 101..300', p_n; end if;
   if not exists (select 1 from kerjasama.units where id = p_unit) then raise exception 'bulk %: unit % missing', p_n, p_unit; end if;
-  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
+  if not exists (select 1 from realisasi.agendas where id = p_agenda) then raise exception 'bulk %: agenda % missing', p_n, p_agenda; end if;
   if exists (select 1 from realisasi.activities where lower(name) = lower(p_name)) then
     raise exception 'bulk %: duplicate kegiatan name "%"', p_n, p_name; end if;
   if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
@@ -55,7 +57,7 @@ begin
   if cardinality(p_sdgs) = 0 or exists (select 1 from unnest(p_sdgs) s where s not between 1 and 17) then
     raise exception 'bulk %: 1..17 SDGs required', p_n; end if;
   if coalesce(length(p_desc), 0) < 40 then raise exception 'bulk %: description too short', p_n; end if;
-  v_mob := realisasi.agenda_is_mobility(p_agenda);
+  v_mob := (realisasi.agenda_program(p_agenda) = 'student_mobility');
   if p_submitted is not null then
     if (p_submitted at time zone 'Asia/Jakarta')::date <= p_end then raise exception 'bulk %: submitted on/before end date', p_n; end if;
     if (p_submitted at time zone 'Asia/Jakarta')::date > realisasi.today() then raise exception 'bulk %: submitted in the future', p_n; end if;
@@ -120,7 +122,7 @@ begin
   if exists (select 1 from realisasi.participant_set_versions where id = v_id) then return; end if;
   select * into a from realisasi.activities where id = v_act;
   if a.id is null then raise exception 'bulk_pset %: activity missing', p_n; end if;
-  if not realisasi.agenda_is_mobility(a.agenda_id) then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
+  if not realisasi.agenda_program(a.agenda_id) = 'student_mobility' then raise exception 'bulk_pset %: only mobility kegiatan carry participants', p_n; end if;
   if cardinality(p_internal) + cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: no students', p_n; end if;
   if a.direction = 'outbound' and cardinality(p_internal) = 0 then raise exception 'bulk_pset %: outbound needs internal students', p_n; end if;
   if a.direction = 'inbound' and cardinality(p_inbound) = 0 then raise exception 'bulk_pset %: inbound needs inbound students', p_n; end if;
@@ -169,7 +171,7 @@ begin
   if v_n <> p_to - p_from + 1 then raise exception 'bulk_verify %..%: % of % kegiatan present', p_from, p_to, v_n, p_to - p_from + 1; end if;
   select string_agg(a.code, ', ') into v_bad from realisasi.activities a
    where a.id = any (select pg_temp.aid(g) from generate_series(p_from, p_to) g)
-     and realisasi.agenda_is_mobility(a.agenda_id) and a.submitted_at is not null
+     and realisasi.agenda_program(a.agenda_id) = 'student_mobility' and a.submitted_at is not null
      and not exists (select 1 from realisasi.participant_set_versions v where v.activity_id = a.id);
   if v_bad is not null then raise exception 'bulk_verify: mobility kegiatan without participants: %', v_bad; end if;
   perform setval('realisasi.activity_code_seq', greatest(300, (select last_value from realisasi.activity_code_seq)));

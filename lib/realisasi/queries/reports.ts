@@ -195,30 +195,37 @@ export async function listDocuments(tx: Tx): Promise<DocumentListRow[]> {
   }));
 }
 
-export interface AgendaRuleRow {
-  agenda_id: number;
+export interface AgendaRow {
+  id: number;
+  program: import('@/lib/realisasi/types').AgendaProgram;
   name: string;
-  is_active: boolean;
+  /** Keterangan. */
+  description: string | null;
   mobility_category: import('@/lib/realisasi/types').MobilityCategory | null;
   counts_for_s1: boolean;
-  /** Number of kegiatan using this agenda (shown in Pengaturan). */
+  sort_order: number;
+  is_active: boolean;
+  /** Number of kegiatan using this Jenis (shown in Pengaturan). */
   activities: number;
 }
 
-/** SIMKS agendas (Jenis Kegiatan) with Realisasi's counting rule for each (Pengaturan). */
-export async function listAgendaRules(tx: Tx): Promise<AgendaRuleRow[]> {
+/** Jenis Kegiatan master (Pengaturan), grouped by program. */
+export async function listAgendas(tx: Tx): Promise<AgendaRow[]> {
   const rows = await tx`
-    select g.id as agenda_id, g.name, g.is_active, r.mobility_category::text as mobility_category,
-           coalesce(r.counts_for_s1, true) as counts_for_s1,
+    select g.id, g.program::text as program, g.name, g.description, g.mobility_category::text as mobility_category,
+           g.counts_for_s1, g.sort_order, g.is_active,
            (select count(*) from realisasi.activities a where a.agenda_id = g.id)::int as activities
-      from kerjasama.agendas g left join realisasi.agenda_rules r on r.agenda_id = g.id
-     order by (r.mobility_category is null), g.is_active desc, g.name`;
+      from realisasi.agendas g
+     order by g.program, g.sort_order, g.name`;
   return rows.map((r) => ({
-    agenda_id: Number(r.agenda_id),
+    id: Number(r.id),
+    program: r.program as AgendaRow['program'],
     name: String(r.name),
-    is_active: Boolean(r.is_active),
-    mobility_category: (r.mobility_category ?? null) as AgendaRuleRow['mobility_category'],
+    description: (r.description as string | null) ?? null,
+    mobility_category: (r.mobility_category ?? null) as AgendaRow['mobility_category'],
     counts_for_s1: Boolean(r.counts_for_s1),
+    sort_order: Number(r.sort_order),
+    is_active: Boolean(r.is_active),
     activities: Number(r.activities),
   }));
 }

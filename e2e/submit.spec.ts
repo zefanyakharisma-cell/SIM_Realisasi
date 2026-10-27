@@ -47,7 +47,7 @@ test('ua-fti: one-page mobility kegiatan, AT-10 unknown NRP blocks, PDF bundle, 
   await expect(page.getByTestId('wizard-submit')).toBeDisabled();
 
   await fillDetail(page, { name: 'Student Exchange Uji E2E', agenda: 'Student Exchange', direction: 'outbound', country: 'JP' });
-  await expect(page.getByTestId('type-helper')).toContainText('Kegiatan mobilitas');
+  await expect(page.getByTestId('type-helper')).toContainText('Mobilitas mahasiswa');
   await expect(page.getByTestId('sks-field')).toBeVisible();
   await expect(page.getByText('Unit Lain yang Terlibat', { exact: true })).toBeVisible();
 
@@ -80,30 +80,41 @@ test('ua-fti: one-page mobility kegiatan, AT-10 unknown NRP blocks, PDF bundle, 
   await expect(page.getByTestId('file-mobility_bundle')).toContainText('Transkrip-Poster-Dokumentasi.pdf');
 });
 
-test('ua-fti: non-mobility kegiatan needs no participants and is verified on submit', async ({ page }) => {
+test('ua-fti: Faculty Mobility inbound needs an external person (no students, no bundle) → Mobility queue', async ({ page }) => {
   await loginAs(page, ACCOUNTS.uaFti);
   await page.goto('/realisasi/kegiatan/baru');
   await fillDetail(page, {
     name: 'Seminar Internasional Uji E2E',
-    agenda: 'Joint Projects (Konferensi/Seminar/Workshop/Lomba/pameran)',
+    agenda: 'Forum Akademik Internasional',
     direction: 'inbound',
     country: 'JP',
   });
-  await expect(page.getByTestId('type-helper')).toContainText('Bukan kegiatan mobilitas');
+  await expect(page.getByTestId('type-helper')).toContainText('Mobilitas dosen/staf');
+  await expect(page.getByTestId('type-helper')).toContainText('tamu eksternal');
   await expect(page.getByTestId('sks-field')).toHaveCount(0);
   await page.getByTestId('wizard-save-draft').click();
   await page.waitForURL(/draft=/);
 
-  await expect(page.getByTestId('participants-not-needed')).toBeVisible();
+  await expect(page.getByTestId('participants-rule')).toContainText('tamu eksternal');
+  await expect(page.getByLabel('Tempel NRP (satu per baris)')).toHaveCount(0);
   await expect(page.getByTestId('drop-mobility_bundle')).toHaveCount(0);
   await uploadPdf(page, 'drop-ia', 'IA.pdf');
   await expect(page.getByTestId('current-ia')).toContainText('IA.pdf');
   await uploadPdf(page, 'drop-ir', 'IR.pdf');
   await expect(page.getByTestId('current-ir')).toContainText('IR.pdf');
+  await expect(page.getByTestId('wizard-submit')).toBeDisabled(); // no external person yet
 
+  await page.getByRole('button', { name: 'Tambah orang' }).click();
+  await page.getByLabel('Nama', { exact: true }).fill('Prof. Kenji Sato');
+  await page.getByLabel('Institusi', { exact: true }).fill('Kyoto Institute of Technology');
+  await page.getByLabel('Negara', { exact: true }).selectOption('JP');
+  await page.getByLabel('Peran', { exact: true }).selectOption('speaker');
+  await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan', { timeout: 10_000 });
+
+  await expect(page.getByTestId('wizard-submit')).toBeEnabled();
   await page.getByTestId('wizard-submit').click();
   await page.waitForURL(/\/realisasi\/kegiatan\/[0-9a-f-]{36}$/);
-  await expect(page.getByTestId('status-badge').first()).toContainText('Terverifikasi');
+  await expect(page.getByTestId('status-badge').first()).toContainText('Dalam Verifikasi');
 });
 
 test('S-16: unit fixes a mobility revision and resubmits → back in the Mobility queue', async ({ page }) => {

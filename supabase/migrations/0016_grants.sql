@@ -9,7 +9,7 @@ grant usage on schema realisasi to authenticated;
 
 grant select on
   realisasi.team_members, realisasi.settings, realisasi.academic_years, realisasi.semesters,
-  realisasi.agenda_rules, realisasi.renstra_targets, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
+  realisasi.agendas, realisasi.renstra_targets, realisasi.sdgs, realisasi.event_groups, realisasi.activities, realisasi.activity_units,
   realisasi.activity_documents, realisasi.activity_partner_snapshot, realisasi.activity_sdgs,
   realisasi.activity_external_persons, realisasi.activity_files, realisasi.participant_set_versions,
   realisasi.participant_students, realisasi.participant_staff, realisasi.participant_conflicts, realisasi.activity_log,
@@ -26,7 +26,7 @@ grant execute on function
   realisasi.can_view_activity(uuid), realisasi.can_view_participants(uuid),
   realisasi.in_frozen_period(uuid), realisasi.is_late_addition(uuid),
   realisasi.activity_open_conflicts(uuid), realisasi.activity_participant_total(uuid),
-  realisasi.agenda_category(int), realisasi.agenda_is_mobility(int),
+  realisasi.agenda_program(int), realisasi.agenda_category(int), realisasi.agenda_is_mobility(int),
   realisasi.demo_time_travel_enabled(),
   realisasi.my_activity_ids(), realisasi.visible_activity_ids(), realisasi.my_pset_ids(),
   realisasi.sees_participant_identifiers()
@@ -47,7 +47,7 @@ grant execute on function
   realisasi.conflict_list(uuid, text), realisasi.resolve_conflict(bigint, uuid, text),
   realisasi.update_settings(jsonb), realisasi.upsert_academic_year(int, text, date, date),
   realisasi.upsert_semester(int, int, realisasi.semester_term, date, date, date),
-  realisasi.set_agenda_rule(int, jsonb), realisasi.set_renstra_targets(int, text, jsonb),
+  realisasi.save_agenda(int, jsonb), realisasi.set_renstra_targets(int, text, jsonb),
   realisasi.freeze_snapshot(int, realisasi.snapshot_kind, timestamptz, uuid), realisasi.refreeze_snapshot(uuid, text),
   realisasi.run_daily_jobs(),
   realisasi.mark_notifications_read(bigint[]), realisasi.log_export(text, jsonb, int, boolean),

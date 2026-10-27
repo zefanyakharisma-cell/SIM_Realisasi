@@ -332,12 +332,12 @@ const NEW_ACTIVITY_TOUR: Tour = {
     {
       target: '#f-agenda_id',
       title: 'Jenis Kegiatan',
-      body: 'Diambil dari daftar Agenda Kerjasama SIM Kerjasama. Jenis menentukan apakah kegiatan termasuk mobilitas (perlu peserta dan verifikasi) dan apakah dihitung untuk RENSTRA 1.19.S1.',
+      body: 'Daftar Jenis Kegiatan dari International Office, dikelompokkan menjadi Student Mobility dan Faculty Mobility. Student Mobility wajib mengisi peserta mahasiswa; Faculty Mobility wajib mengisi dosen/staf PETRA (outbound) atau tamu eksternal (inbound). Keduanya diverifikasi tim Mobilitas.',
     },
     {
       target: '#f-direction',
       title: 'Inbound / Outbound',
-      body: 'Outbound = mahasiswa PETRA pergi ke mitra; Inbound = mahasiswa mitra datang ke PETRA. Arah menentukan peserta wajib dan cara penghitungan RENSTRA 1.1.',
+      body: 'Outbound = mahasiswa/dosen PETRA pergi ke mitra; Inbound = mahasiswa/tamu mitra datang ke PETRA. Arah menentukan peserta wajib dan cara penghitungan RENSTRA 1.1.',
     },
     {
       target: '#f-start_date',
@@ -618,7 +618,7 @@ const SETTINGS_UMUM_TOUR: Tour = {
     {
       target: 'nav[aria-label="Tab pengaturan"]',
       title: 'Tab pengaturan',
-      body: 'Umum (aturan dasar & simulasi tanggal), Kalender Akademik (semester, cutoff, pembekuan), dan Jenis Kegiatan (aturan per agenda).',
+      body: 'Umum (aturan dasar & simulasi tanggal), Kalender Akademik (semester, cutoff, pembekuan), dan Jenis Kegiatan (daftar dan aturan per jenis).',
     },
     {
       target: 'form[aria-label="Pengaturan umum"]',
@@ -668,13 +668,13 @@ const SETTINGS_JENIS_TOUR: Tour = {
   steps: [
     {
       target: tid('agenda-rules'),
-      title: 'Aturan Jenis Kegiatan',
-      body: 'Satu aturan per Agenda Kerjasama dari SIM Kerjasama.',
+      title: 'Daftar Jenis Kegiatan',
+      body: 'Admin IO menambah, mengubah, dan menonaktifkan Jenis Kegiatan (tidak dihapus). Program (Student Mobility / Faculty Mobility) menentukan data peserta yang wajib diisi.',
     },
     {
       target: tid('agenda-rule-row'),
-      title: 'Kategori mobilitas & S1',
-      body: 'Kategori mobilitas (JD/DD, Student Exchange, Short/Summer, mobilitas lain, atau tidak ada) menentukan apakah kegiatan perlu peserta dan verifikasi. Kolom S1 menentukan apakah dihitung di RENSTRA 1.19.S1.',
+      title: 'Kategori, S1, dan status aktif',
+      body: 'Student Mobility memiliki kategori International Awards (JD/DD, Student Exchange, Short/Summer, mobilitas lain). Kolom S1 menentukan apakah dihitung di RENSTRA 1.19.S1; jenis nonaktif tidak bisa dipilih untuk kegiatan baru.',
     },
   ],
 };

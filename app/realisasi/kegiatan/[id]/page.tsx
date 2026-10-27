@@ -182,7 +182,7 @@ export default async function ActivityPage(props: { params: Promise<{ id: string
           </div>
         )}
 
-        {tab === 'berkas' && <FileList files={detail.files} showHistory isMobility={detail.agenda.is_mobility} />}
+        {tab === 'berkas' && <FileList files={detail.files} showHistory isMobility={detail.agenda.program === 'student_mobility'} />}
 
         {tab === 'riwayat' && p.can_view_log && <LogList log={detail.log} />}
       </div>

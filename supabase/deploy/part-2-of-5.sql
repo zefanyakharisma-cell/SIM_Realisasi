@@ -1,4 +1,4 @@
--- SIM Realisasi Supabase install, PART 2 OF 5 (commit 29be991).
+-- SIM Realisasi Supabase install, PART 2 OF 5 (commit 4724f0c).
 -- Run parts 1..5 in order in Supabase Dashboard -> SQL Editor. If any part fails, start again from part 1.
 begin;
 
@@ -55,8 +55,8 @@ select a.chain_id, a.chain_start, a.chain_end, a.auto_renewed,
   left join prt on prt.chain_id = a.chain_id;
 
 create view realisasi.v_activity_list with (security_invoker = true) as
-select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, a.direction,
-       r.mobility_category, (r.mobility_category is not null) as is_mobility,
+select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, ag.program as agenda_program, a.direction,
+       ag.mobility_category, (ag.program <> 'other') as is_mobility,
        a.start_date, a.end_date, a.academic_year_id, ay.label as ay_label,
        a.semester_id, case when s.id is null then null else initcap(s.term::text) || ' ' || ay.label end as semester_label,
        a.mode, a.status, a.mobility_status, a.mobility_since,
@@ -72,8 +72,7 @@ select a.id, a.code, a.name, a.agenda_id, ag.name as agenda_name, a.direction,
        coalesce(d.out_of_scope, false) as out_of_scope,
        realisasi.activity_open_conflicts(a.id) as open_conflicts
   from realisasi.activities a
-  left join kerjasama.agendas ag on ag.id = a.agenda_id
-  left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+  left join realisasi.agendas ag on ag.id = a.agenda_id
   left join realisasi.academic_years ay on ay.id = a.academic_year_id
   left join realisasi.semesters s on s.id = a.semester_id
   left join kerjasama.units su on su.id = a.submitter_unit_id
@@ -280,7 +279,7 @@ create policy notifications_select on realisasi.notifications for select to auth
 create policy settings_select on realisasi.settings for select to authenticated using (true);
 create policy academic_years_select on realisasi.academic_years for select to authenticated using (true);
 create policy semesters_select on realisasi.semesters for select to authenticated using (true);
-create policy agenda_rules_select on realisasi.agenda_rules for select to authenticated using (true);
+create policy agendas_select on realisasi.agendas for select to authenticated using (true);
 create policy renstra_targets_select on realisasi.renstra_targets for select to authenticated using (true);
 create policy sdgs_select on realisasi.sdgs for select to authenticated using (true);
 create policy team_members_select on realisasi.team_members for select to authenticated using (true);
@@ -299,15 +298,22 @@ create policy export_log_select on realisasi.export_log for select to authentica
 -- >>> supabase/migrations/0007_rpc_submission.sql
 -- 0007_rpc_submission: lookups, drafts, participants, checklist, submit, student-conflict scan.
 
--- Agenda rules (Revisi V.1): an agenda is a mobility kegiatan when realisasi.agenda_rules gives it a category
-create function realisasi.agenda_category(p_agenda int) returns realisasi.mobility_category
+-- Jenis Kegiatan rules (realisasi.agendas): the program decides the participant rule and the Mobility track; the
+-- mobility category (student mobility only) is the International Awards column.
+create function realisasi.agenda_program(p_agenda int) returns realisasi.agenda_program
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select mobility_category from realisasi.agenda_rules where agenda_id = p_agenda
+  select program from realisasi.agendas where id = p_agenda
 $$;
 
+create function realisasi.agenda_category(p_agenda int) returns realisasi.mobility_category
+language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
+  select mobility_category from realisasi.agendas where id = p_agenda
+$$;
+
+-- Student and Faculty Mobility kegiatan need participants and go through the Mobility track; 'other' is verified on submit
 create function realisasi.agenda_is_mobility(p_agenda int) returns boolean
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
-  select realisasi.agenda_category(p_agenda) is not null
+  select coalesce(realisasi.agenda_program(p_agenda) <> 'other', false)
 $$;
 
 -- Lookups (Schema §4) ------------------------------------------------------
@@ -502,13 +508,13 @@ begin
   end if;
   if v_sks is not null and v_sks < 0 then perform realisasi._invalid('sks_recognized'); end if;
 
-  -- Jenis Kegiatan = SIMKS agenda; must exist, and be active when newly chosen
-  if not exists (select 1 from kerjasama.agendas g where g.id = v_agenda
+  -- Jenis Kegiatan (realisasi.agendas); must exist, and be active when newly chosen
+  if not exists (select 1 from realisasi.agendas g where g.id = v_agenda
                    and (g.is_active or (v_old ->> 'agenda_id')::int = v_agenda)) then
     perform realisasi._invalid('agenda_id');
   end if;
-  -- SKS diakui only applies to mobility kegiatan (Revisi V.1 item 5)
-  if not realisasi.agenda_is_mobility(v_agenda) then v_sks := null; end if;
+  -- SKS diakui only applies to student mobility kegiatan (Revisi V.1 item 5)
+  if realisasi.agenda_program(v_agenda) <> 'student_mobility' then v_sks := null; end if;
   if v_country is not null and not exists (select 1 from kerjasama.countries where code = v_country) then
     perform realisasi._invalid('country_code');
   end if;
@@ -857,11 +863,14 @@ language plpgsql stable security definer set search_path = realisasi, extensions
 declare
   a realisasi.activities;
   v_out jsonb := '[]'::jsonb; v_missing text[] := '{}'; v_bad text; v_list text;
-  v_pset uuid; v_rows int; v_mob boolean; v_draft uuid; v_has boolean;
+  v_pset uuid; v_rows int; v_mob boolean; v_stu boolean; v_fac boolean; v_ext int; v_draft uuid; v_has boolean;
 begin
   select * into a from realisasi.activities where id = p_id;
   if not found then return '[]'::jsonb; end if;
   v_mob := realisasi.agenda_is_mobility(a.agenda_id);
+  v_stu := realisasi.agenda_program(a.agenda_id) = 'student_mobility';
+  v_fac := realisasi.agenda_program(a.agenda_id) = 'faculty_mobility';
+  v_ext := (select count(*) from realisasi.activity_external_persons where activity_id = p_id)::int;
   v_pset := realisasi._relevant_pset(p_id);
   v_draft := realisasi._draft_pset(p_id);
   v_rows := coalesce(realisasi._pset_rows(v_pset), 0);
@@ -907,29 +916,42 @@ begin
     'message', case when v_has then 'Implementation Report (PDF) sudah diunggah.' else 'Implementation Report (PDF) wajib diunggah.' end);
   -- R13 mobility bundle (Revisi V.1 item 8): transkrip + poster + dokumentasi in one PDF
   v_has := exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'mobility_bundle' and is_current);
-  v_out := v_out || jsonb_build_object('code', 'R13_MOBILITY_BUNDLE_REQUIRED', 'ok', not v_mob or v_has,
-    'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
+  v_out := v_out || jsonb_build_object('code', 'R13_MOBILITY_BUNDLE_REQUIRED', 'ok', not v_stu or v_has,
+    'message', case when not v_stu then 'Tidak diperlukan untuk jenis kegiatan ini.'
                     when v_has then 'Berkas mobilitas (transkrip, poster, dokumentasi) sudah diunggah.'
                     else 'Kegiatan mobilitas wajib mengunggah Transkrip Mahasiswa, Poster Kegiatan, dan Dokumentasi Kegiatan dalam satu file PDF.' end);
 
-  -- R11
-  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED', 'ok', not (v_mob and v_rows = 0),
+  -- R11 (Faculty Mobility inbound: the external persons are the participants)
+  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED',
+    'ok', not (v_mob and v_rows = 0) or (v_fac and a.direction = 'inbound' and v_ext > 0),
     'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
-                    when v_rows > 0 then 'Data peserta sesuai ketentuan jenis kegiatan.'
+                    when v_rows > 0 or (v_fac and a.direction = 'inbound' and v_ext > 0) then 'Data peserta sesuai ketentuan jenis kegiatan.'
                     else 'Kegiatan mobilitas wajib memiliki data peserta.' end);
   -- R12 (by the kegiatan's Inbound/Outbound choice)
   v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'internal');
   v_out := v_out || jsonb_build_object('code', 'R12_OUTBOUND_STUDENT_REQUIRED',
-    'ok', not v_mob or a.direction <> 'outbound' or v_has,
-    'message', case when not v_mob or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
+    'ok', not v_stu or a.direction <> 'outbound' or v_has,
+    'message', case when not v_stu or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
                     when v_has then 'Mahasiswa PETRA sudah tercantum.'
                     else 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.' end);
   v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'inbound');
   v_out := v_out || jsonb_build_object('code', 'R12_INBOUND_STUDENT_REQUIRED',
-    'ok', not v_mob or a.direction <> 'inbound' or v_has,
-    'message', case when not v_mob or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
+    'ok', not v_stu or a.direction <> 'inbound' or v_has,
+    'message', case when not v_stu or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
                     when v_has then 'Mahasiswa inbound sudah tercantum.'
                     else 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.' end);
+  -- R12 Faculty Mobility: outbound -> PETRA staff, inbound -> external person (tamu luar negeri)
+  v_has := exists (select 1 from realisasi.participant_staff where set_version_id = v_pset);
+  v_out := v_out || jsonb_build_object('code', 'R12_OUTBOUND_STAFF_REQUIRED',
+    'ok', not v_fac or a.direction <> 'outbound' or v_has,
+    'message', case when not v_fac or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_has then 'Staf PETRA sudah tercantum.'
+                    else 'Kegiatan Faculty Mobility outbound wajib memiliki minimal satu dosen/staf PETRA.' end);
+  v_out := v_out || jsonb_build_object('code', 'R12_INBOUND_GUEST_REQUIRED',
+    'ok', not v_fac or a.direction <> 'inbound' or v_ext > 0,
+    'message', case when not v_fac or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_ext > 0 then 'Tamu eksternal sudah tercantum.'
+                    else 'Kegiatan Faculty Mobility inbound wajib memiliki minimal satu tamu eksternal.' end);
   -- R16
   select string_agg(ps.nrp, ', ' order by ps.id) into v_list from realisasi.participant_students ps
    where ps.set_version_id = v_pset and not exists (select 1 from mock_baak.students s where s.nrp = ps.nrp);
@@ -948,8 +970,11 @@ begin
     'message', case when v_list is null then 'Semua ID pegawai ditemukan di data SDM.' else format('ID pegawai tidak ditemukan di data SDM: %s.', v_list) end);
   -- R21
   v_out := v_out || jsonb_build_object('code', 'R21_NEW_VERSION_REQUIRED',
-    'ok', not (v_mob and a.mobility_status = 'revision_requested' and v_draft is null),
-    'message', case when not v_mob or a.mobility_status <> 'revision_requested' then 'Tidak diperlukan.'
+    'ok', not (v_mob and a.mobility_status = 'revision_requested' and v_draft is null
+               and exists (select 1 from realisasi.participant_set_versions where activity_id = p_id and status = 'revision_requested')),
+    'message', case when not v_mob or a.mobility_status <> 'revision_requested'
+                         or not exists (select 1 from realisasi.participant_set_versions
+                                         where activity_id = p_id and status = 'revision_requested') then 'Tidak diperlukan.'
                     when v_draft is not null then 'Versi peserta baru sudah dibuat.'
                     else 'Perbarui data peserta (versi baru) sebelum mengajukan ulang.' end);
 
@@ -972,7 +997,7 @@ end $$;
 
 -- Student conflicts (Revisi V.1, Verifikasi Mobilitas rule 2.1), internal ----------------------------------------
 -- Students an activity claims: the counting section (internal for outbound, inbound for inbound) of its approved
--- participant version, else of its pending one. Drafts and non-mobility activities claim nobody.
+-- participant version, else of its pending one. Drafts and non-student kegiatan claim nobody.
 create function realisasi._claimed_nrps(p_activity uuid) returns setof text
 language sql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
   select s.nrp
@@ -982,7 +1007,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
                    order by (v.status = 'approved') desc, v.version desc limit 1) v on true
     join realisasi.participant_students s on s.set_version_id = v.id
          and s.section = case when a.direction = 'outbound' then 'internal' else 'inbound' end::realisasi.student_section
-   where a.id = p_activity and a.status <> 'draft' and realisasi.agenda_is_mobility(a.agenda_id)
+   where a.id = p_activity and a.status <> 'draft' and realisasi.agenda_program(a.agenda_id) = 'student_mobility'
 $$;
 
 -- (Re)scan one activity: an open conflict for every claimed NRP that another unit's non-draft activity with

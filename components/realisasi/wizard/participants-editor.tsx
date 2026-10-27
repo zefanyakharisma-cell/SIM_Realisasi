@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import type { ParticipantRequirements } from '@/components/realisasi/activity/labels';
 import { useSaveActions } from '@/components/realisasi/wizard/save-status';
 import { saveParticipants } from '@/lib/realisasi/actions/submission';
 import { MAX_LOOKUP_IDS, splitIdTokens } from '@/lib/realisasi/schemas/participants';
@@ -91,7 +92,7 @@ export interface ParticipantsEditorProps {
   activityId: string;
   initialVersion: ParticipantVersion | null;
   countries: CountryOption[];
-  required: { any: boolean; internal: boolean; inbound: boolean };
+  required: ParticipantRequirements;
   /** Reports whether unsaved blocking rows exist (wizard disables "Lanjut"/"Ajukan"). */
   onBlockingChange?: (blocking: boolean) => void;
   /** Called after a save that left no pending edits (e.g. router.refresh for the checklist). */
@@ -332,26 +333,28 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         </Alert>
       )}
 
-      <Panel
-        id="panel-internal"
-        title="Mahasiswa PETRA"
-        count={internal.length}
-        required={required.internal}
-        idLabel="NRP"
-        templateKind="students"
-        checkTestId="check-nrp"
-        placeholder="D31240187"
-        checkLabel="Cek NRP"
-        onCheck={(raw) => addStudents('internal', raw)}
-      >
-        <StudentTable rows={internal} onRemove={removeStudent} />
-      </Panel>
+      {required.students && (
+        <Panel
+          id="panel-internal"
+          title="Mahasiswa PETRA"
+          count={internal.length}
+          required={required.internal}
+          idLabel="NRP"
+          templateKind="students"
+          checkTestId="check-nrp"
+          placeholder="D31240187"
+          checkLabel="Cek NRP"
+          onCheck={(raw) => addStudents('internal', raw)}
+        >
+          <StudentTable rows={internal} onRemove={removeStudent} />
+        </Panel>
+      )}
 
       <Panel
         id="panel-staff"
         title="Pegawai PETRA"
         count={staff.length}
-        required={false}
+        required={required.staff}
         idLabel="ID pegawai"
         templateKind="staff"
         checkTestId="check-employee"
@@ -397,78 +400,80 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         )}
       </Panel>
 
-      <Panel
-        id="panel-inbound"
-        title="Mahasiswa Inbound"
-        count={inbound.length}
-        required={required.inbound}
-        idLabel="NRP inbound"
-        templateKind="students"
-        checkTestId="check-nrp-inbound"
-        placeholder="X01260012"
-        checkLabel="Cek NRP"
-        onCheck={(raw) => addStudents('inbound', raw)}
-      >
-        {inbound.length > 0 && (
-          <ul className="space-y-3">
-            {inbound.map((r) => (
-              <li
-                key={r.key}
-                className={cn('rounded-md border p-3', rowClass(r.status, r.blocking))}
-                data-testid="inbound-row"
-                data-status={r.status}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="flex flex-wrap items-center gap-2 text-sm">
-                    <StatusIcon status={r.status} blocking={r.blocking} />
-                    <span className="font-mono">{r.nrp}</span>
-                    <span>{r.full_name ?? ''}</span>
-                    <span className={r.blocking ? 'font-medium text-danger-fg' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
-                  </p>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeStudent(r.key)} aria-label={`Hapus ${r.nrp}`}>
-                    <Trash2 aria-hidden />
-                  </Button>
-                </div>
-                {!r.blocking && (
-                  <div className="mt-3 grid gap-3 md:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-inst`}>Institusi asal *</Label>
-                      <Input
-                        id={`${r.key}-inst`}
-                        value={r.home_institution}
-                        onChange={(e) => patchStudent(r.key, { home_institution: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-num`}>No. mahasiswa asal</Label>
-                      <Input
-                        id={`${r.key}-num`}
-                        value={r.home_student_number}
-                        onChange={(e) => patchStudent(r.key, { home_student_number: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-country`}>Negara asal</Label>
-                      <NativeSelect
-                        id={`${r.key}-country`}
-                        value={r.home_country_code}
-                        placeholder="Pilih negara"
-                        onChange={(e) => patchStudent(r.key, { home_country_code: e.target.value })}
-                      >
-                        {countries.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </div>
+      {required.students && (
+        <Panel
+          id="panel-inbound"
+          title="Mahasiswa Inbound"
+          count={inbound.length}
+          required={required.inbound}
+          idLabel="NRP inbound"
+          templateKind="students"
+          checkTestId="check-nrp-inbound"
+          placeholder="X01260012"
+          checkLabel="Cek NRP"
+          onCheck={(raw) => addStudents('inbound', raw)}
+        >
+          {inbound.length > 0 && (
+            <ul className="space-y-3">
+              {inbound.map((r) => (
+                <li
+                  key={r.key}
+                  className={cn('rounded-md border p-3', rowClass(r.status, r.blocking))}
+                  data-testid="inbound-row"
+                  data-status={r.status}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="flex flex-wrap items-center gap-2 text-sm">
+                      <StatusIcon status={r.status} blocking={r.blocking} />
+                      <span className="font-mono">{r.nrp}</span>
+                      <span>{r.full_name ?? ''}</span>
+                      <span className={r.blocking ? 'font-medium text-danger-fg' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
+                    </p>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStudent(r.key)} aria-label={`Hapus ${r.nrp}`}>
+                      <Trash2 aria-hidden />
+                    </Button>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+                  {!r.blocking && (
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-inst`}>Institusi asal *</Label>
+                        <Input
+                          id={`${r.key}-inst`}
+                          value={r.home_institution}
+                          onChange={(e) => patchStudent(r.key, { home_institution: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-num`}>No. mahasiswa asal</Label>
+                        <Input
+                          id={`${r.key}-num`}
+                          value={r.home_student_number}
+                          onChange={(e) => patchStudent(r.key, { home_student_number: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-country`}>Negara asal</Label>
+                        <NativeSelect
+                          id={`${r.key}-country`}
+                          value={r.home_country_code}
+                          placeholder="Pilih negara"
+                          onChange={(e) => patchStudent(r.key, { home_country_code: e.target.value })}
+                        >
+                          {countries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      )}
     </div>
   );
 }

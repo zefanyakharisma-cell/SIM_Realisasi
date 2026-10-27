@@ -42,14 +42,22 @@ create table realisasi.semesters (
   check (cutoff_date >= end_date)
 );
 
--- Counting rules per SIMKS agenda (Jenis Kegiatan = kerjasama.agendas, Revisi V.1). An agenda without a row, or with a
--- null mobility_category, is not a mobility activity: no participants required, verified on submit.
-create table realisasi.agenda_rules (
-  agenda_id         int primary key,  -- kerjasama.agendas.id (no FK: adapter view)
+-- Jenis Kegiatan master (IO list "AGENDA - SIM REALISASI"), owned by Realisasi and edited by IO Admin in Pengaturan.
+-- program decides the participant rule: student_mobility -> students (mobility_category = International Awards column),
+-- faculty_mobility -> PETRA staff (outbound) / external persons (inbound), other -> none (verified on submit).
+-- Deactivated, never deleted: kegiatan keep their agenda.
+create table realisasi.agendas (
+  id                serial primary key,
+  program           realisasi.agenda_program not null,
+  name              text not null unique check (btrim(name) <> ''),
+  description       text,  -- Keterangan
   mobility_category realisasi.mobility_category,
   counts_for_s1     boolean not null default true,
+  sort_order        int not null default 0,
+  is_active         boolean not null default true,
   updated_by        uuid,  -- kerjasama.profiles.id (no FK: adapter view)
-  updated_at        timestamptz default now()
+  updated_at        timestamptz default now(),
+  check ((program = 'student_mobility') = (mobility_category is not null))
 );
 
 -- Target per RENSTRA indicator, unit and academic year (Laporan per RENSTRA "Target" column), set in Pengaturan.
@@ -85,7 +93,7 @@ create table realisasi.activities (
   code                text unique not null
                       default 'RL-' || to_char(now(),'YYYY') || '-' || lpad(nextval('realisasi.activity_code_seq')::text,4,'0'),
   name                text not null,
-  agenda_id           int not null,  -- kerjasama.agendas.id (no FK: adapter view); rules in realisasi.agenda_rules
+  agenda_id           int not null references realisasi.agendas(id),  -- Jenis Kegiatan
   direction           realisasi.direction not null,
   start_date          date not null,
   end_date            date not null,

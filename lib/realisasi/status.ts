@@ -3,6 +3,7 @@
  */
 import type {
   ActivityMode,
+  AgendaProgram,
   ActivityStatus,
   ConflictStatus,
   Direction,
@@ -94,6 +95,31 @@ export const MOBILITY_CATEGORY_LABEL: Record<MobilityCategory, string> = {
   short_summer: 'Short / Summer Program',
   other_mobility: 'Mobilitas lainnya',
 };
+
+/** Program groups of the Jenis Kegiatan list (IO "AGENDA - SIM REALISASI"). */
+export const AGENDA_PROGRAM_LABEL: Record<AgendaProgram, string> = {
+  student_mobility: 'Student Mobility',
+  faculty_mobility: 'Faculty Mobility',
+  other: 'Lainnya (bukan mobilitas)',
+};
+
+/** What a Jenis Kegiatan requires at submission, by program and (when known) direction. */
+export function agendaRequirement(program: AgendaProgram, direction?: Direction | null): string {
+  if (program === 'student_mobility') {
+    const who = direction === 'inbound' ? 'mahasiswa inbound' : direction === 'outbound' ? 'mahasiswa PETRA' : 'mahasiswa';
+    return `Mobilitas mahasiswa — wajib isi peserta ${who} dan PDF transkrip/poster/dokumentasi; diverifikasi tim Mobilitas.`;
+  }
+  if (program === 'faculty_mobility') {
+    const who =
+      direction === 'inbound'
+        ? 'minimal satu tamu eksternal (Pembicara / Dosen Asing / Tamu)'
+        : direction === 'outbound'
+          ? 'minimal satu dosen/staf PETRA'
+          : 'dosen/staf PETRA (outbound) atau tamu eksternal (inbound)';
+    return `Mobilitas dosen/staf — wajib isi ${who}; diverifikasi tim Mobilitas.`;
+  }
+  return 'Bukan kegiatan mobilitas — langsung tercatat setelah diajukan.';
+}
 
 export const DIRECTION_LABEL: Record<Direction, string> = {
   inbound: 'Inbound',

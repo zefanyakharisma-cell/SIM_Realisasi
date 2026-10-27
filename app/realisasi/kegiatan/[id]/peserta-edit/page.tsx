@@ -37,7 +37,7 @@ export default async function EditParticipantsPage(props: { params: Promise<{ id
           </Button>
         }
       />
-      <ParticipantCommit activityId={detail.id} version={version} countries={countries} required={participantRequirements({ is_mobility: detail.agenda.is_mobility, direction: detail.direction })} />
+      <ParticipantCommit activityId={detail.id} version={version} countries={countries} required={participantRequirements({ program: detail.agenda.program, direction: detail.direction })} />
     </div>
   );
 }

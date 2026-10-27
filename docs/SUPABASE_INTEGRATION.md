@@ -113,13 +113,13 @@ once Windows CRLF line endings from the paste are ignored), 380 columns, 26 poli
 7 accounts, 39/39 SIMKS documents visible, cron job `realisasi-daily-jobs`. As io_admin: role resolves, dashboard computes.
 Remaining: Vercel `DATABASE_URL` (connector lacks permission to set env vars) and rotating the DB password.
 
-**Revisi V.1 (not yet applied to `simks-partnership`).** The migrations were edited in place (agenda-based Jenis
-Kegiatan, Inbound/Outbound, one kerja sama per kegiatan, Mobility-only verification, student conflicts, four period
+**Revisi V.1 (not yet applied to `simks-partnership`).** The migrations were edited in place (Jenis Kegiatan as
+Realisasi's own Student / Faculty Mobility list, Inbound/Outbound, one kerja sama per kegiatan, Mobility-only verification, student conflicts, four period
 cut-offs, International Awards). The live install above is the previous build, so the new one must be installed with a
 **reset of Realisasi's own schemas** (`scripts/db-deploy-supabase.sh --reset-realisasi`, or the SQL Editor files below,
 which start with the same reset). Realisasi demo data is re-seeded; SIM Kerjasama tables are only read. Rehearsed
-locally; expected fingerprint `functions 165 44dfa2b2cc108735a8a41beb212bea65`, `columns 311
-2d5642106c6972cb2891cd93b0e3bd35`, `policies 24 8945131cda9b8642deb73b5364f39d2e`.
+locally; expected fingerprint `functions 167 5d288b6989dd1b67d39b50c4b79e70e6`, `columns 320
+673896ea71105931fb2258703e25c11b`, `policies 25 53fd34b9131e692a355b41370ee2af2b` (Jenis Kegiatan = `realisasi.agendas`).
 
 ## Live data import (2026-10-03)
 
@@ -158,9 +158,10 @@ f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461
    migrations or seeds) and copy its whole content.
 2. Supabase Dashboard → project **simks-partnership** → **SQL Editor** → New query → paste → **Run**. Confirm the
    "destructive operation" prompt: the only things dropped are Realisasi's own schemas from the partial install.
-3. The result grid shows the fingerprint; it must read `functions 166 eb260576cf2734945dc77ca484ab7199`,
-   `columns 317 f7b297a5f532006fa57193ab6046e885`, `policies 25 aa5f267ced2faf55bb04da95caddb461` (Target RENSTRA build,
-   2026-10-18; the Revisi V.1 build read `functions 165 44dfa2b2…`, `columns 311 2d564210…`, `policies 24 8945131c…`).
+3. The result grid shows the fingerprint; it must read `functions 167 5d288b6989dd1b67d39b50c4b79e70e6`,
+   `columns 320 673896ea71105931fb2258703e25c11b`, `policies 25 53fd34b9131e692a355b41370ee2af2b` (Jenis Kegiatan as
+   `realisasi.agendas` + Target RENSTRA build; the Target RENSTRA build read `functions 166 eb260576…`, `columns 317
+   f7b297a5…`, `policies 25 aa5f267c…`; the Revisi V.1 build `functions 165 44dfa2b2…`).
 
 The file is one transaction (an error rolls everything back), is safe to run again, and equals
 `scripts/db-deploy-supabase.sh --reset-realisasi`.

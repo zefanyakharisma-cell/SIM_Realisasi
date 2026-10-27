@@ -3,14 +3,18 @@
  * Result row types are exported for client components (`import type` only).
  */
 import type { Tx } from '@/lib/db';
-import type { DocumentOption, EmployeeRecord, MobilityCategory, StudentRecord } from '@/lib/realisasi/types';
+import type { AgendaProgram, DocumentOption, EmployeeRecord, MobilityCategory, StudentRecord } from '@/lib/realisasi/types';
 
-/** Jenis Kegiatan = SIM Kerjasama "Agenda Kerjasama" (`kerjasama.agendas`) + Realisasi's rule for it. */
+/** Jenis Kegiatan (`realisasi.agendas`, IO's list edited in Pengaturan). */
 export interface AgendaOption {
   id: number;
   name: string;
+  program: AgendaProgram;
+  /** Keterangan. */
+  description: string | null;
   is_active: boolean;
   mobility_category: MobilityCategory | null;
+  /** Student or Faculty Mobility (participants + Mobility track). */
   is_mobility: boolean;
   counts_for_s1: boolean;
 }
@@ -83,10 +87,10 @@ export async function getFormOptions(tx: Tx): Promise<FormOptions> {
 
 export async function getAgendas(tx: Tx): Promise<AgendaOption[]> {
   const rows = await tx<AgendaOption[]>`
-    select g.id, g.name, g.is_active, r.mobility_category::text as mobility_category,
-           (r.mobility_category is not null) as is_mobility, coalesce(r.counts_for_s1, true) as counts_for_s1
-      from kerjasama.agendas g left join realisasi.agenda_rules r on r.agenda_id = g.id
-     order by (r.mobility_category is null), g.name`;
+    select id, name, program::text as program, description, is_active, mobility_category::text as mobility_category,
+           (program <> 'other') as is_mobility, counts_for_s1
+      from realisasi.agendas
+     order by program, sort_order, name`;
   return [...rows];
 }
 

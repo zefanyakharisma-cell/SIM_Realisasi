@@ -18,6 +18,7 @@ import type {
 } from '@/lib/realisasi/types';
 import {
   ACTIVITY_STATUS_LABEL,
+  AGENDA_PROGRAM_LABEL,
   CONFLICT_STATUS_LABEL,
   DIRECTION_LABEL,
   LOG_ACTION_LABEL,
@@ -274,6 +275,7 @@ export const ACTIVITY_COLUMNS: Column<ActivityListRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
   { header: 'Jenis Kegiatan', key: 'type', value: (r) => r.agenda_name },
+  { header: 'Program', key: 'program', value: (r) => label(AGENDA_PROGRAM_LABEL, r.agenda_program) },
   { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
   { header: 'Unit Pengaju', key: 'unit', value: (r) => r.submitter_unit_name },
   { header: 'Unit Lain yang Terlibat', key: 'units', value: (r) => joinList((r.unit_names ?? []).filter((n) => n !== r.submitter_unit_name)) },
