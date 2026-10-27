@@ -1,11 +1,33 @@
 # SIM Realisasi — Business Rules
 **Version:** 1.1 (Mockup, Revisi V.1) · Authoritative for behaviour. If another doc disagrees, this one wins.
 
-Revisi V.1 summary: one-page submission form; Jenis Kegiatan = SIM Kerjasama's Agenda Kerjasama list; Inbound/Outbound
-per kegiatan; one kerja sama per kegiatan; one verification track (Mobility) — non-mobility kegiatan are recorded on
-submit; duplicate students between units are decided inside Verifikasi Mobilitas; no SLA, no Kegiatan Diketahui, no
+Revisi V.1 summary: one-page submission form; Jenis Kegiatan = IO's own list (Student Mobility / Faculty Mobility, see
+R-07a); Inbound/Outbound per kegiatan; one kerja sama per kegiatan; one verification track (Mobility) — kegiatan of a
+non-mobility Jenis are recorded on submit; duplicate students between units are decided inside Verifikasi Mobilitas; no SLA, no Kegiatan Diketahui, no
 KPI 1.19.S8; "KPI" is called **RENSTRA** in the UI; four period cut-offs; International Awards dashboard; Unit Akademik
 only.
+
+**Revisi V.2 (2026-10-05)** — the "SIM Kerjasama" navigation section is hidden: SIM Realisasi only reads SIM
+Kerjasama's data (agreements, partners, units); its document screens belong to the SIM Kerjasama app. An agreement's
+Realisasi page stays reachable from the RENSTRA tables (deep link `/kerjasama/dokumen/<id>/realisasi`).
+
+**Revisi V.1, round 2 (2026-10-05)** — supersedes the rules below where they differ:
+1. Every KUI account (Kepala Kantor Kerja Sama dan Urusan Internasional, Head of Partnership and Global Alliance, Staff
+   of Partnership and Global Alliance) is `io_admin`: all features unlocked. Live install:
+   `supabase/deploy/patch-2026-10-05-kui-admin.sql`.
+2. Excel exports have no "Info" sheet; every workbook opens directly on the data.
+3. The Kegiatan export adds the columns SDG, Link IA and Link IR (absolute links to the current IA/IR files).
+4. The Kegiatan export adds a sheet "Peserta": every participant (PETRA/inbound students, staff, external persons) of
+   each listed kegiatan, from its latest reported (non-draft) version. Only for roles allowed to export participants
+   (admin, Mobility team, submitter); logged as a personal-data export.
+5. The Kegiatan list has one quick filter only: "Perlu tindakan saya" (KUI: submissions awaiting approval; unit: drafts
+   and kegiatan sent back for revision). "Terlambat" and "Semester ini" are removed.
+6. "Setujui" on Verifikasi Mobilitas is a plain confirmation ("Apakah Anda yakin…?") without a Catatan.
+7. "Minta Revisi" notifies the submitting unit (notification bar) and the kegiatan is flagged **Revisi** on Verifikasi
+   Mobilitas for both sides: KUI sees it under "Dikembalikan untuk Revisi"; the unit sees a read-only status list of its
+   mobility kegiatan (Menunggu verifikasi / Revisi, with KUI's note and "Revisi sekarang").
+8. International Awards lists only the top 3 of each leaderboard (competition ranking on the total, ties at rank 3
+   kept, units with 0 hidden), on screen and in the export.
 
 ---
 
@@ -20,13 +42,22 @@ only.
 
 ## 2. Submission
 - **R-07** One page: Detail & Kerja sama, Peserta, Berkas, Ajukan. Peserta and Berkas unlock once the Detail is saved as a draft. Required at submission: all required Detail fields, the agreement, IA (PDF), IR (PDF).
-- **R-07a** Jenis Kegiatan is chosen from SIM Kerjasama's Agenda Kerjasama list (amendment excluded). Realisasi keeps one rule per agenda (`agenda_rules`): its **mobility category** (JD/DD, Student Exchange, Short/Summer, other mobility, or none) and whether it counts for 1.19.S1. IO Admin edits the rules in Pengaturan → Jenis Kegiatan.
-- **R-07b** Every kegiatan is **Inbound** or **Outbound** (one dropdown per kegiatan). Kota and Sumber Dana are not recorded. SKS diakui is asked only for mobility kegiatan.
+- **R-07a** Jenis Kegiatan is chosen from Realisasi's own list (`realisasi.agendas`, IO sheet "AGENDA - SIM REALISASI"), each type with a **program**, a Keterangan and a 1.19.S1 flag:
+  - **Student Mobility**: Joint/Double Degree, Student Exchange, Short Program, International Event. Each has its International Awards **mobility category** (JD/DD, Student Exchange, Short/Summer, other mobility).
+  - **Faculty Mobility**: Kolaborasi dan Hibah Global, Forum Akademik Internasional, Kemitraan Institusional, Mobilitas Akademik dan Penguatan Kapasitas, Eksposur Internasional Jangka Pendek.
+  - **Lainnya** (program `other`, none seeded): no participants, verified on submit.
+
+  IO Admin adds, edits and deactivates types in Pengaturan → Jenis Kegiatan (never deletes them). An inactive type cannot be chosen for a new kegiatan; kegiatan that already use it keep it. SIM Kerjasama's Agenda Kerjasama list is not used.
+- **R-07b** Every kegiatan is **Inbound** or **Outbound** (one dropdown per kegiatan). Kota and Sumber Dana are not recorded. SKS diakui is asked only for Student Mobility kegiatan.
 - **R-08** Tanggal Selesai must be ≤ today (an IR can't exist before the activity ends).
 - **R-09** Semester and academic year are derived from Tanggal Mulai. A start date outside any configured academic year cannot be submitted (IO Admin must add the year first).
 - **R-10** Reporting deadline = Tanggal Selesai + `reporting_deadline_days` (default 30). Submissions after it are accepted and flagged `Terlambat`.
-- **R-11** A **mobility kegiatan** (agenda with a mobility category) needs a non-empty participant set and one **PDF combining the students' transcripts, the poster and the documentation** (`mobility_bundle`); its Mobility track starts as `pending`. Any other kegiatan has track `not_required` and is **verified on submit**.
-- **R-12** Mandatory participant section by the kegiatan's direction: outbound → ≥1 PETRA student; inbound → ≥1 inbound student.
+- **R-11** A **mobility kegiatan** (Student or Faculty Mobility) needs participants, and its Mobility track starts as `pending`. A **Student Mobility** kegiatan needs a non-empty participant set and one **PDF combining the students' transcripts, the poster and the documentation** (`mobility_bundle`). A **Faculty Mobility** kegiatan needs no bundle PDF. Its participants are PETRA staff (outbound) or the External Persons (inbound, R-20). A kegiatan of program `other` has track `not_required` and is **verified on submit**.
+- **R-12** Mandatory participants by program and direction:
+  - Student Mobility: outbound → ≥1 PETRA student; inbound → ≥1 inbound student.
+  - Faculty Mobility: outbound → ≥1 PETRA staff member (HR registry, R-19); inbound → ≥1 external person (R-20).
+
+  Only Student Mobility kegiatan claim students (duplicate-student rule 2.1, RENSTRA 1.1, International Awards).
 - **R-13** Files: PDF only for IA/IR and the mobility PDF, max 10 MB each; evidence accepts PDF/JPG/PNG (max 10 MB) or links.
 - **R-14** A unit may submit for itself; "Unit Lain yang Terlibat" are added by the submitter and get read-only access.
 - **R-15** A draft can be deleted by the account that created it, or by IO Admin (any draft); other users of the unit can edit it but not delete it. Drafts never counted; submitted activities are never deleted.
@@ -43,11 +74,11 @@ only.
 ## 3A. Status machine
 - **R-23** Track transitions (Mobility is the only verification track):
   ```text
-  Mobility:    not_required                      (non-mobility kegiatan)
+  Mobility:    not_required                      (Jenis of program 'other')
                pending → approved | revision_requested
                revision_requested → pending      (on unit resubmit / new participant version)
   ```
-- **R-24** Changing Jenis Kegiatan during a revision re-evaluates the track: a mobility agenda → `pending`, otherwise `not_required`.
+- **R-24** Changing Jenis Kegiatan during a revision re-evaluates the track: a Student or Faculty Mobility Jenis → `pending`, otherwise `not_required`. A Mobility approval needs the pending participant set, except for an inbound Faculty Mobility kegiatan that lists only external persons.
 - **R-25** Overall status (derived, never set directly):
   | Condition | Status |
   |---|---|
@@ -84,7 +115,7 @@ General:
 - **R-40** Reported per semester and per academic year.
 
 **RENSTRA 1.19.S1 — Kegiatan internasional dengan mitra**
-- **R-41** Count = verified kegiatan whose agenda counts for S1 and whose agreement has ≥1 partner with country ≠ Indonesia. Domestic count shown alongside for reference.
+- **R-41** Count = verified kegiatan whose Jenis counts for S1 and whose agreement has ≥1 partner with country ≠ Indonesia. Domestic count shown alongside for reference.
 
 **RENSTRA 1.19.24 — Persen terlaksana MoU & MoA**
 - **R-42** Unit of count = renewal chain (an agreement and all its renewals), so a mid-year renewal counts once.
@@ -134,7 +165,7 @@ KPI 1.19.S8 and the Known Activities register (former R-48…R-54) are removed.
 | AT-01 | S-13 (FTI) and S-14 (Informatika) same summer program, 12 shared students; Mobility kept them on S-13 | RENSTRA 1.1 | counted once, for FTI; Informatika 0 for those students |
 | AT-02 | Student D31240187 in S-15a and S-15b (same unit) | RENSTRA 1.1 | that student contributes 2 |
 | AT-03 | S-16 Mobility revision requested | view status | overall `revision_requested`; after v2 approved → `verified`; v1 kept, read-only |
-| AT-04 | A non-mobility kegiatan (e.g. S-17 seminar) | unit submits | verified immediately (track `not_required`) |
+| AT-04 | A Faculty Mobility kegiatan (e.g. S-23 guest lecture, inbound) | unit submits without an external person / with one | blocked (`R12_INBOUND_GUEST_REQUIRED`) / Mobility queue, approved without a participant set |
 | AT-05 | Agreement signed 3 months before 2026/2027 Ganjil cutoff | RENSTRA 1.19.24 Ganjil | excluded from denominator, listed as grace-excluded |
 | AT-06 | Auto-renewed agreement with no activity | RENSTRA 1.19.24 | in denominator, not in numerator |
 | AT-07 | S-20 activities before and after renewal | RENSTRA 1.19.24 | chain counted once in denominator and once in numerator; detail shows original doc numbers |

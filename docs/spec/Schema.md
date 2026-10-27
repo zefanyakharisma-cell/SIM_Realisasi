@@ -97,15 +97,17 @@ create table realisasi.holidays (
   name text not null
 );
 
-create table realisasi.activity_types (          -- Jenis Kegiatan master
-  id                         serial primary key,
-  name                       text unique not null,
-  direction                  realisasi.direction not null default 'none',
-  counts_as_mobility         boolean not null default false,  -- KPI 1.1
-  counts_for_s1              boolean not null default true,   -- KPI 1.19.S1
-  requires_mobility_review   boolean not null default false,
-  is_active                  boolean not null default true,
-  sort_order                 int default 0
+create table realisasi.agendas (                 -- Jenis Kegiatan master (IO list; see Rules R-07a)
+  id                serial primary key,
+  program           realisasi.agenda_program not null,  -- student_mobility | faculty_mobility | other
+  name              text not null unique,
+  description       text,                               -- Keterangan
+  mobility_category realisasi.mobility_category,        -- International Awards; set iff student_mobility
+  counts_for_s1     boolean not null default true,      -- KPI 1.19.S1
+  sort_order        int not null default 0,
+  is_active         boolean not null default true,
+  updated_by        uuid,
+  updated_at        timestamptz default now()
 );
 
 create table realisasi.sdgs (
@@ -585,17 +587,24 @@ Unit scope = `activity_units.unit_id = profiles.unit_id` (incl. co-units, read-o
 - 2026/2027: Ganjil 2026-08-01 → 2027-01-31 (cutoff 2027-03-02); Genap 2027-02-01 → 2027-07-31 (cutoff 2027-08-30)
 
 ### 7.3 Jenis Kegiatan
-| Name | direction | mobility | S1 | mobility review |
+| # | Program | Name | Awards category | S1 |
 |---|---|---|---|---|
-| Student Outbound Mobility | outbound | ✓ | ✓ | ✓ |
-| Student Inbound Mobility | inbound | ✓ | ✓ | ✓ |
-| Staff Outbound Mobility | none | — | ✓ | ✓ |
-| Visiting Lecturer / Guest Lecture | none | — | ✓ | — |
-| Joint Research | none | — | ✓ | — |
-| Joint Seminar / Conference | none | — | ✓ | — |
-| Summer / Winter Program (Outbound) | outbound | ✓ | ✓ | ✓ |
-| Community Service (Joint) | none | — | ✓ | — |
-| Joint Publication | none | — | ✓ | — |
+| 1 | Student Mobility | Joint/Double Degree | jd_dd | ✓ |
+| 2 | Student Mobility | Student Exchange | student_exchange | ✓ |
+| 3 | Student Mobility | Short Program | short_summer | ✓ |
+| 4 | Student Mobility | International Event | other_mobility | ✓ |
+| 5 | Faculty Mobility | Kolaborasi dan Hibah Global | — | ✓ |
+| 6 | Faculty Mobility | Forum Akademik Internasional | — | ✓ |
+| 7 | Faculty Mobility | Kemitraan Institusional | — | ✓ |
+| 8 | Faculty Mobility | Mobilitas Akademik dan Penguatan Kapasitas | — | ✓ |
+| 9 | Faculty Mobility | Eksposur Internasional Jangka Pendek | — | ✓ |
+
+Seed kegiatan written against SIM Kerjasama agendas were mapped: JD/DD agendas → 1; Student Exchange / Study Abroad /
+Academic Exchange / Credit Transfer → 2; Immersion / Short Program / Cultural Exchange → 3; Magang / Studi Ekskursi /
+MBKM → 4; Guest Lecture / Academic Visit / Staff Exchange / Online Course → 9; Conference / Joint Projects → 6; Joint
+Research / Publikasi / Hibah / Beasiswa → 5; Educational & Training / Sertifikasi / Pelatihan → 8; everything else → 7.
+`seed/89_faculty_mobility.sql` gives the former non-mobility kegiatan their staff (outbound) or external person
+(inbound) and an approved Mobility track.
 
 ### 7.4 Registries
 - `mock_baak.students`: 60 rows — 45 regular across faculties A–H, 15 `inbound_exchange` (home institutions in JP, KR, TW, DE, NL, AU, MY, TH, PH); 3 graduated, 2 inactive (to test lookup warnings).

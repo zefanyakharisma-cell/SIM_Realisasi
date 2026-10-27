@@ -61,7 +61,7 @@ Stepper: **1 Detail → 2 Peserta → 3 Berkas → 4 Tinjau & Ajukan**. Autosave
 
 **Step 1 — Detail**
 - Two-column form. Semester & Tahun Akademik appear as read-only text that updates live after Tanggal Mulai.
-- Jenis Kegiatan select shows a helper line from its flags: "Dihitung sebagai mobilitas outbound — wajib isi peserta mahasiswa PETRA".
+- Jenis Kegiatan select is grouped by program (Student Mobility / Faculty Mobility) and shows a helper line: the type's Keterangan, then its requirement for the chosen direction, e.g. "Mobilitas dosen/staf — wajib isi minimal satu dosen/staf PETRA; diverifikasi tim Mobilitas".
 - **Kerjasama picker** (combobox, multi): disabled until dates are filled; each option shows `doc number · MoU/MoA · partner · 🇯🇵 · berlaku s.d. 2028-05-01`, archived ones tagged `Arsip (diperbarui)`. Selected agreements render as cards with auto-filled Mitra + Negara (read-only). Out-of-scope warning appears inline under the card.
 - **Pembicara / Dosen Asing / Tamu**: repeatable row group (Nama, Institusi, Negara, Peran) with "+ Tambah orang".
 - SDG: 17 toggle chips with official colours.
@@ -100,12 +100,13 @@ Three collapsible panels, each with a count in the header:
 - Unmatched rows show suggested matches (score) with **Cocokkan**; plus **Ingatkan unit** (disabled + timestamp after sending).
 
 ### 3.8 Laporan & Ekspor
-- Left: report list (Ringkasan KPI, per-KPI drill-down, Daftar kegiatan, Daftar peserta*, Register, Realisasi per kerja sama, SLA verifikasi, Arsip snapshot). *Hidden for roles without access.
+- Left: report list (Ringkasan RENSTRA, Laporan per RENSTRA, International Awards, Realisasi per kerja sama, Arsip snapshot*). *Hidden for roles without access. Daftar kegiatan and Daftar peserta were removed (2026-10-18): the Kegiatan list has its own Excel export, and the RENSTRA 1.1 workbook carries the student sheet.
+- Laporan per RENSTRA: per-unit table Unit · Tingkat · **Target** · Jumlah (Target from Pengaturan → Target RENSTRA; "–" when none); 1.19.S4 shows its target % on the overall card.
 - Right: filters + preview table + **Unduh Excel**.
 - **Arsip snapshot:** timeline of frozen snapshots per academic year; each shows frozen date, by whom/job, superseded state, refreeze reason; download button.
 
 ### 3.9 Pengaturan (io_admin)
-- Tabs: Umum (grace period, reporting deadline, SLA, reminders, duplicate thresholds) · Kalender Akademik (year/semester table with cutoff dates; freeze status per row; **Bekukan sekarang** / **Bekukan ulang**) · Jenis Kegiatan (table with flag toggles; deactivate instead of delete) · Hari Libur.
+- Tabs: Umum (grace period, reporting deadline, SLA, reminders, duplicate thresholds) · Kalender Akademik (year/semester table with cutoff dates; freeze status per row; **Bekukan sekarang** / **Bekukan ulang**) · Jenis Kegiatan (master grouped by program with Keterangan; add/edit dialog; 1.19.S1 and Aktif toggles; deactivate instead of delete) · **Target RENSTRA** (academic year + indicator; one target per unit, unit 0 = Universitas; 1.19.S4 = one university-wide %) · Hari Libur.
 - Changing a setting shows "Berlaku untuk perhitungan live; snapshot yang sudah dibekukan tidak berubah."
 
 ### 3.10 SIM Kerjasama → Realisasi tab

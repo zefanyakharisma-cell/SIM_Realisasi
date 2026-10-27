@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/realisasi/notification-bell';
-import { SidebarNav } from '@/components/layout/sidebar';
+import { BrandMark, SidebarNav } from '@/components/layout/sidebar';
 import type { NavSection } from '@/components/layout/nav';
 import { logout } from '@/lib/realisasi/actions/session';
 
@@ -38,12 +38,15 @@ export function Topbar({ user, sections, unread }: { user: TopbarUser; sections:
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="bg-sidebar p-0 text-sidebar-foreground">
-          <SheetTitle className="px-6 pt-5 text-white">SIM Realisasi</SheetTitle>
+          <SheetTitle className="flex items-center gap-2.5 px-5 pt-5 text-sm font-semibold uppercase tracking-wide text-white">
+            <BrandMark />
+            SIM Realisasi
+          </SheetTitle>
           <SheetDescription className="sr-only">Menu navigasi</SheetDescription>
           <SidebarNav sections={sections} onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
-      <span className="font-semibold lg:hidden">SIM Realisasi</span>
+      <span className="text-sm font-semibold uppercase tracking-wide text-primary lg:hidden">SIM Realisasi</span>
 
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell unread={unread} />

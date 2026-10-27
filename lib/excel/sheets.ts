@@ -13,12 +13,12 @@ import type {
   KpiParticipantRow,
   KpiValues,
   LateAdditionRow,
-  PeriodInfo,
   PostFreezeChangeRow,
   SnapshotListRow,
 } from '@/lib/realisasi/types';
 import {
   ACTIVITY_STATUS_LABEL,
+  AGENDA_PROGRAM_LABEL,
   CONFLICT_STATUS_LABEL,
   DIRECTION_LABEL,
   LOG_ACTION_LABEL,
@@ -28,7 +28,7 @@ import {
   TRACK_LABEL,
   TRACK_STATUS_LABEL,
 } from '@/lib/realisasi/status';
-import { formatDate, formatDateTime } from '@/lib/realisasi/format';
+import { formatDate } from '@/lib/realisasi/format';
 import { addTableSheet, type Column } from '@/lib/excel/workbook';
 import type { RollupRow } from '@/lib/realisasi/unit-rollup';
 
@@ -40,18 +40,6 @@ export function label<K extends string>(map: Partial<Record<K, string>> | undefi
 export const joinList = (xs: ReadonlyArray<string | null | undefined> | null | undefined): string =>
   (xs ?? []).filter((x): x is string => typeof x === 'string' && x !== '').join(', ');
 export const yesNo = (b: boolean | null | undefined): string => (b ? 'Ya' : 'Tidak');
-
-export function dataAsOf(period: PeriodInfo): string {
-  if (period.frozen && period.snapshot_id) {
-    return `Snapshot ${period.label} · dibekukan ${formatDateTime(period.frozen_at)} · id ${period.snapshot_id}`;
-  }
-  if (period.frozen) return `${period.label} · per pembekuan ${formatDateTime(period.frozen_at)}`;
-  return `${period.label} · data s.d. ${formatDate(period.window_end)} (live)`;
-}
-
-export function snapshotAsOf(s: SnapshotListRow): string {
-  return `Snapshot ${s.label} · dibekukan ${formatDateTime(s.frozen_at)} · id ${s.id}`;
-}
 
 export function isActivityRow(r: unknown): r is ActivityKpiRow {
   return (r as { row_type?: string }).row_type === 'activity';
@@ -170,22 +158,22 @@ export interface RollupSheetRow {
   prodi: string | null;
   program: string | null;
   level: string;
-  own: number | null;
+  target: number | null;
   total: number;
   isTotal: boolean;
 }
 
-export function rollupSheetRows(rows: RollupRow[], totalLabel: string, scopeValue: number): RollupSheetRow[] {
+export function rollupSheetRows(rows: RollupRow[], totalLabel: string, scopeValue: number, scopeTarget: number | null): RollupSheetRow[] {
   const out: RollupSheetRow[] = rows.map((r) => ({
     faculty: r.path[0] ?? null,
     prodi: r.depth >= 1 ? (r.path[1] ?? null) : null,
     program: r.depth >= 2 ? r.path.slice(2).join(' / ') : null,
     level: r.level,
-    own: r.own,
+    target: r.target,
     total: r.total,
     isTotal: false,
   }));
-  out.push({ faculty: totalLabel, prodi: null, program: null, level: 'Total', own: null, total: scopeValue, isTotal: true });
+  out.push({ faculty: totalLabel, prodi: null, program: null, level: 'Total', target: scopeTarget, total: scopeValue, isTotal: true });
   return out;
 }
 
@@ -195,7 +183,7 @@ export function rollupColumns(valueHeader: string): Column<RollupSheetRow>[] {
     { header: 'Program Studi', key: 'prodi', value: (r) => r.prodi },
     { header: 'Program', key: 'program', value: (r) => r.program },
     { header: 'Tingkat', key: 'level', value: (r) => r.level },
-    { header: `${valueHeader} (unit sendiri)`, key: 'own', value: (r) => r.own, format: 'int' },
+    { header: 'Target', key: 'target', value: (r) => r.target, format: 'decimal' },
     { header: `${valueHeader} (total)`, key: 'total', value: (r) => r.total, format: 'int' },
   ];
 }
@@ -206,6 +194,7 @@ export interface OverallPctRow {
   den: number;
   grace: number;
   pct: number | null;
+  target: number | null;
 }
 
 export const KPI_S4_OVERALL_COLUMNS: Column<OverallPctRow>[] = [
@@ -215,6 +204,7 @@ export const KPI_S4_OVERALL_COLUMNS: Column<OverallPctRow>[] = [
   { header: 'Kerja Sama Aktif (penyebut)', key: 'den', value: (r) => r.den, format: 'int' },
   { header: 'Masa Tenggang (dikecualikan)', key: 'grace', value: (r) => r.grace, format: 'int' },
   { header: 'Persentase', key: 'pct', value: (r) => r.pct, format: 'pct' },
+  { header: 'Target', key: 'target', value: (r) => r.target, format: 'pct' },
 ];
 
 /** KPI activity columns plus the Fakultas of each involved unit (data sheet of a RENSTRA workbook). */
@@ -285,6 +275,7 @@ export const ACTIVITY_COLUMNS: Column<ActivityListRow>[] = [
   { header: 'Kode', key: 'code', value: (r) => r.code },
   { header: 'Nama Kegiatan', key: 'name', value: (r) => r.name },
   { header: 'Jenis Kegiatan', key: 'type', value: (r) => r.agenda_name },
+  { header: 'Program', key: 'program', value: (r) => label(AGENDA_PROGRAM_LABEL, r.agenda_program) },
   { header: 'Inbound/Outbound', key: 'dir', value: (r) => label(DIRECTION_LABEL, r.direction) },
   { header: 'Unit Pengaju', key: 'unit', value: (r) => r.submitter_unit_name },
   { header: 'Unit Lain yang Terlibat', key: 'units', value: (r) => joinList((r.unit_names ?? []).filter((n) => n !== r.submitter_unit_name)) },

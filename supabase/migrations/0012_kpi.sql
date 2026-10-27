@@ -18,7 +18,7 @@ with prm as (
          coalesce(r.counts_for_s1, true) as counts_for_s1,
          exists (select 1 from realisasi.activity_partner_snapshot ps
                   where ps.activity_id = a.id and ps.country_code <> 'ID') as intl
-    from realisasi.activities a left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+    from realisasi.activities a left join realisasi.agendas r on r.id = a.agenda_id
    where a.status = 'verified' and a.verified_at <= (select as_of from prm)
 ), qa as (              -- one row per (scope, activity)
   select null::int as su, q.* from qa0 q where p_scope in ('university','all')

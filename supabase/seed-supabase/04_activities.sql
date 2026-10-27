@@ -3,8 +3,8 @@
 -- each document's validity and inside AY 2025/2026 – 2026/2027. Idempotent: an activity that exists is skipped.
 -- Actors are resolved from realisasi.account_roles (03_accounts.sql) through kerjasama.profiles:
 --   submitters akun 3 (unit 4, SBM) and akun 4 (unit 5, Program Studi Manajemen); mobility team akun 10.
--- Revisi V.1: Jenis = SIMKS agenda, Inbound/Outbound per kegiatan, one kerja sama, Mobility the only verification
--- (non-mobility kegiatan verified on submit), one open student conflict between SBM and Program Studi Manajemen (S-13).
+-- Jenis = realisasi.agendas, Inbound/Outbound per kegiatan, one kerja sama, Mobility the only verification (Faculty
+-- Mobility kegiatan completed by 89_faculty_mobility.sql), one open student conflict between SBM and Program Studi Manajemen (S-13).
 -- Ids: activities b5000000-0000-4000-8000-0000000000NN, event groups e5000000-…NN, codes RL-2026-00NN.
 
 create or replace function pg_temp.aid(n int) returns uuid language sql immutable as $$
@@ -50,12 +50,12 @@ create or replace function pg_temp.act(
 returns void language plpgsql as $$
 declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n); v_code text := 'RL-2026-' || lpad(p_n::text, 4, '0');
         v_creator uuid := pg_temp.akun(case p_unit when 4 then 3 when 5 then 4 end);
-        v_mobt uuid := pg_temp.akun(10); v_mob boolean := realisasi.agenda_is_mobility(p_agenda);
+        v_mobt uuid := pg_temp.akun(10); v_mob boolean := (realisasi.agenda_program(p_agenda) = 'student_mobility');
         v_created timestamptz; k text; v_path text; e jsonb;
 begin
   if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
   if v_creator is null then raise exception 'no submitter account for unit %', p_unit; end if;
-  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'activity %: SIMKS agenda % missing', p_n, p_agenda; end if;
+  if not exists (select 1 from realisasi.agendas where id = p_agenda) then raise exception 'activity %: Jenis Kegiatan % missing', p_n, p_agenda; end if;
   -- R-04 against the live SIMKS data: the agreement is valid for the activity dates
   if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
     raise exception 'activity %: SIMKS document % not valid for % – %', p_n, p_doc, p_start, p_end;
@@ -120,27 +120,27 @@ begin
 end $$;
 
 -- ---- AY 2025/2026 (verified) -------------------------------------------------------------------------------------
--- agendas: 2 Student Exchange, 23 Short Program (mobility); 4 Joint Research, 15 Kuliah Tamu, 35 Joint Projects,
--- 40 Pengabdian (non-mobility)
+-- Jenis Kegiatan: 2 Student Exchange, 3 Short Program (Student Mobility); 5 Kolaborasi dan Hibah Global, 9 Eksposur
+-- Internasional Jangka Pendek, 6 Forum Akademik Internasional, 7 Kemitraan Institusional (Faculty Mobility)
 select pg_temp.act(1, 'Student Exchange Semester Ganjil di Kyoto Sangyo University', 4, 2, 'outbound', '2025-09-01', '2025-12-19', 'offline',
   'Kyoto Sangyo University', 'JP', 11, '{4,17}', pg_temp.wib('2025-12-22'), 'approved', pg_temp.wib('2026-01-08', '14:00'));
 select pg_temp.pset(1, 'approved', '{D31238836,D31239872,D32233592}', '{}', '{}', pg_temp.wib('2025-12-22'), pg_temp.wib('2026-01-08', '14:00'));
 
-select pg_temp.act(2, 'Pengabdian Masyarakat UMKM Digital bersama UGM', 5, 40, 'outbound', '2025-11-10', '2025-11-14', 'offline',
+select pg_temp.act(2, 'Pengabdian Masyarakat UMKM Digital bersama UGM', 5, 7, 'outbound', '2025-11-10', '2025-11-14', 'offline',
   'Desa Wisata Nglanggeran', 'ID', 28, '{1,8}', pg_temp.wib('2025-11-20'), null, null);
 
-select pg_temp.act(3, 'Joint Seminar Bisnis Berkelanjutan ASEAN bersama Chulalongkorn', 4, 35, 'inbound', '2026-01-20', '2026-01-21', 'hybrid',
+select pg_temp.act(3, 'Joint Seminar Bisnis Berkelanjutan ASEAN bersama Chulalongkorn', 4, 6, 'inbound', '2026-01-20', '2026-01-21', 'hybrid',
   'Auditorium PCU', 'ID', 29, '{8,17}', pg_temp.wib('2026-01-26'), null, null,
   p_ext => '[{"full_name":"Asst. Prof. Kanokwan Srisuk","institution":"Chulalongkorn University","country_code":"TH","role":"speaker"}]');
 
-select pg_temp.act(4, 'Kuliah Tamu Manajemen Inovasi dari National Taiwan University', 4, 15, 'inbound', '2026-03-09', '2026-03-13', 'offline',
+select pg_temp.act(4, 'Kuliah Tamu Manajemen Inovasi dari National Taiwan University', 4, 9, 'inbound', '2026-03-09', '2026-03-13', 'offline',
   'Gedung T PCU', 'ID', 15, '{4,9}', pg_temp.wib('2026-03-18'), null, null,
   p_ext => '[{"full_name":"Prof. Chen Yu-Ting","institution":"National Taiwan University","country_code":"TW","role":"visiting_lecturer"}]');
 
-select pg_temp.act(5, 'Riset Bersama Perilaku Konsumen Digital dengan University of Amsterdam', 5, 4, 'outbound', '2026-04-06', '2026-06-30', 'online',
+select pg_temp.act(5, 'Riset Bersama Perilaku Konsumen Digital dengan University of Amsterdam', 5, 5, 'outbound', '2026-04-06', '2026-06-30', 'online',
   'Zoom Meeting', null, 17, '{8,9}', pg_temp.wib('2026-07-06'), null, null);
 
-select pg_temp.act(6, 'Summer Program Business in Asia di Chulalongkorn University', 4, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
+select pg_temp.act(6, 'Summer Program Business in Asia di Chulalongkorn University', 4, 3, 'outbound', '2026-07-06', '2026-07-24', 'offline',
   'Chulalongkorn University', 'TH', 25, '{4,17}', pg_temp.wib('2026-07-29'), 'approved', pg_temp.wib('2026-08-05', '14:00'));
 select pg_temp.pset(6, 'approved', '{D31242651,D31245931,D32237864,D31246584}', '{}', '{PG217839}', pg_temp.wib('2026-07-29'),
   pg_temp.wib('2026-08-05', '14:00'));
@@ -150,15 +150,15 @@ select pg_temp.act(7, 'Inbound Exchange Manajemen National University of Singapo
   'Kampus PCU Siwalankerto', 'ID', 19, '{4}', pg_temp.wib('2026-09-14'), 'approved', pg_temp.wib('2026-09-18', '14:00'));
 select pg_temp.pset(7, 'approved', '{}', '{X01260012,X01260044}', '{}', pg_temp.wib('2026-09-14'), pg_temp.wib('2026-09-18', '14:00'));
 
-select pg_temp.act(8, 'Riset Bersama Ekonomi Sirkular dengan LMU Munich', 5, 4, 'inbound', '2026-09-07', '2026-09-11', 'hybrid',
+select pg_temp.act(8, 'Riset Bersama Ekonomi Sirkular dengan LMU Munich', 5, 5, 'inbound', '2026-09-07', '2026-09-11', 'hybrid',
   'Lab Manajemen PCU', 'ID', 42, '{9,12}', pg_temp.wib('2026-09-15'), null, null);
 
--- renewal chain 29 -> 34 (Chulalongkorn MoA): non-mobility seminar on the renewal, verified on submit
-select pg_temp.act(9, 'Joint Seminar Rantai Pasok Asia Tenggara (lanjutan)', 4, 35, 'inbound', '2026-09-23', '2026-09-24', 'offline',
+-- renewal chain 29 -> 34 (Chulalongkorn MoA): Faculty Mobility seminar on the renewal
+select pg_temp.act(9, 'Joint Seminar Rantai Pasok Asia Tenggara (lanjutan)', 4, 6, 'inbound', '2026-09-23', '2026-09-24', 'offline',
   'Gedung T PCU', 'ID', 34, '{9}', pg_temp.daysago(5), null, null);
 
 -- renewal chain 28 -> 33 (UGM MoU)
-select pg_temp.act(10, 'Seminar Nasional Kewirausahaan bersama UGM', 5, 35, 'inbound', '2026-09-24', '2026-09-25', 'offline',
+select pg_temp.act(10, 'Seminar Nasional Kewirausahaan bersama UGM', 5, 6, 'inbound', '2026-09-24', '2026-09-25', 'offline',
   'Auditorium PCU', 'ID', 33, '{4,8}', pg_temp.daysago(2), null, null);
 
 -- waiting for Verifikasi Mobilitas
@@ -167,11 +167,11 @@ select pg_temp.act(11, 'Student Exchange Singkat di National University of Singa
 select pg_temp.pset(11, 'pending', '{D31252983,D32250736,D31243593}', '{}', '{}', pg_temp.daysago(6));
 
 -- draft (only IA uploaded)
-select pg_temp.act(12, 'Kuliah Tamu Pemasaran Global dari Ateneo de Manila University', 4, 15, 'inbound', '2026-09-28', '2026-09-29', 'online',
+select pg_temp.act(12, 'Kuliah Tamu Pemasaran Global dari Ateneo de Manila University', 4, 9, 'inbound', '2026-09-28', '2026-09-29', 'online',
   'Zoom Meeting', null, 44, '{4}', null, null, null, p_files => '{ia}');
 
 -- rule 2.1 demo: Program Studi Manajemen claims two of SBM's summer-program students (S-06) -> open conflict in the queue
-select pg_temp.act(13, 'Summer Program Business in Asia (Program Studi Manajemen)', 5, 23, 'outbound', '2026-07-06', '2026-07-24', 'offline',
+select pg_temp.act(13, 'Summer Program Business in Asia (Program Studi Manajemen)', 5, 3, 'outbound', '2026-07-06', '2026-07-24', 'offline',
   'Chulalongkorn University', 'TH', 25, '{4}', pg_temp.daysago(4), 'pending', pg_temp.daysago(4));
 select pg_temp.pset(13, 'pending', '{D31242651,D31245931}', '{}', '{}', pg_temp.daysago(4));
 select realisasi._scan_conflicts(pg_temp.aid(13)) where not exists (select 1 from realisasi.participant_conflicts where pg_temp.aid(13) in (activity_a, activity_b));

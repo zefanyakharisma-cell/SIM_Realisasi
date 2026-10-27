@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import type { ParticipantRequirements } from '@/components/realisasi/activity/labels';
 import { useSaveActions } from '@/components/realisasi/wizard/save-status';
 import { saveParticipants } from '@/lib/realisasi/actions/submission';
 import { MAX_LOOKUP_IDS, splitIdTokens } from '@/lib/realisasi/schemas/participants';
@@ -53,14 +54,14 @@ const STATUS_TEXT: Record<RowStatus, string> = {
 };
 
 function StatusIcon({ status, blocking }: { status: RowStatus; blocking: boolean }) {
-  if (blocking) return <XCircle className="h-4 w-4 shrink-0 text-red-700" aria-hidden />;
-  if (status === 'graduated' || status === 'inactive') return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" aria-hidden />;
-  return <CheckCircle2 className="h-4 w-4 shrink-0 text-green-700" aria-hidden />;
+  if (blocking) return <XCircle className="h-4 w-4 shrink-0 text-danger-fg" aria-hidden />;
+  if (status === 'graduated' || status === 'inactive') return <AlertTriangle className="h-4 w-4 shrink-0 text-warning-fg" aria-hidden />;
+  return <CheckCircle2 className="h-4 w-4 shrink-0 text-success-fg" aria-hidden />;
 }
 
 function rowClass(status: RowStatus, blocking: boolean): string {
-  if (blocking) return 'bg-red-50';
-  if (status === 'graduated' || status === 'inactive') return 'bg-amber-50';
+  if (blocking) return 'bg-danger-subtle';
+  if (status === 'graduated' || status === 'inactive') return 'bg-warning-subtle';
   return '';
 }
 
@@ -91,7 +92,7 @@ export interface ParticipantsEditorProps {
   activityId: string;
   initialVersion: ParticipantVersion | null;
   countries: CountryOption[];
-  required: { any: boolean; internal: boolean; inbound: boolean };
+  required: ParticipantRequirements;
   /** Reports whether unsaved blocking rows exist (wizard disables "Lanjut"/"Ajukan"). */
   onBlockingChange?: (blocking: boolean) => void;
   /** Called after a save that left no pending edits (e.g. router.refresh for the checklist). */
@@ -332,26 +333,28 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         </Alert>
       )}
 
-      <Panel
-        id="panel-internal"
-        title="Mahasiswa PETRA"
-        count={internal.length}
-        required={required.internal}
-        idLabel="NRP"
-        templateKind="students"
-        checkTestId="check-nrp"
-        placeholder="D31240187"
-        checkLabel="Cek NRP"
-        onCheck={(raw) => addStudents('internal', raw)}
-      >
-        <StudentTable rows={internal} onRemove={removeStudent} />
-      </Panel>
+      {required.students && (
+        <Panel
+          id="panel-internal"
+          title="Mahasiswa PETRA"
+          count={internal.length}
+          required={required.internal}
+          idLabel="NRP"
+          templateKind="students"
+          checkTestId="check-nrp"
+          placeholder="D31240187"
+          checkLabel="Cek NRP"
+          onCheck={(raw) => addStudents('internal', raw)}
+        >
+          <StudentTable rows={internal} onRemove={removeStudent} />
+        </Panel>
+      )}
 
       <Panel
         id="panel-staff"
         title="Pegawai PETRA"
         count={staff.length}
-        required={false}
+        required={required.staff}
         idLabel="ID pegawai"
         templateKind="staff"
         checkTestId="check-employee"
@@ -378,7 +381,7 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
                     <td className="px-3 py-2">
                       <span className="flex items-center gap-1.5">
                         <StatusIcon status={r.status} blocking={r.blocking} />
-                        <span className={r.blocking ? 'font-medium text-red-800' : ''}>{STATUS_TEXT[r.status]}</span>
+                        <span className={r.blocking ? 'font-medium text-danger-fg' : ''}>{STATUS_TEXT[r.status]}</span>
                       </span>
                     </td>
                     <td className="px-3 py-2 font-mono">{r.employee_id}</td>
@@ -397,80 +400,82 @@ export function ParticipantsEditor({ activityId, initialVersion, countries, requ
         )}
       </Panel>
 
-      <Panel
-        id="panel-inbound"
-        title="Mahasiswa Inbound"
-        count={inbound.length}
-        required={required.inbound}
-        idLabel="NRP inbound"
-        templateKind="students"
-        checkTestId="check-nrp-inbound"
-        placeholder="X01260012"
-        checkLabel="Cek NRP"
-        onCheck={(raw) => addStudents('inbound', raw)}
-      >
-        {inbound.length > 0 && (
-          <ul className="space-y-3">
-            {inbound.map((r) => (
-              <li
-                key={r.key}
-                className={cn('rounded-md border p-3', rowClass(r.status, r.blocking))}
-                data-testid="inbound-row"
-                data-status={r.status}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="flex flex-wrap items-center gap-2 text-sm">
-                    <StatusIcon status={r.status} blocking={r.blocking} />
-                    <span className="font-mono">{r.nrp}</span>
-                    <span>{r.full_name ?? ''}</span>
-                    <span className={r.blocking ? 'font-medium text-red-800' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
-                  </p>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeStudent(r.key)} aria-label={`Hapus ${r.nrp}`}>
-                    <Trash2 aria-hidden />
-                  </Button>
-                </div>
-                {!r.blocking && (
-                  <div className="mt-3 grid gap-3 md:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-inst`}>Institusi asal *</Label>
-                      <Input
-                        id={`${r.key}-inst`}
-                        value={r.home_institution}
-                        onChange={(e) => patchStudent(r.key, { home_institution: e.target.value })}
-                        aria-invalid={r.serverError ? true : undefined}
-                      />
-                      {r.serverError ? <p className="text-xs text-red-700">{r.serverError}</p> : null}
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-num`}>No. mahasiswa asal</Label>
-                      <Input
-                        id={`${r.key}-num`}
-                        value={r.home_student_number}
-                        onChange={(e) => patchStudent(r.key, { home_student_number: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`${r.key}-country`}>Negara asal</Label>
-                      <NativeSelect
-                        id={`${r.key}-country`}
-                        value={r.home_country_code}
-                        placeholder="Pilih negara"
-                        onChange={(e) => patchStudent(r.key, { home_country_code: e.target.value })}
-                      >
-                        {countries.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </div>
+      {required.students && (
+        <Panel
+          id="panel-inbound"
+          title="Mahasiswa Inbound"
+          count={inbound.length}
+          required={required.inbound}
+          idLabel="NRP inbound"
+          templateKind="students"
+          checkTestId="check-nrp-inbound"
+          placeholder="X01260012"
+          checkLabel="Cek NRP"
+          onCheck={(raw) => addStudents('inbound', raw)}
+        >
+          {inbound.length > 0 && (
+            <ul className="space-y-3">
+              {inbound.map((r) => (
+                <li
+                  key={r.key}
+                  className={cn('rounded-md border p-3', rowClass(r.status, r.blocking))}
+                  data-testid="inbound-row"
+                  data-status={r.status}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="flex flex-wrap items-center gap-2 text-sm">
+                      <StatusIcon status={r.status} blocking={r.blocking} />
+                      <span className="font-mono">{r.nrp}</span>
+                      <span>{r.full_name ?? ''}</span>
+                      <span className={r.blocking ? 'font-medium text-danger-fg' : 'text-muted-foreground'}>— {STATUS_TEXT[r.status]}</span>
+                    </p>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStudent(r.key)} aria-label={`Hapus ${r.nrp}`}>
+                      <Trash2 aria-hidden />
+                    </Button>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+                  {!r.blocking && (
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-inst`}>Institusi asal *</Label>
+                        <Input
+                          id={`${r.key}-inst`}
+                          value={r.home_institution}
+                          onChange={(e) => patchStudent(r.key, { home_institution: e.target.value })}
+                          aria-invalid={r.serverError ? true : undefined}
+                        />
+                        {r.serverError ? <p className="text-xs text-danger-fg">{r.serverError}</p> : null}
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-num`}>No. mahasiswa asal</Label>
+                        <Input
+                          id={`${r.key}-num`}
+                          value={r.home_student_number}
+                          onChange={(e) => patchStudent(r.key, { home_student_number: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`${r.key}-country`}>Negara asal</Label>
+                        <NativeSelect
+                          id={`${r.key}-country`}
+                          value={r.home_country_code}
+                          placeholder="Pilih negara"
+                          onChange={(e) => patchStudent(r.key, { home_country_code: e.target.value })}
+                        >
+                          {countries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      )}
     </div>
   );
 }
@@ -497,7 +502,7 @@ function StudentTable({ rows, onRemove }: { rows: StudentRow[]; onRemove: (key: 
               <td className="px-3 py-2">
                 <span className="flex items-center gap-1.5">
                   <StatusIcon status={r.status} blocking={r.blocking} />
-                  <span className={r.blocking ? 'font-medium text-red-800' : ''}>{STATUS_TEXT[r.status]}</span>
+                  <span className={r.blocking ? 'font-medium text-danger-fg' : ''}>{STATUS_TEXT[r.status]}</span>
                 </span>
               </td>
               <td className="px-3 py-2 font-mono">{r.nrp}</td>
@@ -634,7 +639,7 @@ function Panel({
             </a>
           </Button>
         </div>
-        <p aria-live="polite" className={cn('text-sm', message?.tone === 'error' ? 'text-red-700' : 'text-amber-800')}>
+        <p aria-live="polite" className={cn('text-sm', message?.tone === 'error' ? 'text-danger-fg' : 'text-warning-fg')}>
           {message?.text}
         </p>
         {children}

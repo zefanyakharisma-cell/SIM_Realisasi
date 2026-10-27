@@ -8,8 +8,7 @@ export type NavIcon =
   | 'plus'
   | 'users'
   | 'report'
-  | 'settings'
-  | 'file';
+  | 'settings';
 
 export interface NavItem {
   href: string;
@@ -36,12 +35,7 @@ function item(href: string, label: string, icon: NavIcon, extra: Partial<NavItem
 export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
   const realisasi: NavItem[] = [
     item('/realisasi', 'Dashboard', 'dashboard', { exact: true }),
-    item('/realisasi/kegiatan', 'Kegiatan', 'list', {
-      exact: true,
-      ...(user.role === 'submitter' && counts.revision_inbox > 0
-        ? { badge: counts.revision_inbox, badgeLabel: `${counts.revision_inbox} kegiatan perlu revisi` }
-        : {}),
-    }),
+    item('/realisasi/kegiatan', 'Kegiatan', 'list', { exact: true }),
   ];
   if (can(user, 'activity.create')) realisasi.push(item('/realisasi/kegiatan/baru', 'Kegiatan Baru', 'plus'));
   if (can(user, 'verify.mobility'))
@@ -52,11 +46,19 @@ export function buildNav(user: SessionUser, counts: NavCounts): NavSection[] {
         badgeLabel: `${counts.mobility_queue} dalam antrean, ${counts.conflicts_open} duplikat mahasiswa`,
       }),
     );
+  else if (can(user, 'verify.mobility.status'))
+    // Revisi V.1 item 7: the unit follows its mobility kegiatan here; the badge = kegiatan KUI sent back for revision.
+    realisasi.push(
+      item('/realisasi/verifikasi/mobilitas', 'Verifikasi Mobilitas', 'users', {
+        ...(counts.revision_inbox > 0
+          ? { badge: counts.revision_inbox, badgeLabel: `${counts.revision_inbox} kegiatan perlu revisi` }
+          : {}),
+      }),
+    );
   realisasi.push(item('/realisasi/laporan', 'Laporan & Ekspor', 'report'));
   if (can(user, 'settings.manage')) realisasi.push(item('/realisasi/pengaturan', 'Pengaturan', 'settings'));
 
-  return [
-    { title: 'Realisasi', items: realisasi },
-    { title: 'SIM Kerjasama', items: [item('/kerjasama/dokumen', 'Dokumen', 'file')] },
-  ];
+  // Revisi V.2: no "SIM Kerjasama" section. Realisasi only reads its agreement data; the document screens live in the
+  // SIM Kerjasama app. /kerjasama/dokumen/<id>/realisasi stays reachable from the RENSTRA tables (deep links).
+  return [{ title: 'Realisasi', items: realisasi }];
 }

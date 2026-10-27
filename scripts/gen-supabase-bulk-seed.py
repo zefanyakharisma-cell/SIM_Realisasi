@@ -9,9 +9,12 @@ so it can be pasted into the Supabase SQL Editor or sent as one statement batch,
 
     python3 scripts/gen-supabase-bulk-seed.py
 
-Inputs are the live facts read on 2026-10-03: units (ids/names), documents 11-52 with partners and validity, agendas
-with their Realisasi mobility rules, and the Realisasi accounts (akun 1 io_admin, akun 4 Prodi Manajemen submitter,
-akun 10/11 Mobility team). Data rules follow the app: participants only on mobility kegiatan, external persons on any.
+Inputs are the live facts read on 2026-10-03: units (ids/names), documents 11-52 with partners and validity, SIMKS
+agendas with their (then) Realisasi mobility rules, and the Realisasi accounts (akun 1 io_admin, akun 4 Prodi Manajemen
+submitter, akun 10/11 Mobility team). Kegiatan are still drawn from those SIMKS agendas (so names and dates stay as reviewed)
+and emitted with the Realisasi Jenis Kegiatan id (JENIS). Student participants only on student mobility kegiatan,
+external persons on any; former non-mobility kegiatan become Faculty Mobility and get their staff / external person
+and Mobility approval from seed-supabase/89_faculty_mobility.sql.
 """
 from __future__ import annotations
 
@@ -312,6 +315,12 @@ NON_MOB = [  # agenda, label, min/max days, direction, abroad possible
     (5, "Publikasi Bersama", 60, 120, "outbound"),
 ]
 MOB_AGENDAS = {a for a, *_ in MOB_OUT_ABROAD + MOB_OUT_DOMESTIC + MOB_IN}
+# SIMKS agenda id -> Realisasi Jenis Kegiatan id (realisasi.agendas, seed/01_config.sql): 1 Joint/Double Degree,
+# 2 Student Exchange, 3 Short Program, 4 International Event; Faculty Mobility 5 Kolaborasi dan Hibah Global,
+# 6 Forum Akademik Internasional, 7 Kemitraan Institusional, 8 Mobilitas Akademik, 9 Eksposur Internasional Jangka Pendek
+JENIS = {17: 1, 2: 2, 20: 2, 28: 2, 33: 2, 22: 3, 23: 3, 29: 3, 21: 4, 24: 4, 38: 4,
+         3: 9, 15: 9, 27: 9, 10: 6, 35: 6, 4: 5, 5: 5, 11: 7, 34: 7, 40: 7}
+assert MOB_AGENDAS <= {a for a, j in JENIS.items() if j <= 4} and {a for a, *_ in NON_MOB} <= {a for a, j in JENIS.items() if j > 4}
 VENUE_PCU = ["Kampus PCU Siwalankerto", "Auditorium Radius Prawiro PCU", "Gedung Q PCU", "Gedung P PCU",
              "Gedung T PCU", "Ruang Seminar Gedung W PCU"]
 
@@ -668,14 +677,14 @@ returns void language plpgsql as $f$
 declare v_id uuid := pg_temp.aid(p_n); v_g uuid := pg_temp.gid(p_n);
         v_creator uuid := pg_temp.akun(case when p_unit = 5 then 4 else 1 end);
         v_mobt uuid := pg_temp.akun(case when p_n % 2 = 0 then 10 else 11 end);
-        v_mob boolean := realisasi.agenda_is_mobility(p_agenda);
+        v_mob boolean := (realisasi.agenda_program(p_agenda) = 'student_mobility');
         v_created timestamptz; v_code text; k text; v_path text; e jsonb;
 begin
   if exists (select 1 from realisasi.activities where id = v_id) then return; end if;
   if not exists (select 1 from kerjasama.units where id = p_unit and kind = 'prodi') then
     raise exception 'kegiatan %: unit % is not a Program Studi', p_n, p_unit;
   end if;
-  if not exists (select 1 from kerjasama.agendas where id = p_agenda) then raise exception 'kegiatan %: agenda % missing', p_n, p_agenda; end if;
+  if not exists (select 1 from realisasi.agendas where id = p_agenda) then raise exception 'kegiatan %: agenda % missing', p_n, p_agenda; end if;
   if not exists (select 1 from realisasi.documents_valid_between(p_start, p_end) v where v.document_id = p_doc) then
     raise exception 'kegiatan %: document % not valid for % - %', p_n, p_doc, p_start, p_end;
   end if;
@@ -760,7 +769,7 @@ def keg_sql(k: Keg) -> str:
     lines.append(
         "select pg_temp.keg({n}, {name}, {unit}, {agenda}, {dir}, {s}, {e}, {mode}, {venue}, {country}, {doc}, {sdgs}, "
         "{sub}, {ms}, {msince}, {files}, {note}, {ext});".format(
-            n=k.n, name=q(k.name), unit=k.unit, agenda=k.agenda, dir=q(k.direction), s=q(k.start), e=q(k.end),
+            n=k.n, name=q(k.name), unit=k.unit, agenda=JENIS[k.agenda], dir=q(k.direction), s=q(k.start), e=q(k.end),
             mode=q(k.mode), venue=q(k.venue), country=q(k.country), doc=k.doc, sdgs=arr(map(str, k.sdgs)),
             sub=q(k.submitted), ms=q(k.mstatus), msince=q(k.msince), files=q(k.files), note=q(k.mnote),
             ext=q(json.dumps(k.ext, ensure_ascii=False)) + "::jsonb"))

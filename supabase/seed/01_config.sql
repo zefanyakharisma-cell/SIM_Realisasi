@@ -1,4 +1,4 @@
--- 01_config: settings, calendar, Jenis Kegiatan rules, SDGs. Idempotent and deployment-agnostic: also applied to
+-- 01_config: settings, calendar, Jenis Kegiatan, SDGs. Idempotent and deployment-agnostic: also applied to
 -- Supabase by supabase/seed-supabase/01_config.sql. Team membership lives with the accounts (00_kerjasama.sql locally,
 -- seed-supabase/03_accounts.sql on Supabase).
 
@@ -25,14 +25,20 @@ on conflict (id) do update set academic_year_id = excluded.academic_year_id, ter
   start_date = excluded.start_date, end_date = excluded.end_date, cutoff_date = excluded.cutoff_date;
 
 
--- Jenis Kegiatan = SIMKS agenda (kerjasama.agendas). Default mobility categories (Revisi V.1); IO Admin edits them in
--- Pengaturan. Agendas without a row are non-mobility kegiatan that count for KPI 1.19.S1.
-insert into realisasi.agenda_rules (agenda_id, mobility_category) values
-  (16, 'jd_dd'), (17, 'jd_dd'), (18, 'jd_dd'), (85, 'jd_dd'),
-  (2, 'student_exchange'), (20, 'student_exchange'), (28, 'student_exchange'), (33, 'student_exchange'),
-  (22, 'short_summer'), (23, 'short_summer'), (29, 'short_summer'),
-  (21, 'other_mobility'), (24, 'other_mobility'), (38, 'other_mobility')
-on conflict (agenda_id) do nothing;
+-- Jenis Kegiatan master (IO list "AGENDA - SIM REALISASI"). Keterangan as given by IO (its "(?)" notes included); IO
+-- Admin edits the list in Pengaturan -> Jenis Kegiatan. Inserted once: later edits are kept on re-apply.
+insert into realisasi.agendas (id, program, name, description, mobility_category, sort_order) values
+  (1, 'student_mobility', 'Joint/Double Degree', 'Program bergelar JD/DD minimal 1 tahun', 'jd_dd', 1),
+  (2, 'student_mobility', 'Student Exchange', 'Dalam kategori ini masuk Student Exchange, Study Abroad, International Internship, International Research: 1 semester/trimester ATAU jumlah SKS minimal 6', 'student_exchange', 2),
+  (3, 'student_mobility', 'Short Program', 'Program berdurasi 14-45 hari atau menghasilkan 2-5 SKS', 'short_summer', 3),
+  (4, 'student_mobility', 'International Event', 'Semua kegiatan kurang dari 2 minggu dan non SKS; termasuk aktifitas virtual insidental', 'other_mobility', 4),
+  (5, 'faculty_mobility', 'Kolaborasi dan Hibah Global', 'Mencakup joint supervision, mengajar ≥ 1 semester, realisasi IA dengan Mitra Top Tier, serta perolehan hibah pendanaan luar negeri atau sabbatical leave. Top TIer QS 100 atau setara, industri luar negeri (?)', null, 5),
+  (6, 'faculty_mobility', 'Forum Akademik Internasional', 'kepanitiaan dan/antau keanggotaan kunci untuk kegiatan seminar, workshop, konferensi internasional atau yang setara', null, 6),
+  (7, 'faculty_mobility', 'Kemitraan Institusional', 'Mencakup joint supervision, mengajar ≥ 1 semester, dan realisasi IA operasional dengan Mitra Reguler, non QS 100 atau setara, PTN/PTS papan atas Indonesia, MNC (?)', null, 7),
+  (8, 'faculty_mobility', 'Mobilitas Akademik dan Penguatan Kapasitas', 'Durasi > 2 minggu, menggabungkan keikutsertaan program non-degree, sertifikasi atau lomba internasional, dan peran sebagai Dosen Pembimbing Lapangan (DPL), serta kepanitiaan dan/atau keanggotaan kunci regional/nasional', null, 8),
+  (9, 'faculty_mobility', 'Eksposur Internasional Jangka Pendek', 'Mencakup program non-degree singkat (< 2 minggu) dan kegiatan menjadi dosen tamu insidental dengan durasi di bawah 1 semester.', null, 9)
+on conflict (id) do nothing;
+select setval('realisasi.agendas_id_seq', greatest((select max(id) from realisasi.agendas), 1));
 
 insert into realisasi.sdgs (id, name) values
   (1,'Tanpa Kemiskinan'), (2,'Tanpa Kelaparan'), (3,'Kehidupan Sehat dan Sejahtera'), (4,'Pendidikan Berkualitas'),

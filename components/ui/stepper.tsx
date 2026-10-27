@@ -36,8 +36,8 @@ export function Stepper({ steps, current, className, 'aria-label': ariaLabel = '
                 'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
                 state === 'done' && 'border-primary bg-primary text-primary-foreground',
                 state === 'current' && 'border-primary text-primary ring-2 ring-primary/30',
-                state === 'todo' && 'border-slate-300 text-muted-foreground',
-                step.invalid && 'border-destructive bg-red-50 text-destructive',
+                state === 'todo' && 'border-input text-muted-foreground',
+                step.invalid && 'border-danger bg-danger-subtle text-danger-fg',
               )}
               aria-hidden="true"
             >

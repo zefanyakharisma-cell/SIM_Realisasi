@@ -31,6 +31,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   R11_PARTICIPANTS_REQUIRED: 'Jenis kegiatan ini wajib memiliki data peserta.',
   R12_OUTBOUND_STUDENT_REQUIRED: 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.',
   R12_INBOUND_STUDENT_REQUIRED: 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.',
+  R12_OUTBOUND_STAFF_REQUIRED: 'Kegiatan Faculty Mobility outbound wajib memiliki minimal satu dosen/staf PETRA.',
+  R12_INBOUND_GUEST_REQUIRED: 'Kegiatan Faculty Mobility inbound wajib memiliki minimal satu tamu eksternal.',
   R13_FILE_TOO_LARGE: 'Ukuran berkas melebihi 10 MB.',
   R13_FILE_TYPE: 'Format berkas tidak diizinkan.',
   R14_UNIT_NOT_ALLOWED: 'Anda hanya dapat mengajukan kegiatan untuk unit Anda sendiri.',
@@ -59,10 +61,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   R58_NOT_LIVE: 'Snapshot ini sudah digantikan.',
   SETTINGS_INVALID: 'Pengaturan tidak valid.',
   CONFLICT_OPEN: 'Masih ada mahasiswa yang juga diklaim unit lain. Pilih kegiatan yang diakui terlebih dahulu.',
+  AGENDA_NAME_TAKEN: 'Nama jenis kegiatan sudah dipakai.',
   CAL_INVALID_RANGE: 'Rentang tanggal kalender tidak valid atau tumpang tindih.',
   FILE_FORBIDDEN: 'Anda tidak memiliki akses ke berkas ini.',
   FILE_NOT_FOUND: 'Berkas tidak ditemukan.',
   RATE_LIMITED: 'Terlalu banyak permintaan. Coba lagi sebentar.',
+  DB_BUSY: 'Server sedang sibuk. Coba lagi dalam beberapa saat.',
   INTERNAL: 'Terjadi kesalahan pada server.',
   BAD_REQUEST: 'Permintaan tidak valid.',
 };
@@ -95,6 +99,17 @@ export function isNextControlError(e: unknown): boolean {
   return digest.startsWith('NEXT_') || digest === 'DYNAMIC_SERVER_USAGE' || digest === 'BAILOUT_TO_CLIENT_SIDE_RENDERING';
 }
 
+/**
+ * Pool exhaustion: Supavisor (`EMAXCONNSESSION` / `XX000` "max clients reached"), Postgres `53300`
+ * too_many_connections, or a connect timeout. Temporary — the user should retry.
+ */
+export function isConnectionLimitError(e: unknown): boolean {
+  const code = prop(e, 'code');
+  const message = prop(e, 'message');
+  if (code === '53300' || code === 'CONNECT_TIMEOUT') return true;
+  return typeof message === 'string' && /EMAXCONN|max clients reached|too many (clients|connections)/i.test(message);
+}
+
 /** Maps any thrown value to an AppError. Unknown errors become INTERNAL (original is logged). */
 export function parseDbError(e: unknown): AppError {
   const message = prop(e, 'message');
@@ -107,6 +122,10 @@ export function parseDbError(e: unknown): AppError {
     }
   }
   const sqlState = prop(e, 'code');
+  if (isConnectionLimitError(e)) {
+    console.error('[parseDbError] database connection limit reached', e);
+    return { code: 'DB_BUSY', message: ERROR_MESSAGES.DB_BUSY! };
+  }
   if (sqlState === '42501') {
     // insufficient_privilege (RLS / missing grant) — still an access problem for the user.
     return { code: 'AUTH_FORBIDDEN', message: ERROR_MESSAGES.AUTH_FORBIDDEN! };
@@ -131,6 +150,8 @@ export function httpStatusFor(code: string): number {
       return 404;
     case 'RATE_LIMITED':
       return 429;
+    case 'DB_BUSY':
+      return 503;
     case 'INTERNAL':
       return 500;
     default:

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CountryFlag } from '@/components/realisasi/country-flag';
 import { sdgStyle } from '@/components/realisasi/activity/sdg';
 import { formatDate, formatNumber } from '@/lib/realisasi/format';
-import { DIRECTION_LABEL, MOBILITY_CATEGORY_LABEL, MODE_LABEL, PERSON_ROLE_LABEL } from '@/lib/realisasi/status';
+import { AGENDA_PROGRAM_LABEL, DIRECTION_LABEL, MODE_LABEL, PERSON_ROLE_LABEL } from '@/lib/realisasi/status';
 import type { ActivityDetail } from '@/lib/realisasi/types';
 import { cn } from '@/lib/utils';
 
@@ -43,10 +43,8 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
       <Section title="Informasi kegiatan">
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           <Field label="Jenis kegiatan">
-            {detail.agenda.name ?? `Agenda #${detail.agenda.id}`}
-            {detail.agenda.mobility_category && (
-              <span className="text-muted-foreground"> · {MOBILITY_CATEGORY_LABEL[detail.agenda.mobility_category]}</span>
-            )}
+            {detail.agenda.name ?? `Jenis #${detail.agenda.id}`}
+            <span className="text-muted-foreground"> · {AGENDA_PROGRAM_LABEL[detail.agenda.program]}</span>
           </Field>
           <Field label="Inbound / Outbound">{DIRECTION_LABEL[detail.direction]}</Field>
           <Field label="Tanggal">
@@ -54,13 +52,13 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
             <span className="text-muted-foreground">({formatNumber(detail.duration_days)} hari)</span>
           </Field>
           <Field label="Semester · Tahun akademik">
-            {detail.semester?.label ?? <span className="text-amber-700">Di luar tahun akademik terdaftar</span>}
+            {detail.semester?.label ?? <span className="text-warning-fg">Di luar tahun akademik terdaftar</span>}
           </Field>
           <Field label="Moda">{MODE_LABEL[detail.mode]}</Field>
           <Field label={detail.mode === 'online' ? 'Platform' : 'Tempat'}>{location}</Field>
           {!compact && (
             <>
-              {detail.agenda.is_mobility && <Field label="SKS diakui">{detail.sks_recognized ?? DASH}</Field>}
+              {detail.agenda.program === 'student_mobility' && <Field label="SKS diakui">{detail.sks_recognized ?? DASH}</Field>}
               <Field label="Batas pelaporan">{formatDate(detail.reporting_deadline)}</Field>
             </>
           )}
@@ -107,7 +105,7 @@ export function ActivityDetailSummary({ detail, compact = false }: { detail: Act
                   ))}
                 </ul>
                 {d.out_of_scope_warning && (
-                  <p className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 p-2 text-xs text-amber-900">
+                  <p className="mt-2 flex items-start gap-1.5 rounded bg-warning-subtle p-2 text-xs text-warning-fg">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     Unit pengaju tidak termasuk dalam Lingkup Kerja Sama dokumen ini.
                   </p>

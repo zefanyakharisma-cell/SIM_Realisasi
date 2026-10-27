@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ACCOUNTS, loginAs } from './helpers';
+import { ACCOUNTS, loginAs, resetDb } from './helpers';
 
 /**
  * WP-VERIFY journeys after Revisi V.1: one verification track (Mobilitas, oldest first), revision with a
@@ -56,10 +56,37 @@ test('Mobilitas revision needs a note and has no per-row notes (S-29); approve S
   await expect(dialog).toBeHidden();
   await expect(page.locator('[data-testid=queue-row][data-code="RL-2026-0029"]')).toHaveCount(0);
 
+  // Revisi V.1 item 7: KUI keeps seeing it, flagged Revisi, under "Dikembalikan untuk Revisi".
+  const kuiRevision = page.getByTestId('revision-table').locator('[data-testid=status-row][data-code="RL-2026-0029"]');
+  await expect(kuiRevision).toHaveAttribute('data-flag', 'revision');
+  await expect(kuiRevision).toContainText('Revisi');
+  await expect(kuiRevision).toContainText('Transkrip salah satu peserta tidak terbaca di PDF.');
+
+  // Revisi V.1 item 6: Setujui is a plain "are you sure?" confirmation, without Catatan.
   await openRow(page, 'RL-2026-0030');
   await page.locator('#queue-panel-a0000000-0000-4000-8000-000000000030').getByTestId('action-approve').click();
-  await page.getByRole('dialog').getByTestId('action-confirm').click();
+  const approve = page.getByRole('dialog');
+  await expect(approve.getByText(/Apakah Anda yakin/)).toBeVisible();
+  await expect(approve.getByRole('textbox')).toHaveCount(0);
+  await approve.getByTestId('action-confirm').click();
   await expect(page.locator('[data-testid=queue-row][data-code="RL-2026-0030"]')).toHaveCount(0);
+});
+
+test('Revisi V.1 item 7: the submitting unit is notified and sees S-29 flagged Revisi on its Verifikasi Mobilitas page', async ({ page }) => {
+  await loginAs(page, ACCOUNTS.uaFsd);
+  await page.getByTestId('notification-bell').first().click();
+  await expect(page.getByText(/Perlu revisi: RL-2026-0029/).first()).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByTestId('nav-mobilitas').first().click();
+  await expect(page).toHaveURL(/\/realisasi\/verifikasi\/mobilitas/);
+  const row = page.getByTestId('submitter-status-table').locator('[data-testid=status-row][data-code="RL-2026-0029"]');
+  await expect(row).toHaveAttribute('data-flag', 'revision');
+  await expect(row).toContainText('Transkrip salah satu peserta tidak terbaca di PDF.');
+  await expect(page.getByTestId('action-approve')).toHaveCount(0);
+  await expect(page.locator('#duplikat')).toHaveCount(0);
+  await row.getByTestId('status-revise').click();
+  await expect(page).toHaveURL(/\/realisasi\/kegiatan\/a0000000-0000-4000-8000-000000000029\/revisi/);
 });
 
 test('Rule 2.1: S-18 cannot be approved while its duplicate students are open; Mobility picks a kegiatan', async ({ page }) => {
@@ -110,9 +137,12 @@ test('Kegiatan list: URL filters, list-total and export link share the same para
   await expect(page).toHaveURL(/direction=inbound/);
   await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /direction=inbound/);
 
-  await page.getByTestId('preset-late').click();
-  await expect(page).toHaveURL(/preset=late/);
-  await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /preset=late/);
+  await expect(page.getByTestId('preset-late')).toHaveCount(0);
+  await expect(page.getByTestId('preset-this_semester')).toHaveCount(0);
+  await page.waitForLoadState('networkidle');
+  await page.getByTestId('preset-mine').click();
+  await expect(page).toHaveURL(/preset=mine/);
+  await expect(page.getByTestId('export-excel')).toHaveAttribute('href', /preset=mine/);
 });
 
 test('Viewer cannot open the verification page; removed pages are gone', async ({ page }) => {
@@ -126,11 +156,23 @@ test('Viewer cannot open the verification page; removed pages are gone', async (
   }
 });
 
-test('Pengaturan: Jenis Kegiatan comes from SIM Kerjasama agendas with a mobility category', async ({ page }) => {
+test('Pengaturan: Jenis Kegiatan master grouped by program; IO Admin adds a type', async ({ page }) => {
   await loginAs(page, ACCOUNTS.kepalaIo);
   await page.goto('/realisasi/pengaturan?tab=jenis');
-  const rules = page.getByTestId('agenda-rules');
-  await expect(rules.getByTestId('agenda-rule-row').filter({ hasText: 'Student Exchange' }).first()).toBeVisible();
-  await expect(rules.getByLabel('Student Exchange', { exact: true })).toHaveValue('student_exchange');
+  const list = page.getByTestId('agenda-rules');
+  await expect(list.getByRole('heading', { name: 'Student Mobility' })).toBeVisible();
+  await expect(list.getByRole('heading', { name: 'Faculty Mobility' })).toBeVisible();
+  await expect(list.getByTestId('agenda-rule-row')).toHaveCount(9);
+  await expect(list.getByTestId('agenda-rule-row').filter({ hasText: 'Kemitraan Institusional' })).toBeVisible();
   await expect(page.getByTestId('settings-tab-libur')).toHaveCount(0);
+
+  await page.getByTestId('agenda-add').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Nama').fill('Virtual Exchange');
+  await dialog.getByLabel('Program').selectOption('student_mobility');
+  await dialog.getByLabel('Kategori International Awards').selectOption('other_mobility');
+  await dialog.getByRole('button', { name: 'Simpan' }).click();
+  await expect(list.getByTestId('agenda-rule-row')).toHaveCount(10);
+  await expect(list.getByTestId('agenda-rule-row').filter({ hasText: 'Virtual Exchange' })).toBeVisible();
+  if (process.env.E2E_SKIP_DB_RESET !== '1') resetDb();
 });

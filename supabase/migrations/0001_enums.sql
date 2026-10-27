@@ -5,6 +5,7 @@ create type realisasi.activity_status   as enum ('draft','in_verification','revi
 create type realisasi.track_status      as enum ('not_required','pending','revision_requested','approved');
 create type realisasi.direction         as enum ('inbound','outbound');
 create type realisasi.mobility_category as enum ('jd_dd','student_exchange','short_summer','other_mobility');
+create type realisasi.agenda_program    as enum ('student_mobility','faculty_mobility','other');
 create type realisasi.activity_mode     as enum ('offline','online','hybrid');
 create type realisasi.file_kind         as enum ('ia','ir','mobility_bundle','evidence');
 create type realisasi.person_role       as enum ('speaker','visiting_lecturer','researcher','staff_visitor','other');

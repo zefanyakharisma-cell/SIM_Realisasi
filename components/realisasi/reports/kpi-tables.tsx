@@ -223,11 +223,13 @@ export function UnitRollupTable({
   valueHeader,
   totalLabel,
   totalValue,
+  totalTarget,
 }: {
   rows: RollupRow[];
   valueHeader: string;
   totalLabel: string;
   totalValue: number;
+  totalTarget: number | null;
 }) {
   if (rows.length === 0) return <EmptyRows text="Tidak ada unit akademik." />;
   return (
@@ -236,7 +238,7 @@ export function UnitRollupTable({
         <TableRow>
           <TableHead>Unit</TableHead>
           <TableHead>Tingkat</TableHead>
-          <TableHead className="text-right">Unit sendiri</TableHead>
+          <TableHead className="text-right">Target</TableHead>
           <TableHead className="text-right">{valueHeader}</TableHead>
         </TableRow>
       </TableHeader>
@@ -247,20 +249,23 @@ export function UnitRollupTable({
             data-testid="rollup-row"
             data-unit-id={r.unit_id ?? ''}
             data-total={r.total}
+            data-own={r.own}
             className={cn(r.depth === 0 && 'bg-muted/40')}
           >
             <TableCell className={cn(r.depth === 0 && 'font-semibold')} style={{ paddingLeft: `${0.75 + r.depth * 1.5}rem` }}>
               {r.name}
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">{r.level}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.own)}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground" data-testid="rollup-target">
+              {formatNumber(r.target)}
+            </TableCell>
             <TableCell className={cn('text-right tabular-nums', r.depth === 0 && 'font-semibold')}>{formatNumber(r.total)}</TableCell>
           </TableRow>
         ))}
         <TableRow className="border-t-2" data-testid="rollup-total">
           <TableCell className="font-semibold">{totalLabel}</TableCell>
           <TableCell />
-          <TableCell />
+          <TableCell className="text-right font-semibold tabular-nums">{formatNumber(totalTarget)}</TableCell>
           <TableCell className="text-right font-semibold tabular-nums">{formatNumber(totalValue)}</TableCell>
         </TableRow>
       </TableBody>
@@ -269,7 +274,7 @@ export function UnitRollupTable({
 }
 
 /** 1.19.S4: one overall percentage. */
-export function OverallPctCard({ value, scopeName }: { value: KpiTriple; scopeName: string }) {
+export function OverallPctCard({ value, scopeName, target }: { value: KpiTriple; scopeName: string; target: number | null }) {
   return (
     <div className="rounded-md border p-4" data-testid="renstra-overall">
       <p className="text-sm text-muted-foreground">Persen terlaksana MoU &amp; MoA · {scopeName}</p>
@@ -278,6 +283,11 @@ export function OverallPctCard({ value, scopeName }: { value: KpiTriple; scopeNa
         {formatNumber(value.numerator)} dari {formatNumber(value.denominator)} kerja sama terlaksana · {formatNumber(value.grace_excluded)} dalam masa
         tenggang (tidak dihitung)
       </p>
+      {target !== null ? (
+        <p className="mt-1 text-sm" data-testid="renstra-overall-target">
+          Target: <span className="font-semibold tabular-nums">{formatPct(target)}</span>
+        </p>
+      ) : null}
     </div>
   );
 }

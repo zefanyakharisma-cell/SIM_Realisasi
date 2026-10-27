@@ -18,8 +18,6 @@ export const DRILLDOWN_KPIS: readonly DrilldownKpi[] = ['1.1', '1.19.S1', '1.19.
 export const REPORT_KEYS = [
   'ringkasan',
   'kpi',
-  'kegiatan',
-  'peserta',
   'awards',
   'realisasi-kerjasama',
   'arsip',

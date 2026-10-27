@@ -13,6 +13,7 @@ import { SubmitPanel } from '@/components/realisasi/wizard/submit-panel';
 import { ensureParticipantDraft } from '@/lib/realisasi/actions/submission';
 import type { CountryOption } from '@/lib/realisasi/queries/lookups';
 import type { ChecklistItem, ParticipantVersion } from '@/lib/realisasi/types';
+import type { ParticipantRequirements } from '@/components/realisasi/activity/labels';
 
 export function RevisionWorkspace({
   activityId,
@@ -23,7 +24,7 @@ export function RevisionWorkspace({
   participants: {
     version: ParticipantVersion | null;
     countries: CountryOption[];
-    required: { any: boolean; internal: boolean; inbound: boolean };
+    required: ParticipantRequirements;
   } | null;
   checklist: ChecklistItem[] | null;
 }) {

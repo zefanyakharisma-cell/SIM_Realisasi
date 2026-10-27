@@ -35,10 +35,12 @@ select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.paylo
                       'non-academic submitter unit refused');
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"co_unit_ids":[1]}'))$$, 'VALIDATION_INVALID',
                       'non-academic unit as Unit Lain yang Terlibat refused');
-select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":1}'))$$, 'VALIDATION_INVALID',
-                      'amendment agenda is not a Jenis Kegiatan');
-select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":3}'))$$, 'VALIDATION_INVALID',
-                      'inactive agenda cannot be newly chosen');
+select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":424242}'))$$, 'VALIDATION_INVALID',
+                      'unknown Jenis Kegiatan refused');
+select realisasi.save_agenda(4, '{"is_active":false}');
+select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"agenda_id":4}'))$$, 'VALIDATION_INVALID',
+                      'inactive Jenis Kegiatan cannot be newly chosen');
+select realisasi.save_agenda(4, '{"is_active":true}');
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload('{"direction":"sideways"}'))$$, 'VALIDATION_INVALID',
                       'direction must be inbound/outbound');
 select pg_temp.throws($$select realisasi.save_activity_draft(null, pg_temp.payload() - 'direction')$$, 'VALIDATION_REQUIRED', 'direction required');
@@ -86,8 +88,8 @@ select pg_temp.eq((select partner_name from realisasi.activity_partner_snapshot 
 
 -- R-05: out-of-scope warning does not block
 :as_fbe
-insert into _ids select 'oos', realisasi.save_activity_draft(null, pg_temp.payload('{"submitter_unit_id":20,"co_unit_ids":[],"agenda_id":35,"sks_recognized":2}'));
-select pg_temp.eq(sks_recognized, null::numeric, 'SKS diakui only kept for mobility kegiatan') from realisasi.activities where id = pg_temp.id('oos');
+insert into _ids select 'oos', realisasi.save_activity_draft(null, pg_temp.payload('{"submitter_unit_id":20,"co_unit_ids":[],"agenda_id":6,"sks_recognized":2}'));
+select pg_temp.eq(sks_recognized, null::numeric, 'SKS diakui only kept for student mobility kegiatan') from realisasi.activities where id = pg_temp.id('oos');
 select pg_temp.ok((select out_of_scope from realisasi.v_activity_list where id = pg_temp.id('oos')), 'R-05 out_of_scope flagged, not blocked');
 select realisasi.save_activity_draft(pg_temp.id('oos'), '{"document_id":102}');
 select pg_temp.eq((select array_agg(original_document_id) from realisasi.activity_documents where activity_id = pg_temp.id('oos')), array[102],
@@ -100,7 +102,7 @@ select pg_temp.throws(format('select realisasi.delete_draft(%L)', pg_temp.id('a'
 -- ---- checklist + submit -----------------------------------------------------------------------------------------
 :as_fti
 select pg_temp.eq((select string_agg(c ->> 'code', ',' order by o) from jsonb_array_elements(realisasi.submission_checklist(pg_temp.id('a'))) with ordinality x(c, o)),
-  'R07_REQUIRED_FIELD,R07_AGREEMENT_REQUIRED,R04_AGREEMENT_NOT_VALID,R08_END_AFTER_TODAY,R09_NO_ACADEMIC_YEAR,R07_IA_REQUIRED,R07_IR_REQUIRED,R13_MOBILITY_BUNDLE_REQUIRED,R11_PARTICIPANTS_REQUIRED,R12_OUTBOUND_STUDENT_REQUIRED,R12_INBOUND_STUDENT_REQUIRED,R16_NRP_NOT_FOUND,R17_INBOUND_DATA_REQUIRED,R19_EMPLOYEE_NOT_FOUND,R21_NEW_VERSION_REQUIRED',
+  'R07_REQUIRED_FIELD,R07_AGREEMENT_REQUIRED,R04_AGREEMENT_NOT_VALID,R08_END_AFTER_TODAY,R09_NO_ACADEMIC_YEAR,R07_IA_REQUIRED,R07_IR_REQUIRED,R13_MOBILITY_BUNDLE_REQUIRED,R11_PARTICIPANTS_REQUIRED,R12_OUTBOUND_STUDENT_REQUIRED,R12_INBOUND_STUDENT_REQUIRED,R12_OUTBOUND_STAFF_REQUIRED,R12_INBOUND_GUEST_REQUIRED,R16_NRP_NOT_FOUND,R17_INBOUND_DATA_REQUIRED,R19_EMPLOYEE_NOT_FOUND,R21_NEW_VERSION_REQUIRED',
   'checklist codes in contract order');
 select pg_temp.throws(format('select realisasi.submit_activity(%L)', pg_temp.id('a')), 'R07_IA_REQUIRED', 'R-07 IA required first');
 select pg_temp.eq((select jsonb_agg(f ->> 'code') from jsonb_array_elements(pg_temp.err_detail(format('select realisasi.submit_activity(%L)', pg_temp.id('a'))) -> 'failures') f),
@@ -236,6 +238,8 @@ select pg_temp.ok((select (c ->> 'late')::boolean from jsonb_array_elements(real
 select pg_temp.ok((select c ->> 'message' from jsonb_array_elements(realisasi.submission_checklist(pg_temp.aid(23))) c where c ->> 'code' = 'LATE_NOTICE') like '%13 Sep 2026%', 'LATE_NOTICE date');
 select pg_temp.throws($$select realisasi.submit_activity(pg_temp.aid(23))$$, 'R07_IR_REQUIRED', 'S-23 lacks IR');
 select pg_temp.upload(pg_temp.aid(23), 'ir');
+select realisasi.save_activity_draft(pg_temp.aid(23),
+  '{"external_persons":[{"full_name":"Dr. Emily Carter","institution":"The University of Queensland","country_code":"AU","role":"visiting_lecturer"}]}');
 select pg_temp.eq((realisasi.submit_activity(pg_temp.aid(23)) ->> 'is_late')::boolean, true, 'R-10 late submission flagged');
-select pg_temp.eq(mobility_status::text || '/' || status, 'not_required/verified', 'non-mobility (Kuliah Tamu) verified on submit') from realisasi.activities where id = pg_temp.aid(23);
+select pg_temp.eq(mobility_status::text || '/' || status, 'pending/in_verification', 'Faculty Mobility (Eksposur) goes to the Mobility queue') from realisasi.activities where id = pg_temp.aid(23);
 rollback;

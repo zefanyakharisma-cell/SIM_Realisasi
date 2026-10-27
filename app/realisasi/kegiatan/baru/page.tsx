@@ -6,7 +6,8 @@ import { EmptyState } from '@/components/realisasi/empty-state';
 import { Forbidden } from '@/components/realisasi/forbidden';
 import { PageHeader } from '@/components/realisasi/page-header';
 import { detailDocumentsAsOptions, detailToPayload } from '@/components/realisasi/activity/convert';
-import { participantRequirements } from '@/components/realisasi/activity/labels';
+import { NO_PARTICIPANT_REQUIREMENTS, participantRequirements } from '@/components/realisasi/activity/labels';
+import { AGENDA_PROGRAM_LABEL } from '@/lib/realisasi/status';
 import { DetailForm } from '@/components/realisasi/wizard/detail-form';
 import { FilesEditor } from '@/components/realisasi/wizard/files-editor';
 import { ParticipantsEditor } from '@/components/realisasi/wizard/participants-editor';
@@ -99,7 +100,8 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
   if (detail && !detail.permissions.can_edit_draft) return <Forbidden />;
 
   const isMobility = detail?.agenda.is_mobility ?? false;
-  const required = participantRequirements(detail ? { is_mobility: isMobility, direction: detail.direction } : null);
+  const program = detail?.agenda.program ?? 'other';
+  const required = participantRequirements(detail ? { program, direction: detail.direction } : null);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -133,15 +135,10 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
           {!detail ? (
             <Preview>
               <p className="mb-4 text-sm text-muted-foreground">
-                Data peserta hanya diperlukan untuk kegiatan mobilitas (outbound: mahasiswa PETRA; inbound: mahasiswa inbound dengan
-                institusi asal).
+                Data peserta mengikuti Jenis Kegiatan. Student Mobility: mahasiswa PETRA (outbound) atau mahasiswa inbound dengan institusi
+                asal (inbound). Faculty Mobility: dosen/staf PETRA (outbound) atau tamu eksternal di bagian Detail (inbound).
               </p>
-              <ParticipantsEditor
-                activityId=""
-                initialVersion={null}
-                countries={options.countries}
-                required={{ any: false, internal: false, inbound: false }}
-              />
+              <ParticipantsEditor activityId="" initialVersion={null} countries={options.countries} required={NO_PARTICIPANT_REQUIREMENTS} />
             </Preview>
           ) : !isMobility ? (
             <p className="text-sm text-muted-foreground" data-testid="participants-not-needed">
@@ -150,9 +147,15 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
             </p>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                Kegiatan mobilitas <span className="font-medium text-foreground">{detail.direction === 'inbound' ? 'inbound' : 'outbound'}</span>:{' '}
-                {required.internal ? 'wajib minimal satu mahasiswa PETRA.' : 'wajib minimal satu mahasiswa inbound (dengan institusi asal).'}
+              <p className="text-sm text-muted-foreground" data-testid="participants-rule">
+                {AGENDA_PROGRAM_LABEL[program]} <span className="font-medium text-foreground">{detail.direction === 'inbound' ? 'inbound' : 'outbound'}</span>:{' '}
+                {program === 'faculty_mobility'
+                  ? required.staff
+                    ? 'wajib minimal satu dosen/staf PETRA.'
+                    : 'wajib minimal satu tamu eksternal (isi di bagian Detail → Pembicara / Dosen Asing / Tamu); dosen/staf PETRA boleh ditambahkan.'
+                  : required.internal
+                    ? 'wajib minimal satu mahasiswa PETRA.'
+                    : 'wajib minimal satu mahasiswa inbound (dengan institusi asal).'}
               </p>
               <ParticipantsStep activityId={detail.id} initialVersion={version} countries={options.countries} required={required} />
             </>
@@ -164,7 +167,7 @@ export default async function NewActivityPage(props: { searchParams: Promise<SP>
             3. Berkas
           </h2>
           {detail ? (
-            <FilesEditor activityId={detail.id} files={detail.files} isMobility={isMobility} />
+            <FilesEditor activityId={detail.id} files={detail.files} isMobility={program === 'student_mobility'} />
           ) : (
             <Preview>
               <FilesEditor activityId="" files={[]} isMobility disabled />

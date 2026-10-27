@@ -13,12 +13,13 @@ import { SaveStatusProvider, useSaveStatus } from '@/components/realisasi/wizard
 import { commitParticipantEdit } from '@/lib/realisasi/actions/submission';
 import type { CountryOption } from '@/lib/realisasi/queries/lookups';
 import type { ParticipantVersion } from '@/lib/realisasi/types';
+import type { ParticipantRequirements } from '@/components/realisasi/activity/labels';
 
 interface Props {
   activityId: string;
   version: ParticipantVersion | null;
   countries: CountryOption[];
-  required: { any: boolean; internal: boolean; inbound: boolean };
+  required: ParticipantRequirements;
 }
 
 export function ParticipantCommit(props: Props) {

@@ -26,11 +26,14 @@ language plpgsql stable security definer set search_path = realisasi, extensions
 declare
   a realisasi.activities;
   v_out jsonb := '[]'::jsonb; v_missing text[] := '{}'; v_bad text; v_list text;
-  v_pset uuid; v_rows int; v_mob boolean; v_draft uuid; v_has boolean;
+  v_pset uuid; v_rows int; v_mob boolean; v_stu boolean; v_fac boolean; v_ext int; v_draft uuid; v_has boolean;
 begin
   select * into a from realisasi.activities where id = p_id;
   if not found then return '[]'::jsonb; end if;
   v_mob := realisasi.agenda_is_mobility(a.agenda_id);
+  v_stu := realisasi.agenda_program(a.agenda_id) = 'student_mobility';
+  v_fac := realisasi.agenda_program(a.agenda_id) = 'faculty_mobility';
+  v_ext := (select count(*) from realisasi.activity_external_persons where activity_id = p_id)::int;
   v_pset := realisasi._relevant_pset(p_id);
   v_draft := realisasi._draft_pset(p_id);
   v_rows := coalesce(realisasi._pset_rows(v_pset), 0);
@@ -76,29 +79,42 @@ begin
     'message', case when v_has then 'Implementation Report (PDF) sudah diunggah.' else 'Implementation Report (PDF) wajib diunggah.' end);
   -- R13 mobility bundle (Revisi V.1 item 8): transkrip + poster + dokumentasi in one PDF
   v_has := exists (select 1 from realisasi.activity_files where activity_id = p_id and kind = 'mobility_bundle' and is_current);
-  v_out := v_out || jsonb_build_object('code', 'R13_MOBILITY_BUNDLE_REQUIRED', 'ok', not v_mob or v_has,
-    'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
+  v_out := v_out || jsonb_build_object('code', 'R13_MOBILITY_BUNDLE_REQUIRED', 'ok', not v_stu or v_has,
+    'message', case when not v_stu then 'Tidak diperlukan untuk jenis kegiatan ini.'
                     when v_has then 'Berkas mobilitas (transkrip, poster, dokumentasi) sudah diunggah.'
                     else 'Kegiatan mobilitas wajib mengunggah Transkrip Mahasiswa, Poster Kegiatan, dan Dokumentasi Kegiatan dalam satu file PDF.' end);
 
-  -- R11
-  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED', 'ok', not (v_mob and v_rows = 0),
+  -- R11 (Faculty Mobility inbound: the external persons are the participants)
+  v_out := v_out || jsonb_build_object('code', 'R11_PARTICIPANTS_REQUIRED',
+    'ok', not (v_mob and v_rows = 0) or (v_fac and a.direction = 'inbound' and v_ext > 0),
     'message', case when not v_mob then 'Tidak diperlukan untuk jenis kegiatan ini.'
-                    when v_rows > 0 then 'Data peserta sesuai ketentuan jenis kegiatan.'
+                    when v_rows > 0 or (v_fac and a.direction = 'inbound' and v_ext > 0) then 'Data peserta sesuai ketentuan jenis kegiatan.'
                     else 'Kegiatan mobilitas wajib memiliki data peserta.' end);
   -- R12 (by the kegiatan's Inbound/Outbound choice)
   v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'internal');
   v_out := v_out || jsonb_build_object('code', 'R12_OUTBOUND_STUDENT_REQUIRED',
-    'ok', not v_mob or a.direction <> 'outbound' or v_has,
-    'message', case when not v_mob or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
+    'ok', not v_stu or a.direction <> 'outbound' or v_has,
+    'message', case when not v_stu or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
                     when v_has then 'Mahasiswa PETRA sudah tercantum.'
                     else 'Kegiatan outbound wajib memiliki minimal satu mahasiswa PETRA.' end);
   v_has := exists (select 1 from realisasi.participant_students where set_version_id = v_pset and section = 'inbound');
   v_out := v_out || jsonb_build_object('code', 'R12_INBOUND_STUDENT_REQUIRED',
-    'ok', not v_mob or a.direction <> 'inbound' or v_has,
-    'message', case when not v_mob or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
+    'ok', not v_stu or a.direction <> 'inbound' or v_has,
+    'message', case when not v_stu or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
                     when v_has then 'Mahasiswa inbound sudah tercantum.'
                     else 'Kegiatan inbound wajib memiliki minimal satu mahasiswa inbound.' end);
+  -- R12 Faculty Mobility: outbound -> PETRA staff, inbound -> external person (tamu luar negeri)
+  v_has := exists (select 1 from realisasi.participant_staff where set_version_id = v_pset);
+  v_out := v_out || jsonb_build_object('code', 'R12_OUTBOUND_STAFF_REQUIRED',
+    'ok', not v_fac or a.direction <> 'outbound' or v_has,
+    'message', case when not v_fac or a.direction <> 'outbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_has then 'Staf PETRA sudah tercantum.'
+                    else 'Kegiatan Faculty Mobility outbound wajib memiliki minimal satu dosen/staf PETRA.' end);
+  v_out := v_out || jsonb_build_object('code', 'R12_INBOUND_GUEST_REQUIRED',
+    'ok', not v_fac or a.direction <> 'inbound' or v_ext > 0,
+    'message', case when not v_fac or a.direction <> 'inbound' then 'Tidak diperlukan untuk kegiatan ini.'
+                    when v_ext > 0 then 'Tamu eksternal sudah tercantum.'
+                    else 'Kegiatan Faculty Mobility inbound wajib memiliki minimal satu tamu eksternal.' end);
   -- R16
   select string_agg(ps.nrp, ', ' order by ps.id) into v_list from realisasi.participant_students ps
    where ps.set_version_id = v_pset and not exists (select 1 from mock_baak.students s where s.nrp = ps.nrp);
@@ -117,8 +133,11 @@ begin
     'message', case when v_list is null then 'Semua ID pegawai ditemukan di data SDM.' else format('ID pegawai tidak ditemukan di data SDM: %s.', v_list) end);
   -- R21
   v_out := v_out || jsonb_build_object('code', 'R21_NEW_VERSION_REQUIRED',
-    'ok', not (v_mob and a.mobility_status = 'revision_requested' and v_draft is null),
-    'message', case when not v_mob or a.mobility_status <> 'revision_requested' then 'Tidak diperlukan.'
+    'ok', not (v_mob and a.mobility_status = 'revision_requested' and v_draft is null
+               and exists (select 1 from realisasi.participant_set_versions where activity_id = p_id and status = 'revision_requested')),
+    'message', case when not v_mob or a.mobility_status <> 'revision_requested'
+                         or not exists (select 1 from realisasi.participant_set_versions
+                                         where activity_id = p_id and status = 'revision_requested') then 'Tidak diperlukan.'
                     when v_draft is not null then 'Versi peserta baru sudah dibuat.'
                     else 'Perbarui data peserta (versi baru) sebelum mengajukan ulang.' end);
 

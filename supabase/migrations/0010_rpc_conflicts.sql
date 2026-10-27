@@ -24,7 +24,7 @@ language sql stable security definer set search_path = realisasi, extensions, pu
                 order by f.version desc limit 1))
     from realisasi.activities a
     left join kerjasama.units u on u.id = a.submitter_unit_id
-    left join kerjasama.agendas g on g.id = a.agenda_id
+    left join realisasi.agendas g on g.id = a.agenda_id
    where a.id = p_activity
 $$;
 

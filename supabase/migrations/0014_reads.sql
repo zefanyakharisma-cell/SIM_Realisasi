@@ -247,8 +247,8 @@ language sql stable security definer set search_path = realisasi, extensions, pu
     'start_date', a.start_date, 'semester_label', realisasi.semester_label(a.semester_id),
     'bucket', p_bucket, 'students', p_students, 'is_late_addition', coalesce(p_late, false))
   from realisasi.activities a
-  left join kerjasama.agendas g on g.id = a.agenda_id
-  left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+  left join realisasi.agendas g on g.id = a.agenda_id
+  left join realisasi.agendas r on r.id = a.agenda_id
  where a.id = p_activity
 $$;
 
@@ -374,13 +374,13 @@ $$;
 create function realisasi.activity_detail(p_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = realisasi, extensions, public, pg_temp as $$
 declare a realisasi.activities; v_role text; v_editor boolean; v_perm jsonb; v_mob boolean;
-        v_m_team boolean; v_rev jsonb; v_cat realisasi.mobility_category; v_s1 boolean;
+        v_m_team boolean; v_rev jsonb; g realisasi.agendas;
 begin
   perform realisasi._require_uid();
   select * into a from realisasi.activities where id = p_id;
   if not found or not realisasi.can_view_activity(p_id) then perform realisasi._not_found(); end if;
-  select mobility_category, counts_for_s1 into v_cat, v_s1 from realisasi.agenda_rules where agenda_id = a.agenda_id;
-  v_mob := v_cat is not null;
+  select * into g from realisasi.agendas where id = a.agenda_id;
+  v_mob := realisasi.agenda_is_mobility(a.agenda_id);
   v_role := realisasi.my_role(); v_editor := realisasi._is_unit_editor(p_id);
   v_m_team := realisasi.in_team('mobility');
 
@@ -405,8 +405,9 @@ begin
 
   return jsonb_build_object(
     'id', a.id, 'code', a.code, 'name', a.name,
-    'agenda', jsonb_build_object('id', a.agenda_id, 'name', (select name from kerjasama.agendas where id = a.agenda_id),
-                                 'mobility_category', v_cat, 'is_mobility', v_mob, 'counts_for_s1', coalesce(v_s1, true)),
+    'agenda', jsonb_build_object('id', a.agenda_id, 'name', g.name, 'program', g.program, 'description', g.description,
+                                 'mobility_category', g.mobility_category, 'is_mobility', v_mob,
+                                 'counts_for_s1', coalesce(g.counts_for_s1, true)),
     'direction', a.direction,
     'start_date', a.start_date, 'end_date', a.end_date, 'duration_days', a.end_date - a.start_date + 1,
     'academic_year', (select jsonb_build_object('id', id, 'label', label) from realisasi.academic_years where id = a.academic_year_id),
@@ -557,12 +558,12 @@ begin
         'activities_this_ay', (select count(*) from realisasi.activities a where a.id = any(v_acts)
                                 and a.start_date between ay.start_date and ay.end_date),
         'students_inbound', (select count(distinct (s.nrp, a.id)) from realisasi.activities a
-                               join realisasi.agenda_rules t on t.agenda_id = a.agenda_id and t.mobility_category is not null
+                               join realisasi.agendas t on t.id = a.agenda_id and t.mobility_category is not null
                                join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
                                join realisasi.participant_students s on s.set_version_id = v.id and s.section = 'inbound'
                               where a.id = any(v_acts) and a.status = 'verified' and a.direction = 'inbound'),
         'students_outbound', (select count(distinct (s.nrp, a.id)) from realisasi.activities a
-                               join realisasi.agenda_rules t on t.agenda_id = a.agenda_id and t.mobility_category is not null
+                               join realisasi.agendas t on t.id = a.agenda_id and t.mobility_category is not null
                                join realisasi.participant_set_versions v on v.activity_id = a.id and v.status = 'approved'
                                join realisasi.participant_students s on s.set_version_id = v.id and s.section = 'internal'
                               where a.id = any(v_acts) and a.status = 'verified' and a.direction = 'outbound'),
@@ -576,7 +577,7 @@ begin
                      'original_doc_number', od.doc_number,
                      'current_doc_number', (select doc_number from kerjasama.documents where id = realisasi.chain_current(od.id)))
                      order by a.start_date, a.code)
-                    from realisasi.activities a left join kerjasama.agendas g on g.id = a.agenda_id
+                    from realisasi.activities a left join realisasi.agendas g on g.id = a.agenda_id
                     join realisasi.activity_documents ad on ad.activity_id = a.id and ad.chain_id = v_chain
                     join kerjasama.documents od on od.id = ad.original_document_id
                    where a.id = any(v_acts) and (v_io or realisasi.can_view_activity(a.id))), '[]'::jsonb));   -- M7: list only visible ones
@@ -709,7 +710,7 @@ begin
           from _aw_items i
           join realisasi.activities a on a.id = i.activity_id
           join _aw_prodi u on u.id = a.submitter_unit_id and u.in_scope
-          left join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+          left join realisasi.agendas r on r.id = a.agenda_id
          where i.kpi_code = 'base'
            and (coalesce(a.country_code <> 'ID', false)
                 or exists (select 1 from realisasi.activity_partner_snapshot ps where ps.activity_id = a.id and ps.country_code <> 'ID'))
@@ -733,7 +734,7 @@ begin
                  as short_international
           from _aw_items i
           join realisasi.activities a on a.id = i.activity_id
-          join realisasi.agenda_rules r on r.agenda_id = a.agenda_id
+          join realisasi.agendas r on r.id = a.agenda_id
           left join lateral (select s.prodi_name from realisasi.participant_students s
                               where s.set_version_id = realisasi._counts_version(a.id) and s.nrp = split_part(i.ref_id, ':', 2)
                               order by s.id limit 1) st on true
